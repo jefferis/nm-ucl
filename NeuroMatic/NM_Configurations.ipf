@@ -1,20 +1,20 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Configuration Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last Modified 29 Nov 2004
+//	Last Modified 08 Nov 2005
 //
 //	New Configurations
 //
@@ -278,6 +278,7 @@ Function CheckNMConfig(fname)
 			NMConfigVar(fname, "SaveFormat", 3, "Save data format (1) NM binary file (2) Igor binary file (3) both")
 			NMConfigVar(fname, "SaveWhen", 2, "Save data when (0) never (1) after recording (2) while recording")
 			NMConfigVar(fname, "SaveWithDialogue", 0, "Save with dialogue prompt? (0) no (1) yes")
+			NMConfigVar(fname, "SaveInSubfolder", 1, "Save data in subfolders? (0) no (1) yes")
 			NMConfigVar(fname, "AutoCloseFolder", 1, "Close previous data folder before creating new one? (0) no (1) yes")
 			
 			NMConfigVar(fname, "StatsBslnDsply", 1, "Display Stats baseline values? (0) no (1) yes")

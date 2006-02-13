@@ -1,19 +1,19 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Spike Analysis
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 20 Oct 2004
+//	Last modified 10 March 2005
 //
 //	NM tab entry "Spike"
 //
@@ -708,8 +708,8 @@ End // SpikeAllGroups
 
 Function /S SpikeAllWaves()
 
-	Variable overwrite = NMOverWrite()
-	String pName, gName, vlist = "", df = SpikeDF()
+	Variable ccnt, spikes, overwrite = NMOverWrite()
+	String pName, gName, xName, yName, vlist, df = SpikeDF()
 	
 	Variable Nameformat = NumVarOrDefault(NMDF() + "NameFormat", 1)
 	
@@ -717,40 +717,44 @@ Function /S SpikeAllWaves()
 	Variable winE = NumVarOrDefault(df+"WinE", inf)
 	Variable thresh = NumVarOrDefault(df+"Thresh", 0)
 	
-	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
+	Variable saveChan = NumVarOrDefault("CurrentChan", 0)
+	
+	Wave  ChanSelect
 	
 	if (NameFormat == 1)
 		pName = NMWaveSelectStr() + "_"
 	endif
+	
+	for (ccnt = 0; ccnt < numpnts(ChanSelect); ccnt += 1) // loop thru channels
+	
+		if (ChanSelect[ccnt] != 1)
+			continue
+		endif
+		
+		SetNMvar("CurrentChan", ccnt)
 
-	String xName = NextWaveName("SP_RX_" + pName, CurrentChan, overwrite)
-	String yName = NextWaveName("SP_RY_" + pName, CurrentChan, overwrite)
-	
-	vlist = NMCmdNum(thresh, vlist)
-	vlist = NMCmdNum(WinB, vlist)
-	vlist = NMCmdNum(WinE, vlist)
-	vlist = NMCmdStr(xName, vlist)
-	vlist = NMCmdStr(yName, vlist)
-	vlist = NMCmdStr("All", vlist)
-	NMCmdHistory("SpikeRaster", vlist)
-	
-	Variable spikes = SpikeRaster(thresh, WinB, WinE, xName, yName, "All")
-	
-	if (spikes >= 0)
-	
+		xName = NextWaveName("SP_RX_" + pName, ccnt, overwrite)
+		yName = NextWaveName("SP_RY_" + pName, ccnt, overwrite)
+		
+		vlist = ""
+		vlist = NMCmdNum(thresh, vlist)
+		vlist = NMCmdNum(WinB, vlist)
+		vlist = NMCmdNum(WinE, vlist)
+		vlist = NMCmdStr(xName, vlist)
+		vlist = NMCmdStr(yName, vlist)
+		vlist = NMCmdStr("All", vlist)
+		NMCmdHistory("SpikeRaster", vlist)
+		
+		spikes = SpikeRaster(thresh, WinB, WinE, xName, yName, "All")
+		
 		SetNMstr(df+"RasterWaveX", xName)
 		SetNMstr(df+"RasterWaveY", yName)
 		
-		winB = SpikeWinBgn()
-		winE = SpikeWinEnd()
+		gName = SpikeRasterPlot(xName, yName, SpikeWinBgn(), SpikeWinEnd())
 		
-		gName = SpikeRasterPlot(xName, yName, winB, winE)
-		
-	else
+	endfor
 	
-		KillWaves /Z $xName, $yName
-		
-	endif
+	SetNMvar("CurrentChan", saveChan)
 	
 	UpdateSpike()
 	
@@ -1479,7 +1483,7 @@ Function /S SpikeRate(xRaster, yRaster, winB, winE)
 		return ""
 	endif
 	
-	Variable icnt, npnts
+	Variable icnt, npnts, wnum
 	String xl, yl
 	
 	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
@@ -1505,6 +1509,12 @@ Function /S SpikeRate(xRaster, yRaster, winB, winE)
 	wtemp = Nan
 	
 	for (icnt = 0; icnt < numpnts(xr); icnt += 1)
+	
+		wnum = yr[icnt]
+		
+		if (numtype(wnum) > 0)
+			continue
+		endif
 	
 		if (numtype(wtemp[yr[icnt]]) > 0)
 			wtemp[yr[icnt]] = 0
@@ -1644,8 +1654,10 @@ Function SpikeRaster(thresh, WinB, WinE, xName, yName, wList) // compute spike r
 	Variable wcnt, ncnt, spkcnt, dimcnt, event, slope
 	Variable wnum, plmt, pflag, dtWin, npnts, items
 	
+	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
+	
 	if (StringMatch(wList, "All") == 1)
-		wList = NMChanWaveList(-1)
+		wList = NMChanWaveList(CurrentChan)
 	endif
 	
 	items = ItemsInList(wList)
@@ -1653,8 +1665,6 @@ Function SpikeRaster(thresh, WinB, WinE, xName, yName, wList) // compute spike r
 	if (items <= 0)
 		return -1
 	endif
-	
-	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
 	
 	String wPrefix = StrVarOrDefault("CurrentPrefix", "Wave")
 	
@@ -1729,7 +1739,12 @@ Function SpikeRaster(thresh, WinB, WinE, xName, yName, wList) // compute spike r
 		
 		endfor
 		
+		dimcnt += 1 // add extra row for Nan's
+		
 		Redimension /N=(dimcnt) xWave, yWave
+		
+		xWave[dimcnt] = Nan
+		yWave[dimcnt] = Nan
 		
 	endfor
 	

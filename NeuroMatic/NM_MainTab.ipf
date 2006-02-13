@@ -1,19 +1,19 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Main Tab Functions 
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 30 Nov 2004
+//	Last modified 03 Jan 2006
 //
 //	NM tab entry "Main"
 //
@@ -272,11 +272,11 @@ Function /S NMMainCall(fxn)
 			return NMBaselineCall()
 		
 		case "YScale":
-			return NMScaleByNumCall()
+			return NMScaleWaveCall()
 		
 		case "Scale By Num":
 		case "Scale By Number":
-			return NMScaleByNumCall()
+			return NMScaleWaveCall()
 			
 		case "Scale By Wave":
 			return NMScaleByWaveCall()
@@ -466,8 +466,8 @@ End // NMPrintGroupWaveList
 //****************************************************************
 
 Function /S NMPrintWaveList()
-	Variable ccnt
-	String wList, allList = ""
+	Variable ccnt, wcnt
+	String wList, wName, allList = ""
 	
 	if (WaveExists(ChanSelect) == 0)
 		return ""
@@ -484,7 +484,11 @@ Function /S NMPrintWaveList()
 		wList = NMChanWaveList(ccnt)
 		allList += wList
 		
-		NMMainHistory("", ccnt, wList, 1)
+		NMMainHistory("", ccnt, wList, 0)
+		
+		for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
+			NMHistory(StringFromList(wcnt, wList))
+		endfor
 
 	endfor
 	
@@ -626,7 +630,7 @@ Function /S NMDiffWaves(dtFlag)
 		
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	return allList
 
@@ -683,7 +687,7 @@ Function /S NMDeleteWaves()
 		
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	return allList
 
@@ -743,7 +747,7 @@ Function /S NMDeleteNANs()
 		
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	KillWaves /Z U_TempWave
 	
@@ -830,13 +834,13 @@ End // NMReplaceNanZero
 Function /S NMCopyWavesCall()
 	String vlist = "", df = MainDF()
 	
-	String newPrefix = NMPrefixNext("C", "")
+	String newPrefix = "C_" // NMPrefixNext("C", "")
 	
 	Variable select = 1 + NumVarOrDefault(df+"CopySelect", 1)
 	Variable tbgn = -inf
 	Variable tend = inf
 	
-	Prompt newPrefix, "enter new prefix name for copied waves:"
+	Prompt newPrefix, "enter new prefix name to attach to copied waves:"
 	Prompt tbgn, "copy source waves from (ms):"
 	Prompt tend, "copy source waves to (ms):"
 	Prompt select, "select as current waves?", popup "no;yes;"
@@ -930,7 +934,7 @@ Function /S NMCopyWavesToCall()
 	String newPrefix = cPrefix
 	
 	String toFolder = StrVarOrDefault(df+"Copy2Folder", "")
-	Variable select = 1 + NumVarOrDefault(df+"Copy2Select", 1)
+	Variable select = 0 + NumVarOrDefault(df+"Copy2Select", 1)
 	
 	Variable tbgn = -inf
 	Variable tend = inf
@@ -948,7 +952,7 @@ Function /S NMCopyWavesToCall()
 	Prompt tend, "copy source waves to (ms):"
 	Prompt select, "select as current folder and waves?", popup "no;yes;"
 	
-	DoPrompt NMPromptStr("Copy"), toFolder, newPrefix, tbgn, tend, select
+	DoPrompt NMPromptStr("Copy"), toFolder, newPrefix, tbgn, tend//, select
 	
 	if (V_flag == 1)
 		return "" // cancel
@@ -1317,7 +1321,7 @@ Function /S NMSmoothWaves(smthAlg, avgN)
 		
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	return allList
 	
@@ -1387,7 +1391,7 @@ Function /S NMDecimateWaves(ipnts)
 	
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	return allList
 
@@ -1519,7 +1523,7 @@ Function /S NMInterpolateWaves(alg, xmode, xwave)
 	
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	return allList
 
@@ -1908,7 +1912,7 @@ Function /S NMReverseWaves()
 	
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	return allList
 	
@@ -2062,7 +2066,7 @@ Function /S NMXAlignWaves(xwname, postime)
 		
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	if (ItemsInlist(badList) > 0)
 		DoAlert 0, "Warning: x-alignment not performed on the following waves due to bad input values : " + badList
@@ -2268,7 +2272,7 @@ Function /S NMLabel(xy, labelStr)
 		
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(1)
 	
 	return labelStr
 	
@@ -2334,7 +2338,7 @@ Function /S NMXScaleWaves(startx, dx, npnts)
 		
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	return allList
 	
@@ -2381,10 +2385,10 @@ Function /S NMScaleByNum(alg, value)
 	String alg // "*", "/", "+" or "-"
 	Variable value // scale by value
 	
-	if (numtype(value) != 0)
-		DoAlert 0, "Abort NMScaleByNum : bad scale value : " + num2str(value)
-		return ""
-	endif
+	//if (numtype(value) != 0)
+	//	DoAlert 0, "Abort NMScaleByNum : bad scale value : " + num2str(value)
+	//	return ""
+	//endif
 	
 	strswitch(alg)
 		case "*":
@@ -2425,13 +2429,127 @@ Function /S NMScaleByNum(alg, value)
 	
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	KillWaves /Z U_ScaleWave
 	
 	return allList
 
 End // NMScaleByNum
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMScaleWaveCall()
+	Variable npnts
+	String vlist = "", df = MainDF()
+	
+	String alg = StrVarOrDefault(df+"ScaleWaveAlg", "*")
+	Variable value = NumVarOrDefault(df+"ScaleWaveVal", 1)
+	Variable tbgn = NumVarOrDefault(df+"ScaleWaveTbgn", -inf)
+	Variable tend = NumVarOrDefault(df+"ScaleWaveTend", inf)
+		
+	Prompt alg, "function:", popup " *; /; +; -"
+	Prompt value, "scale value:"
+	Prompt tbgn, "time begin:"
+	Prompt tend, "time end:"
+	
+	DoPrompt NMPromptStr("Scale Wave By Number"), alg, value, tbgn, tend
+	
+	if (V_flag == 1)
+		return "" // cancel
+	endif
+	
+	alg = alg[1] // remove space from beginning of alg string
+	
+	SetNMstr(df+"ScaleWaveAlg", alg)
+	SetNMvar(df+"ScaleWaveVal", value)
+	SetNMvar(df+"ScaleWaveTbgn", tbgn)
+	SetNMvar(df+"ScaleWaveTend", tend)
+	
+	if ((numtype(tbgn) == 1) && (numtype(tend) == 1))
+	
+		vlist = NMCmdStr(alg, vlist)
+		vlist = NMCmdNum(value, vlist)
+		NMCmdHistory("NMScaleByNum", vlist)
+		
+		return NMScaleByNum(alg, value)
+	
+	else
+	
+		vlist = NMCmdStr(alg, vlist)
+		vlist = NMCmdNum(value, vlist)
+		vlist = NMCmdNum(tbgn, vlist)
+		vlist = NMCmdNum(tend, vlist)
+		NMCmdHistory("NMScaleWave", vlist)
+		
+		return NMScaleWave(alg, value, tbgn, tend)
+	
+	endif
+	
+End // NMScaleWaveCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMScaleWave(alg, value, tbgn, tend)
+	String alg // "*", "/", "+" or "-"
+	Variable value // scale by value
+	Variable tbgn, tend
+	
+	//if (numtype(value) != 0)
+	//	DoAlert 0, "Abort NMScaleWave : bad scale value : " + num2str(value)
+	//	return ""
+	//endif
+	
+	strswitch(alg)
+		case "*":
+		case "/":
+		case "+":
+		case "-":
+			break
+		default:
+			DoAlert 0, "Abort NMScaleWave : bad algorithm : " + alg
+			return ""
+	endswitch
+
+	Variable ccnt, wcnt
+	String wList, wName, outList, allList = ""
+	
+	if (WaveExists(ChanSelect) == 0)
+		return ""
+	endif
+	
+	Wave ChanSelect
+	
+	for (ccnt = 0; ccnt < numpnts(ChanSelect); ccnt += 1) // loop thru channels
+	
+		if (ChanSelect[ccnt] != 1)
+			continue
+		endif
+	
+		wList = NMChanWaveList(ccnt)
+		
+		if (strlen(wList) == 0)
+			continue
+		endif
+		
+		outList = ScaleWave(alg, value, tbgn, tend, wList) // NM_Utility.ipf
+		allList += outList
+		
+		NMMainHistory("Y-scale (" + alg + num2str(value) + "; t=" + num2str(tbgn) + "," + num2str(tend) + ")", ccnt, outList, 0)
+	
+	endfor
+	
+	ChanGraphsUpdate(0)
+	
+	KillWaves /Z U_ScaleWave
+	
+	return allList
+
+End // NMScaleWave
 
 //****************************************************************
 //****************************************************************
@@ -2585,7 +2703,7 @@ Function /S NMScaleByWave(method, alg, swname)
 	
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	KillWaves /Z U_ScaleWave
 	
@@ -2696,7 +2814,7 @@ Function /S NMBaselineWaves(method, tbgn, tend)
 		
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	return allList
 
@@ -2752,7 +2870,7 @@ Function /S NMAvgWavesCall()
 		
 	else
 	
-		if ((grpsOn == 1) && (StringMatch(wselect, "All") == 0) && (StringMatch(wselect, "*group*") == 0))
+		if ((grpsOn == 1)  && (StringMatch(wselect, "*group*") == 0))
 		
 			Prompt grpDsply, "if yes, display group averages in same plot?", popup, "no;yes;"
 		
@@ -2844,6 +2962,10 @@ Function /S NMAvgWaves(mode, dsply, chanFlag, allGrps, grpDsply)
 	endif
 	
 	if (StringMatch(wselect, "All Groups") == 1)
+		allgrps = 2
+	endif
+	
+	if ((StringMatch(wselect, "All") == 1) && (allgrps == 1))
 		allgrps = 2
 	endif
 	
@@ -3523,7 +3645,7 @@ Function /S NMNormWaves(fxn, tbgn, tend)
 		
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	return allList
 	
@@ -3590,7 +3712,7 @@ Function /S NMConcatWaves(wprefix)
 	endfor
 	
 	NMPrefixAdd(wprefix)
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	return allList
 

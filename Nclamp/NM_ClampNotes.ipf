@@ -1,15 +1,15 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Clamp Notes Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
@@ -23,7 +23,7 @@
 //	and log (NMLog) folders.
 //
 //	Began 1 July 2003
-//	Last modified 11 Oct 2004
+//	Last modified 08 Nov 2005
 //
 //****************************************************************
 //****************************************************************
@@ -633,11 +633,21 @@ Function NotesCopyFolder(df) // save note variables to appropriate data folders
 	String df // folder where to save Notes
 
 	String cdf = ClampDF(), ndf = NotesDF()
+	String path = GetPathName(df, 1)
 	
 	df = LastPathColon(df, 0)
+	path = LastPathColon(path, 0)
+	
+	if (DataFolderExists(path) == 0)
+		return 0
+	endif
 	
 	if (DataFolderExists(df) == 1)
 		KillDataFolder $df
+	endif
+	
+	if (DataFolderExists(df) == 1)
+		return 0
 	endif
 	
 	DuplicateDataFolder $ndf, $df

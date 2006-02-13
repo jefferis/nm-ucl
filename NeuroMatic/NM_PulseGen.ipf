@@ -1,20 +1,20 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Pulse Generator Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began March 2001
-//	Last modified 13 Oct 2004
+//	Last modified 07 March 2005
 //
 //	Functions for creating/displaying "pulse" waves
 //
@@ -65,9 +65,12 @@ Function PulseGraphUpdate(df, wlist)
 	String wlist // wave list
 	
 	String gName = "PG_PulseGraph"
+	
+	Variable madeGraph = 0
 
 	if (WinType(gName) == 0)
 		PulseGraphMake()
+		madeGraph = 1
 	endif
 	
 	Variable icnt
@@ -88,6 +91,8 @@ Function PulseGraphUpdate(df, wlist)
 		GraphRainbow(gName) // set waves to raindow colors
 	
 	endif
+	
+	return madeGraph
 
 End // PulseGraphUpdate
 
@@ -402,24 +407,16 @@ Function PulseTrain(df, wPrefix, wbeg, wend, winc, tbeg, tend, type, intvl, refr
 	Variable width // pulse width or time constant
 	Variable tau2 // decay time constant for 2-exp
 	
-	Variable onset, tlast, wcnt
-	
-	if (type == 1)
-		tlast = tbeg - intvl
-		wend = wbeg
-	elseif (type == 2)
-		tlast = tbeg
-		winc = 0
-	endif
+	Variable onset, tlast, wcnt, pcnt
 	
 	for (wcnt = wbeg; wcnt <= wend; wcnt += 1)
-	
-		onset = 0; tlast = 0
+		
+		tlast = tbeg
 	
 		do
 	
 			if (type == 1) // fixed intervals
-				onset = tlast + intvl
+				onset = tbeg + intvl * pcnt
 			elseif (type == 2) // random intervals
 				onset = tlast - ln(abs(enoise(1))) * intvl
 			endif
@@ -428,6 +425,8 @@ Function PulseTrain(df, wPrefix, wbeg, wend, winc, tbeg, tend, type, intvl, refr
 				PulseSave(df, wPrefix, -1, shape, wcnt, winc, onset, 0, amp, 0, width, 0, tau2, 0)
 				tlast = onset
 			endif
+			
+			pcnt += 1
 			
 		while (onset < tend)
 	

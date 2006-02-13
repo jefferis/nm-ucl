@@ -1,15 +1,15 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Clamp Acquisition Stim Protocol Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
@@ -20,7 +20,7 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 18 Nov 2004
+//	Last modified 11 April 2004
 //
 //****************************************************************
 //****************************************************************
@@ -178,6 +178,8 @@ Function  StimClose(dp, slist)
 				return -1
 			endif
 		endif
+		
+		DoWindow /K $(sname + "Chain")
 		
 		KillDataFolder $df
 		
@@ -471,6 +473,12 @@ Function StimCurrentSet(fname) // set current stim
 	SetNMstr(cdf+"CurrentStim", fname)
 	SetNMstr(cdf+"StimTag", StrVarOrDefault(sdf+"StimTag", ""))
 	
+	if (StimChainOn() == 1)
+		StimChainEdit()
+		ClampTabUpdate()
+		return 0
+	endif
+	
 	if (NumVarOrDefault("NumWaves", 0) == 0) // empty folder
 		SetNMvar("CurrentChan", NumVarOrDefault(sdf+"CurrentChan", 0))
 		SetNMvar("NumChannels", StimNumChannels(sdf))
@@ -482,7 +490,7 @@ Function StimCurrentSet(fname) // set current stim
 	
 	UpdateNMPanel(0)
 	ClampTabUpdate()
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(1)
 	
 	StatsDisplayClear()
 	
@@ -563,6 +571,55 @@ Function CheckStimChanFolders()
 	endfor
 		
 End // CheckStimChanFolders
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimChainEdit()
+	Variable npnts = -1
+
+	String tName = StimCurrent() + "Chain"
+	String tTitle = StimCurrent() + " Acquisition Table"
+	String sdf = StimDF()
+	
+	if (DataFolderExists(sdf) == 0)
+		return 0 // Clamp folder does not exist
+	endif
+	
+	if (WaveExists($sdf+"Stim_Name") == 0)
+		npnts = 5
+	endif
+	
+	CheckNMtwave(sdf+"Stim_Name", npnts, "")
+	CheckNMwave(sdf+"Stim_Wait", npnts, 0)
+	
+	if (WinType(tName) == 0)
+		Edit /K=1/W=(0,0,0,0) $(sdf+"Stim_Name"), $(sdf+"Stim_Wait")
+		DoWindow /C $tName
+		DoWindow /T $tName, tTitle
+		SetCascadeXY(tName)
+	else
+		DoWindow /F $tName
+	endif
+
+End // StimChainEdit
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimStatsOn()
+	return NumVarOrDefault(StimDF()+"StatsOn", 0)
+End // StimStatsOn
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimChainOn()
+	return NumVarOrDefault(StimDF()+"AcqStimChain", 0)
+End // StimChainOn
 
 //****************************************************************
 //****************************************************************

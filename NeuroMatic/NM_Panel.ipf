@@ -1,20 +1,20 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Panel Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last Modified 01 Dec 2004
+//	Last Modified 08 Nov 2005
 //
 //****************************************************************
 //****************************************************************
@@ -33,19 +33,16 @@ End // MakeNMpanelCall
 //****************************************************************
 
 Function MakeNMpanel()
-	String df = NMDF()
 	
-	CheckCurrentFolder()
-	
-	if (IsNMDataFolder("") == 0)
-		NMFolderNew("")
-	endif
-
 	Variable x1, y1, x2, y2, lineheight = 100
 	Variable pw = 300, ph = 640
+	
+	String df = NMDF()
 	String tabList = NMTabListGet()
 	
 	Variable xPixels = NumVarOrDefault(df+"xPixels", 1000)
+	
+	CheckCurrentFolder()
 	
 	x1 = xPixels - pw - 10
 	y1 = 43
@@ -116,7 +113,7 @@ Function MakeNMpanel()
 	
 	SetDrawEnv textrgb= (0,0,26112)
 	SetDrawEnv fsize= 12
-	DrawText 188,631,"NeuroMatic v1.86"
+	DrawText 188,631,"NeuroMatic v1.91"
 	
 	PopupMenu NM_ChanMenu, title="Chan", pos={35,115}, bodywidth=45, value="A;", mode=1, proc=NMPopupChan, help={"limit channels to analyze"}
 	PopupMenu NM_WaveMenu, title="Waves", value ="All", mode=1, pos={205,115}, bodywidth=115, proc=NMPopupWaveSelect, help={"limit waves to analyze"}
@@ -149,7 +146,7 @@ Function NMPanelHook(infoStr)
 	
 	if (StringMatch(event, "activate") == 1)
 		CheckCurrentFolder()
-		CheckNMFolderList()
+		//CheckNMFolderList()
 	endif
 
 End // NMPanelHook
@@ -310,7 +307,12 @@ End // UpdateNMWaveSelect
 
 Function /S UpdateNMWaveSelectStr()
 
-	String wmenu = NMWaveSelectDefaults() + StrVarOrDefault("WavSelectList", "")
+	String wmenu = NMWaveSelectDefaults()
+	String wlist = StrVarOrDefault("WavSelectList", "")
+	
+	wlist = RemoveListFromList(wmenu, wlist, ";")
+	
+	wmenu += wlist
 	
 	if (NumVarOrDefault(NMDF()+"GroupsOn", 1) == 1)
 		wmenu += "---;Set x Group;Other...;Clear List;"
@@ -346,7 +348,7 @@ End // UpdateNMFolderMenu
 
 Function /S UpdateNMFolderMenuStr()
 
-	String txt = "---;New;Open;Open | Append;Save;Kill;Duplicate;Rename;Merge;---;Open All;Save All;Kill All;---;Import Waves;Reload Waves;Rename Waves;"
+	String txt = "---;New;Open;Open | Append;Save;Close;Duplicate;Rename;Merge;---;Open All;Append All;Save All;Close All;---;Import Waves;Reload Waves;Rename Waves;"
 	
 	String folderList = NMDataFolderListLong()
 	
@@ -441,6 +443,7 @@ End // UpdateNMSets
 //****************************************************************
 
 Function UpdateNMSetsCount() // udpate Sets count display
+	Variable sumvar
 
 	if (WaveExists(Set1) == 0)
 		return 0
@@ -449,12 +452,32 @@ Function UpdateNMSetsCount() // udpate Sets count display
 	String s1 = NMSetsDisplayName(0)
 	String s2 = NMSetsDisplayName(1)
 	String s3 = NMSetsDisplayName(2)
-			
-	SetNMvar("SumSet1", WaveCountOnes(s1))
-	SetNMvar("SumSet2", WaveCountOnes(s2))
-	SetNMvar("SumSetX", WaveCountOnes(s3))
 	
-	NMWaveSelect("") // update WaveSelect
+	sumvar = sum($s1)
+	
+	if (numtype(sumvar) == 0)
+		SetNMvar("SumSet1", sumvar)
+	else
+		SetNMvar("SumSet1", WaveCountOnes(s1))
+	endif
+	
+	sumvar = sum($s2)
+	
+	if (numtype(sumvar) == 0)
+		SetNMvar("SumSet2", sumvar)
+	else
+		SetNMvar("SumSet2", WaveCountOnes(s2))
+	endif
+	
+	sumvar = sum($s3)
+	
+	if (numtype(sumvar) == 0)
+		SetNMvar("SumSetX", sumvar)
+	else
+		SetNMvar("SumSetX", WaveCountOnes(s3))
+	endif
+	
+	NMWaveSelectCount() // update Wave Select count display
 
 End // UpdateNMSetsCount
 
@@ -504,6 +527,7 @@ Function NMPopupFolder(ctrlName, popNum, popStr) : PopupMenuControl
 		case "Reload Waves":
 		case "Rename Waves":
 		case "Open All":
+		case "Append All":
 		case "Save All":
 		case "Kill All":
 		case "Close All":
@@ -528,6 +552,7 @@ Function NMPopupFolder(ctrlName, popNum, popStr) : PopupMenuControl
 	endswitch
 	
 	UpdateNMFolderMenu()
+	CheckNMFolderList()
 	
 	DoWindow /F NMpanel
 	
@@ -920,7 +945,7 @@ Function NMTab(tName) // change NMpanel tab
 	if (tab != lastTab)
 		SetNMvar(df+"CurrentTab", tab)
 		ChangeTab(lastTab, tab, tabList) // NM_TabManager.ipf
-		ChanGraphsUpdate()
+		ChanGraphsUpdate(0)
 	endif
 
 End // NMTab
@@ -1292,7 +1317,7 @@ Function NMNextWave(direction) // set next wave number
 	if ((found >= 0) && (found != CurrentWave))
 		CurrentWave = found
 		UpdateCurrentWave()
-		ChanGraphsToFront(-1)
+		ChanGraphsToFront()
 	endif
 	
 	return found
@@ -1624,7 +1649,7 @@ Function NMPrefixSelect(prefix) // change to a new wave prefix
 	
 	Variable oldnchan = NumVarOrDefault(GetDataFolder(1)+prefix+":NumChannels", -1)
 	
-	for (ccnt = 0; ccnt < 3; ccnt += 1) // detect multiple channels (up to 3)
+	for (ccnt = 0; ccnt < 10; ccnt += 1) // detect multiple channels (up to 10)
 	
 		//wlist = WaveList(prefix + "*" + ChanNum2Char(ccnt) + "*", ";", opstr)
 		wlist = ChanWaveListSearch(prefix, ccnt)
@@ -1677,7 +1702,7 @@ Function NMPrefixSelect(prefix) // change to a new wave prefix
 	NMFolderGlobalsSave(currentPrefix) // save current prefix globals
 	SetNMstr("CurrentPrefix", prefix) // change to new prefix
 	NMFolderGlobalsReset()
-	NMFolderGlobalsGet(prefix) // get old global variables if they exist
+	NMFolderGlobalsGet(prefix, 1) // get old global variables if they exist
 	
 	SetNMvar("CurrentWave", 0)
 	SetNMvar("NumWaves", nwaves)
@@ -1688,7 +1713,7 @@ Function NMPrefixSelect(prefix) // change to a new wave prefix
 	UpdateCurrentWave()
 	UpdateNMPanel(0)
 	ChanGraphClose(-2, 0) // close unecessary windows
-	ChanGraphsToFront(-1)
+	ChanGraphsToFront()
 	NMWaveSelect( "All" )  
 	
 	return 0
@@ -1809,7 +1834,7 @@ Function NMWaveSelect(fxn)
 		return -1
 	endif
 
-	Variable grpNum, and = -1, or = -1, error = 1, update = 1
+	Variable sumvar, grpNum, and = -1, or = -1, error = 1, update = 1
 	String wname, df = NMDF()
 	
 	Wave WavSelect, SetX, Group
@@ -1824,7 +1849,53 @@ Function NMWaveSelect(fxn)
 	if ((strlen(fxn) == 0) || (StringMatch(fxn, "Update") == 1))
 		fxn = NMWaveSelectGet()
 		update = 0
+	else // set the function in WavSelect
+		Note /K WavSelect
+		Note WavSelect, fxn
 	endif
+	
+	sumvar = NMWaveSelectCount()
+	
+	if (numtype(sumvar) > 0) // error, set to "All"
+		fxn = "All"
+		WavSelect = 1
+		Note /K WavSelect
+		Note WavSelect, fxn
+		sumvar = NMWaveSelectCount()
+	endif
+	
+	NMWaveSelectAdd(fxn)
+	
+	if ((update == 1) && (numtype(sumvar) == 0))
+		NMAutoTabCall()
+	endif
+	
+	return 0
+
+End // NMWaveSelect
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMWaveSelectCount()
+	
+	if (WavesExist("WavSelect;SetX;Group;") == 0)
+		return Nan
+	endif
+
+	Variable sumvar, grpNum, and = -1, or = -1, error = 1
+	String wname, df = NMDF()
+	String fxn = NMWaveSelectGet()
+	
+	Wave WavSelect, SetX, Group
+	
+	if (numpnts(WavSelect) == 0)
+		return Nan
+	endif
+	
+	Variable NumActiveWaves = NumVarOrDefault("NumActiveWaves", 0)
+	Variable GroupsOn = NumVarOrDefault(df+"GroupsOn", 0)
 	
 	and = strsearch(fxn, " x ", 0)
 	or = strsearch(fxn, " + ", 0)
@@ -1836,7 +1907,7 @@ Function NMWaveSelect(fxn)
 		
 	elseif ((groupsOn == 0) && (StringMatch(fxn, "*group*") == 1))
 	
-		error = 1
+		return Nan
 		
 	elseif (StringMatch(fxn[0,4], "Group") == 1)
 	
@@ -1886,10 +1957,9 @@ Function NMWaveSelect(fxn)
 		
 	endif
 	
-	if (error == 1) // set to "All"
+	if (error == 1)
 	
-		fxn = "All"
-		WavSelect = 1
+		return Nan
 		
 	endif
 	
@@ -1901,20 +1971,18 @@ Function NMWaveSelect(fxn)
 		
 	endif
 	
-	Note /K WavSelect
-	Note WavSelect, fxn
+	sumvar = sum(WavSelect)
 	
-	SetNMvar("NumActiveWaves", WaveCountOnes("WavSelect"))
-	
-	NMWaveSelectAdd(fxn)
-	
-	if ((update == 1) && (error == 0))
-		NMAutoTabCall()
+	if (numtype(sumvar) == 0)
+		SetNMvar("NumActiveWaves", sumvar)
+	else
+		sumvar = WaveCountOnes("WavSelect")
+		SetNMvar("NumActiveWaves", sumvar)
 	endif
 	
-	return 0
+	return sumvar
 
-End // NMWaveSelect
+End // NMWaveSelectCount
 
 //****************************************************************
 //****************************************************************
@@ -1999,7 +2067,7 @@ End // NMAllGroups
 Function /S NMWaveSelectDefaults()
 
 	Variable icnt
-	String glist = "", sList = NMSetsList(0)
+	String glist = "", sList = NMSetsList(0) + NMSetsDataList()
 	
 	if (WhichListItemLax("Set_Data0", sList, ";") > 0)
 		if (WhichListItemLax("Set_Data1", sList, ";") < 0)

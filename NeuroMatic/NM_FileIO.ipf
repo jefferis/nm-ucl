@@ -1,19 +1,19 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic File I/O Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 23 Nov 2004
+//	Last modified 15 Sept 2005
 //
 //	Functions for opening/saving binary files
 //
@@ -418,7 +418,7 @@ Function NMImportData(appnd) // the main load data function
 	
 	PrintFileDetails(success)
 	
-	CheckNMSets(setList, NumVarOrDefault("NumWaves", 0)) // redimension old Sets
+	CheckNMwave(setList, NumVarOrDefault("NumWaves", 0), 0)  // redimension old Sets
 	
 	NMSetsDataNew() // create Set_Data wave
 	
@@ -504,7 +504,7 @@ Function NMImportFileAuto(fbeg, fend, finc, iSeqBgn, iseqend) // append a sequen
 		
 		PrintFileDetails(NumWaves)
 		
-		CheckNMSets(setList, NumVarOrDefault("NumWaves", 0)) // redimension old Sets
+		CheckNMwave(setList, NumVarOrDefault("NumWaves", 0), 0) // redimension old Sets
 		NMSetsDataNew() // create Set_Data wave
 		
 	endfor
@@ -832,7 +832,7 @@ Function /S FileDialogue(dialType, pathname, file, ext)
 	String pathname // symbolic path name
 	String file // for save dialogue
 	String ext // file extension; ("") for FileBinExt (?) for any
-	
+
 	Variable refnum
 	String type = "????"
 	
@@ -848,7 +848,7 @@ Function /S FileDialogue(dialType, pathname, file, ext)
 	
 	strswitch(ext)
 		case ".pxp":
-			type = "IGsU"
+			type = "IGsU????"
 			break
 	endswitch
 	
@@ -1108,6 +1108,115 @@ End // FileBinLoadCurrent
 //****************************************************************
 //****************************************************************
 
+Function FileBinOpenHook(refNum, fileName, path, type, creator, kind)
+	
+	Variable refNum,kind
+	String fileName,path,type,creator
+	
+	if (StringMatch(type,"IGsU") == 1) // Igor Experiment, packed
+		CheckFileOpen(fileName)
+	endif
+	
+	return 0					// 1 tells Igor not to open the file
+	
+End // FileBinOpenHook
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S CheckFileOpen(fileName) // check to see if file opened was NM folder
+	String fileName
+	
+	if (StringMatch(GetDataFolder(0), "root") == 0)
+		return "" // not in root directory
+	endif
+	
+	if (strlen(fileName) == 0)
+		fileName = StrVarOrDefault("FileName", "")
+	endif
+
+	if (StringMatch(StrVarOrDefault("FileType", ""), "NMData") == 1)
+		return FileOpenFix2NM(fileName) // move everything to subfolder
+	else
+		return ""
+	endif
+
+End // FileOpenCheck
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+//
+//   FileOpenFix2NM :  this program fixes NM folders which were
+//   opened by double-clicking NM pxp folder, which Igor places
+//   in root directory
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S FileOpenFix2NM(fileName) // move opened NM folder to new subfolder
+	String fileName
+	
+	Variable icnt
+	String list, name
+	
+	if (strlen(fileName) == 0)
+		return "" // not allowed
+	endif
+
+	String folder //= "root:" + FolderNameCreate(fileName)
+	
+	folder = "root:" + WinName(0, 0)
+	
+	folder = CheckFolderName(folder) // get unused folder name
+
+	if (DataFolderExists(folder) == 1)
+		return "" // not allowed
+	endif
+	
+	list = FolderObjectList("", 4) // df
+	
+	list = RemoveFromList("WinGlobals;Packages;", list)
+	
+	NewDataFolder /O $LastPathColon(folder, 0)
+	
+	for (icnt = 0; icnt < ItemsInList(list); icnt += 1)
+		MoveDataFolder $StringFromList(icnt, list), $folder
+	endfor
+	
+	list = FolderObjectList("", 1) // waves
+	
+	for (icnt = 0; icnt < ItemsInList(list); icnt += 1)
+		name = StringFromList(icnt, list)
+		MoveWave $name, $(LastPathColon(folder, 1) + name)
+	endfor
+	
+	list = FolderObjectList("", 2) // variables
+	
+	for (icnt = 0; icnt < ItemsInList(list); icnt += 1)
+		name = StringFromList(icnt, list)
+		MoveVariable $name, $(LastPathColon(folder, 1) + name)
+	endfor
+	
+	list = FolderObjectList("", 3) // strings
+	
+	for (icnt = 0; icnt < ItemsInList(list); icnt += 1)
+		name = StringFromList(icnt, list)
+		MoveString $name, $(LastPathColon(folder, 1) + name)
+	endfor
+	
+	NMFolderChange( folder )
+	
+	return folder
+	
+End // FileOpenFix2NM
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function /S FileBinOpen(dialogue, new, folder, pathName, file, changeFolder)
 	Variable dialogue // (0) no (1) yes
 	Variable new // (0) over-write existing folder (1) create new folder
@@ -1213,8 +1322,8 @@ Function /S FileBinOpenAll(dialogue, df, pathName)
 	String df // data folder path ("") for "root:"
 	String pathName // Igor path name
 	
-	Variable icnt, items, change = 1
-	String file, slist, folder, pathStr, flist = ""
+	Variable icnt, add, nfiles, change = 1
+	String file, fname, slist, folder, pathStr, flist = "", olist = ""
 	
 	if ((dialogue == 1) || (strlen(pathName) == 0))
 	
@@ -1225,6 +1334,7 @@ Function /S FileBinOpenAll(dialogue, df, pathName)
 		endif
 		
 		pathStr = GetPathName(file, 1)
+		fname = GetPathName(file, 0)
 		
 	else
 	
@@ -1238,23 +1348,45 @@ Function /S FileBinOpenAll(dialogue, df, pathName)
 	
 	endif
 	
-	NewPath /O OpenAllPath, pathStr
+	NewPath /Q/O OpenAllPath, pathStr
 	
 	slist = IndexedFile(OpenAllPath,-1,"????")
 	
-	items = ItemsInList(slist) 
+	nfiles = ItemsInList(slist)
 	
-	if (items == 0)
+	if (nfiles == 0)
 		return ""
 	endif
 	
+	for (icnt = 0; icnt < nfiles; icnt += 1)
+	
+		file = StringFromList(icnt, slist)
+		
+		if (StringMatch(file, fname) == 1)
+			add = 1
+		endif
+		
+		if (add == 1)
+			olist = AddListItem(file, olist, ";", inf)
+		endif
+		
+	endfor
+	
+	slist = olist
+	
+	nfiles = ItemsInList(slist)
+	
 	if (dialogue == 1)
 	
-		DoAlert 1, "Located " + num2str(items) + " files in this folder. Are you sure you want to open all of them?"
+		nfiles -= 1
+		Prompt nfiles, "Located " + num2str(nfiles) + " files after " + fname + ". How many do you wish to open?"
+		DoPrompt "Open Files", nfiles
 		
-		if (V_flag != 1)
+		if (V_flag == 1)
 			return ""
 		endif
+		
+		nfiles += 1
 		
 	endif
 	
@@ -1262,14 +1394,14 @@ Function /S FileBinOpenAll(dialogue, df, pathName)
 		df = "root:"
 	endif
 	
-	for (icnt = 0; icnt < items; icnt += 1)
+	for (icnt = 0; icnt < nfiles; icnt += 1)
 	
 		file = StringFromList(icnt, slist)
 		folder = FileBinOpen(0, 1, df, "OpenAllPath", file, change)
 		flist = AddListItem(folder, flist, ";", inf)
-		change = 0
+		// change = 0
 	
-	endfor  
+	endfor
 	
 	return flist
 
@@ -1347,6 +1479,8 @@ Function /S FileBinSave(dialogue, new, folder, pathName, file, closed, bintype)
 			file = FileDialogue(1, pathName, file, ".nmb")
 		endif
 	endif
+	
+	
 	
 	if ((strlen(folder) == 0)  || (strlen(file) == 0))
 		return ""
@@ -1545,7 +1679,12 @@ Function /S IgorBinOpen(folder, file, changeFolder) // open Igor packed binary f
 		NMFolderListAdd(folder)
 		NMFolderChange(folder)
 		CheckNMDataFolder()
+		NMSetsDataNew()
 		PrintFileDetails(-1)
+		
+		if (NumVarOrDefault(NMDF()+"AutoPlot", 0) == 1)
+			NMPlot( "" )
+		endif
 		
 	endif
 	
@@ -1665,13 +1804,23 @@ Function /S NMBinOpen(folder, file, makeflag, changeFolder)
 	endswitch
 	
 	if (changeFolder == 0)
+	
 		SetDataFolder saveDF // back to original data folder
+		
 	elseif (StringMatch(ftype, "NMData") == 1)
+	
 		NMFolderListAdd(folder)
 		NMFolderChange(folder)
 		CheckNMDataFolder()
+		NMSetsDataNew()
 		UpdateNM(1)
 		PrintFileDetails(-1)
+		
+		if (NumVarOrDefault(NMDF()+"AutoPlot", 0) == 1)
+			NMPlot( "" )
+		endif
+		
+	
 	endif
 	
 	return folder

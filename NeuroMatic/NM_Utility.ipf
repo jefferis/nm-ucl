@@ -1,19 +1,19 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Misc. Utility Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 30 Nov 2004
+//	Last modified 30 Jan 2006
 //
 //****************************************************************
 //****************************************************************
@@ -211,10 +211,10 @@ Function /S WaveListOfSize(size, matchstr)
 	Variable wavcnt
 	String wList, wName, opstr = "", newList = ""
 	
-	if (IgorVersion() >= 5)
-		opstr = "MAXROWS:" + num2str(size) + ",MINROWS:" + num2str(size) + ",TEXT:0"
-		return WaveList(matchstr, ";", opstr)
-	endif
+	//if (IgorVersion() >= 5)
+		//opstr = "MAXROWS:" + num2str(size) + ",MINROWS:" + num2str(size) + ",TEXT:0"
+		//return WaveList(matchstr, ";", opstr)
+	//endif
 	
 	wList = WaveList(matchstr, ";", opstr)
 
@@ -521,7 +521,8 @@ Function /S CopyWaves(newPrefix, tbgn, tend, wList)
 	for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
 	
 		wName = StringFromList(wcnt, wList)
-		newName = newPrefix + ChanCharGet(wName) + num2str(ChanWaveNum(wName))
+		//newName = newPrefix + ChanCharGet(wName) + num2str(ChanWaveNum(wName))
+		newName = newPrefix + wName
 		newList = AddListItem(newName, newList, ";", inf)
 		
 		if (StringMatch(wName, newName) == 1)
@@ -1330,9 +1331,9 @@ Function /S ScaleByNum(alg, num, wList)
 		return ""
 	endif
 	
-	if (numtype(num) != 0)
-		return ""
-	endif
+	//if (numtype(num) != 0)
+		//return ""
+	//endif
 	
 	if (strsearch("*/+-", alg, 0) == -1)
 		return ""
@@ -1346,7 +1347,26 @@ Function /S ScaleByNum(alg, num, wList)
 			continue
 		endif
 		
-		Execute /Z wName + alg + "=" + num2str(num)
+		Wave wtemp = $wName
+		
+		strswitch(alg)
+			case "*":
+				wtemp *= num
+				break
+			case "/":
+				wtemp /= num
+				break
+			case "+":
+				wtemp += num
+				break
+			case "-":
+				wtemp -= num
+				break
+			default:
+				continue
+		endswitch
+		
+		//Execute /Z wName + alg + "=" + num2str(num)
 		
 		outList = AddListItem(wName, outList, ";", inf)
 		badList = RemoveFromList(wName, badList)
@@ -1361,6 +1381,95 @@ Function /S ScaleByNum(alg, num, wList)
 	return outList
 
 End // ScaleByNum
+
+//****************************************************************
+//
+//	ScaleWave()
+//	scale a list of waves (*, /, +, -) by a single number
+//
+//****************************************************************
+
+Function /S ScaleWave(alg, num, tbgn, tend, wList)
+	String alg // arhithmatic symbol (*, /, +, -)
+	Variable num // scale value
+	Variable tbgn, tend // time begin, end values
+	String wList // wave list (seperator ";")
+	
+	Variable wcnt, pcnt, pbgn, pend
+	String wName, outList = "", badList = wList
+	
+	if (ItemsInList(wList) == 0)
+		return ""
+	endif
+	
+	//if (numtype(num) != 0)
+	//	return ""
+	//endif
+	
+	if (strsearch("*/+-", alg, 0) == -1)
+		return ""
+	endif
+	
+	for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
+	
+		wName = StringFromList(wcnt, wList)
+		
+		if (NMUtilityWaveTest(wName) < 0)
+			continue
+		endif
+		
+		if (numtype(tbgn) == 1)
+			pbgn = 0
+		else
+			pbgn = x2pnt($wName, tbgn)
+		endif
+		
+		if (numtype(tend) == 1)
+			pend = numpnts($wName) - 1
+		else
+			pend = x2pnt($wName, tend)
+		endif
+		
+		if ((pbgn < 0) || (pend >= numpnts($wName)))
+			continue
+		endif
+		
+		Wave wtemp = $wName
+		
+		for (pcnt = pbgn; pcnt <= pend; pcnt += 1)
+			
+			strswitch(alg)
+				case "*":
+					wtemp[pcnt] *= num
+					break
+				case "/":
+					wtemp[pcnt] /= num
+					break
+				case "+":
+					wtemp[pcnt] += num
+					break
+				case "-":
+					wtemp[pcnt] -= num
+					break
+				default:
+					continue
+			endswitch
+		
+		endfor
+		
+		outList = AddListItem(wName, outList, ";", inf)
+		badList = RemoveFromList(wName, badList)
+		
+		Note $wName, "Func:ScaleWave"
+		Note $wName, "Scale Alg:" + alg + ";Scale Value:" + num2str(num) + ";Scale Tbgn:" + num2str(tbgn) + ";Scale Tend:" + num2str(tend)
+		
+	endfor
+	
+	NMUtilityAlert("ScaleWave", badList)
+	
+	return outList
+
+End // ScaleWave
 
 //****************************************************************
 //
@@ -1406,8 +1515,28 @@ Function /S ScaleByWave(alg, sclWave, wList) // all input waves should have same
 		if (numpnts($wName) != numpnts($sclWave))
 			continue // skip, unequal waves
 		endif
+		
+		Wave wtemp = $wName
+		Wave stemp = $sclWave
+		
+		strswitch(alg)
+			case "*":
+				wtemp *= stemp
+				break
+			case "/":
+				wtemp /= stemp
+				break
+			case "+":
+				wtemp += stemp
+				break
+			case "-":
+				wtemp -= stemp
+				break
+			default:
+				continue
+		endswitch
 
-		Execute wName + alg + "=" + sclWave
+		//Execute wName + alg + "=" + sclWave
 		
 		outList = AddListItem(wName, outList, ";", inf)
 		badList = RemoveFromList(wName, badList)
@@ -2023,6 +2152,47 @@ End // DeleteNANs
 //****************************************************************
 //****************************************************************
 
+Function CopyWaveValues(fromFolder, toFolder, wList, fromOffset, toOffset)
+	String fromFolder
+	String toFolder
+	String wList
+	Variable fromOffset
+	Variable toOffset
+	
+	Variable wcnt, icnt, jcnt, error = 0
+	String wName
+	
+	for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
+		
+		wName = StringFromList(wcnt, wList)
+		
+		if ((WaveExists($(fromFolder + wName)) == 0) || (WaveExists($(toFolder + wName)) == 0))
+			error = -1
+			continue
+		endif
+		
+		Wave wtemp1 = $(fromFolder + wName)
+		Wave wtemp2 = $(toFolder + wName)
+		
+		jcnt = toOffset
+		
+		for (icnt = fromOffset; icnt < numpnts(wtemp1); icnt += 1)
+			if (jcnt < numpnts(wtemp2))
+				wtemp2[jcnt] = wtemp1[icnt]
+				jcnt += 1
+			endif
+		endfor
+		
+	endfor
+	
+	return error
+
+End // CopyWaveValues
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function BinaryCheck(n)
 	Variable n
 	
@@ -2322,6 +2492,7 @@ Function GetXStats(select, wList)
 	for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
 	
 		wName = StringFromList(wcnt, wList)
+		wName = StringFromList(0, wName, ",") // in case of sub-list
 		
 		if (NMUtilityWaveTest(wName) < 0)
 			continue

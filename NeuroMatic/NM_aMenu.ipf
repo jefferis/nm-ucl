@@ -1,20 +1,20 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Main Menu Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last Modified 25 Nov 2004
+//	Last Modified 25 July 2005
 //
 //****************************************************************
 //****************************************************************
@@ -27,7 +27,7 @@ Menu "NeuroMatic", dynamic // define main NeuroMatic drop-down menu
 		"Open", NMFolderCall("Open")
 		"Open | Append", NMFolderCall("Append")
 		"Save", NMFolderCall("Save")
-		"Kill", NMFolderCall("Kill")
+		"Close", NMFolderCall("Close")
 		"Duplicate", NMFolderCall("Duplicate")
 		"Rename", NMFolderCall("Rename")
 		"Change", NMFolderCall("Change")
@@ -35,8 +35,9 @@ Menu "NeuroMatic", dynamic // define main NeuroMatic drop-down menu
 		"Convert", NMFileCall("Convert")
 		"-"
 		"Open All", NMFolderCall("Open All")
+		"Append All", NMFolderCall("Append All")
 		"Save All", NMFolderCall("Save All")
-		"Kill All", NMFolderCall("Kill All")
+		"Close All", NMFolderCall("Close All")
 	End
 	
 	Submenu "Stim Folder"
@@ -87,7 +88,7 @@ Menu "NeuroMatic", dynamic // define main NeuroMatic drop-down menu
 	"Reset Cascade", NMCall("Reset Cascade")
 	"Chan Graphs On", NMCall("Graphs On")
 	"Update NeuroMatic", NMCall("Update")
-	
+	NMOnMenu(), NMCall("Off")
 	AboutNM()
 	
 	"-"
@@ -115,6 +116,22 @@ Function /S AboutNM() // executes every time NM menu is accessed
 	//return "About NeuroMatic"
 	
 End // AboutNM
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMOnMenu()
+
+	String df = NMDF()
+	
+	if (NumVarOrDefault(df+"NMOn", 1) == 1)
+		return "Turn NeuroMatic Off"
+	else
+		return "Turn NeuroMatic On"
+	endif
+
+End // NMOnMenu
 
 //****************************************************************
 //****************************************************************
@@ -288,9 +305,9 @@ Function NMCall(fxn)
 		case "Computer Stats":
 			return NMComputerCall(1)
 			
+		case "ResetCascade":
 		case "Reset Cascade":
 		case "Reset Window Cascade":
-		case "ResetCascade":
 			return ResetCascadeCall()
 			
 		case "Next":
@@ -299,14 +316,20 @@ Function NMCall(fxn)
 		case "Last":
 			return NMNextWaveCall(-1)
 			
+		case "Set1Toggle":
 		case "Set1 Toggle":
 			return NMSetsToggleCall(StringFromList(0, setList))
-			
+		
+		case "Set2Toggle":
 		case "Set2 Toggle":
 			return NMSetsToggleCall(StringFromList(1, setList))
-			
+		
+		case "SetXToggle":
 		case "SetX Toggle":
 			return NMSetsToggleCall(StringFromList(2, setList))
+			
+		case "Off":
+			return NMOn(-1)
 	
 	endswitch
 	

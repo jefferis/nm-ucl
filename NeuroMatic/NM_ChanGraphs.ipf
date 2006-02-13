@@ -1,20 +1,20 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Channel Graph Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last Modified 18 Nov 2004
+//	Last Modified 16 March 2005
 //
 //	Functions for displaying and maintaining channel graphs
 //
@@ -87,6 +87,7 @@ Function CheckChan() // check chan package globals
 		return -1
 	endif
 	
+	CheckNMvar(df+"ToFront", 1)		// graph to front (0) off (1) on
 	CheckNMvar(df+"GridFlag", 1)		// graph grid display (0) off (1) on
 	CheckNMvar(df+"Overlay", 0)		// number of waves to overlay (0) none
 	CheckNMvar(df+"DTflag", 0)		// F(t) (0) none (1) d/dt (2) dd/dt*dt (3) integral (4) normalize
@@ -99,6 +100,11 @@ Function CheckChan() // check chan package globals
 	CheckNMvar(df+"Xmax", 1)		// x-max scale value
 	CheckNMvar(df+"Ymin", 0)			// y-min scale value
 	CheckNMvar(df+"Ymax", 1)		// y-max scale value
+	
+	CheckNMvar(df+"GX0", Nan)		// graph left position
+	CheckNMvar(df+"GY0", Nan)		// graph top position
+	CheckNMvar(df+"GX1", Nan)		// graph right position
+	CheckNMvar(df+"GY1", Nan)		// graph bottom position
 	
 	CheckNMstr(df+"TraceColor", "0,0,0") // rgb
 	CheckNMstr(df+"OverlayColor", "34816,34816,34816") // rgb
@@ -140,7 +146,7 @@ Function ChanConfigHook()
 		
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(1)
 	
 End // ChanConfigHook
 
@@ -253,10 +259,11 @@ Function ChanGraphMake(chanNum) // create channel display graph
 	endif
 	
 	PopupMenu $("PlotMenu"+cc), pos={0,0}, size={15,0}, bodyWidth= 20, mode=1, value=" ;Grid;XLabel;YLabel;FreezeX;FreezeY;Off;", proc=ChanPopup
-	SetVariable $("Overlay"+cc), title="Overlay", pos={100,y0-1}, size={90,50}, limits={0,10,1}, value=$(df+"Overlay"), proc=ChanSetVariable
-	SetVariable $("SmoothSet"+cc), title="Smooth", pos={250,y0-1}, size={90,50}, limits={0,inf,1}, value=$(df+"SmthNum"), proc=ChanSetVariable
-	CheckBox $("FtCheck"+cc), title="F(t)", pos={420,y0}, size={16,18}, value=0, proc=ChanCheckbox
-	CheckBox $("ScaleCheck"+cc), title="Autoscale", pos={550,y0}, size={16,18}, value=1, proc=ChanCheckbox
+	SetVariable $("Overlay"+cc), title="Overlay", pos={50,y0-1}, size={90,50}, limits={0,10,1}, value=$(df+"Overlay"), proc=ChanSetVariable
+	SetVariable $("SmoothSet"+cc), title="Smooth", pos={200,y0-1}, size={90,50}, limits={0,inf,1}, value=$(df+"SmthNum"), proc=ChanSetVariable
+	CheckBox $("FtCheck"+cc), title="F(t)", pos={360,y0}, size={16,18}, value=0, proc=ChanCheckbox
+	CheckBox $("ToFront"+cc), title="To Front", pos={460,y0}, size={16,18}, value=0, proc=ChanCheckbox
+	CheckBox $("ScaleCheck"+cc), title="Autoscale", pos={580,y0}, size={16,18}, value=1, proc=ChanCheckbox
 	
 	ChanOverlay(chanNum, NumVarOrDefault(df+"Overlay", 0))
 	
@@ -269,10 +276,11 @@ End // ChanGraphMake
 //****************************************************************
 //****************************************************************
 
-Function ChanGraphsUpdate() // update channel display graphs
+Function ChanGraphsUpdate(updateControls) // update channel display graphs
+	Variable updateControls // (0) no (1) yes
 	
-	String sName, dName, ddName, gName, fName, cc, df, ndf = NMDF()
-	Variable ccnt, autoscale, ft, grid, makeFlag, count
+	String sName, dName, ddName, gName, fName, df, ndf = NMDF()
+	Variable ccnt, autoscale, makeFlag, count
 	
 	Variable scaleblock = NumVarOrDefault(ndf+"ChanScaleSaveBlock", 0)
 	Variable numChannels = NumVarOrDefault("NumChannels", 0)
@@ -282,7 +290,6 @@ Function ChanGraphsUpdate() // update channel display graphs
 	
 	for (ccnt = 0; ccnt < numChannels; ccnt+=1)
 	
-		cc = num2str(ccnt)
 		df = ChanDF(ccnt)
 		gName = ChanGraphName(ccnt)
 		dName = ChanDisplayWave(ccnt) // display wave
@@ -297,49 +304,19 @@ Function ChanGraphsUpdate() // update channel display graphs
 		endif
 	
 		if (Wintype(gName) == 0)
+			updateControls = 0
 			ChanGraphMake(ccnt)
+			ChanGraphControlsUpdate(ccnt)
 			scaleblock = 1
 		endif
 		
-		ft = NumVarOrDefault(df+"DTflag", 0)
 		autoscale = NumVarOrDefault(df+"AutoScale", 1)
-		grid = NumVarOrDefault(df+"GridFlag", 1)
-		
-		//ChanGraphMove(ccnt)
 		
 		if (scaleblock == 0)
-			ChanScaleSave(0)
+			ChanScaleSave(ccnt)
 		endif
 		
-		Label /W=$gName bottom ChanLabel(ccnt, "x", sName)
-		
-		SetVariable $("Overlay"+cc), value=$(df+"Overlay"), win=$gName
-		SetVariable $("SmoothSet"+cc), value=$(df+"SmthNum"), win=$gName
-		
-		switch(ft)
-			default:
-				Label /W=$gName left ChanLabel(ccnt, "y", sName)
-				CheckBox $("FtCheck"+cc), value=0, title = "F(t)", win=$gName
-				break
-			case 1:
-				Label /W=$gName left "d/dt"
-				CheckBox $("FtCheck"+cc), value=1, title = "d/dt", win=$gName
-				break
-			case 2:
-				Label /W=$gName left "dd/dt*dt"
-				CheckBox $("FtCheck"+cc), value=1, title = "dd/dt*dt", win=$gName
-				break
-			case 3:
-				Label /W=$gName left "integral"
-				CheckBox $("FtCheck"+cc), value=1, title = "Integral", win=$gName
-				break
-			case 4:
-				Label /W=$gName left "normalized"
-				CheckBox $("FtCheck"+cc), value=1, title = "normalize", win=$gName
-				break
-		endswitch
-		
-		CheckBox $("ScaleCheck"+cc), value=autoscale, win=$gName
+		ChanGraphMove(ccnt)
 		
 		if (strlen(fName) > 0)
 			DoWindow /T $gName, fName + " : " + sName
@@ -351,28 +328,28 @@ Function ChanGraphsUpdate() // update channel display graphs
 			ChanOverlayUpdate(ccnt)
 		endif
 		
-		ModifyGraph /W=$gName grid(bottom)=grid, grid(left)=grid, gridRGB=(24576,24576,65535)
-		ModifyGraph /W=$gName standoff(left)=0, standoff(bottom)=0
-		ModifyGraph /W=$gName margin(left)=60, margin(right)=0, margin(top)=19, margin(bottom)=0
-		
 		if ((ChanWaveMake(ccnt, sName, dName) < 0) && (WaveExists($dName) == 1))
 			Wave Dsply = $dName
 			Dsply = Nan
 		endif
 		
-		if (numpnts($dName) > 0) // if waves have Nans, change mode to line+symbol
-			
-			WaveStats /Q $dName
-			
-			count = (V_numNaNs * 100 / V_npnts)
-	
-			if ((numtype(count) == 0) && (count > 25))
-				ModifyGraph /W=$gName mode($ddName)=4
-			else
-				ModifyGraph /W=$gName mode($ddName)=0
-			endif
-		
+		if (updateControls == 1)
+			ChanGraphControlsUpdate(ccnt)
 		endif
+		
+		//if (numpnts($dName) < 0) // if waves have Nans, change mode to line+symbol
+			
+		//	WaveStats /Q $dName
+			
+		//	count = (V_numNaNs * 100 / V_npnts)
+	
+		//	if ((numtype(count) == 0) && (count > 25))
+		//		ModifyGraph /W=$gName mode($ddName)=4
+		//	else
+		//		ModifyGraph /W=$gName mode($ddName)=0
+		//	endif
+		
+		//endif
 		
 		if (autoscale == 1)
 		
@@ -393,6 +370,61 @@ Function ChanGraphsUpdate() // update channel display graphs
 	KillVariables /Z $(ndf+"ChanScaleSaveBlock")
 
 End // ChanGraphsUpdate
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanGraphControlsUpdate(chanNum)
+	Variable chanNum
+	
+	String gName = ChanGraphName(chanNum)
+	String df = ChanDF(chanNum)
+	String cc = num2str(chanNum)
+	
+	Variable ft = NumVarOrDefault(df+"DTflag", 0)
+	Variable tofront = NumVarOrDefault(df+"ToFront", 1)
+	Variable autoscale = NumVarOrDefault(df+"AutoScale", 1)
+	Variable grid = NumVarOrDefault(df+"GridFlag", 1)
+	
+	Variable currentWave = NumVarOrDefault("CurrentWave", 0)
+	
+	String sName = ChanWaveName(chanNum, currentWave) // source wave
+	
+	Label /W=$gName bottom ChanLabel(chanNum, "x", sName)
+		
+	SetVariable $("Overlay"+cc), value=$(df+"Overlay"), win=$gName
+	SetVariable $("SmoothSet"+cc), value=$(df+"SmthNum"), win=$gName
+	
+	switch(ft)
+		default:
+			Label /W=$gName left ChanLabel(chanNum, "y", sName)
+			CheckBox $("FtCheck"+cc), value=0, title = "F(t)", win=$gName
+			break
+		case 1:
+			Label /W=$gName left "d/dt"
+			CheckBox $("FtCheck"+cc), value=1, title = "d/dt", win=$gName
+			break
+		case 2:
+			Label /W=$gName left "dd/dt*dt"
+			CheckBox $("FtCheck"+cc), value=1, title = "dd/dt*dt", win=$gName
+			break
+		case 3:
+			Label /W=$gName left "integral"
+			CheckBox $("FtCheck"+cc), value=1, title = "Integral", win=$gName
+			break
+		case 4:
+			Label /W=$gName left "normalized"
+			CheckBox $("FtCheck"+cc), value=1, title = "normalize", win=$gName
+			break
+	endswitch
+	
+	CheckBox $("ScaleCheck"+cc), value=autoscale, win=$gName
+	CheckBox $("ToFront"+cc), value=tofront, win=$gName
+	
+	ModifyGraph /W=$gName grid(bottom)=grid, grid(left)=grid, gridRGB=(24576,24576,65535)
+	
+End // ChanGraphControlsUpdate
 
 //****************************************************************
 //****************************************************************
@@ -445,22 +477,17 @@ End // ChanGraphTagsKill
 //****************************************************************
 //****************************************************************
 
-Function ChanGraphsToFront(chanNum)
-	Variable chanNum // (-1) for all (-2) for current chan
-	
-	Variable ccnt, cbgn = chanNum, cend = chanNum
+Function ChanGraphsToFront()
+
+	Variable ccnt, cbgn, cend = (NumVarOrDefault("NumChannels", 0) - 1)
 	String df, gName
 	
-	Variable current = NumVarOrDefault("CurrentChan", 0)
-	
-	if (chanNum == -1)
-		cbgn = 0; cend = NumVarOrDefault("NumChannels", 0) - 1;
-	elseif (chanNum == -2)
-		cbgn = current; cend = current;
-	endif
-	
 	for (ccnt = cbgn; ccnt <= cend; ccnt+=1)
-		DoWindow /F $ChanGraphName(ccnt)
+		df = ChanDF(ccnt)
+		if (NumVarOrDefault(df+"ToFront", 1) == 1)
+			gName = ChanGraphName(ccnt)
+			DoWindow /F $gName
+		endif
 	endfor
 	
 End // ChanGraphsToFront
@@ -492,7 +519,7 @@ Function ChanGraphAxesSet(chanNum) // set channel graph size and placement
 		SetAxis /W=$gName/A
 		SetAxis /W=$gName left ymin, ymax
 		return 0
-	elseif(autoY == 1)
+	elseif (autoY == 1)
 		WaveStats /Q/R=(xmin,xmax) $wName
 		ymin = V_min
 		ymax = V_max
@@ -529,10 +556,15 @@ Function ChanGraphMove(chanNum) // set channel graph size and placement
 		return 0
 	endif
 	
-	Variable wx1, wy1,  yinc, width, height, numchan, ccnt, where
+	Variable yinc, width, height, numchan, ccnt, where
 	Variable xoffset, yoffset // default offsets
 	
-	String ndf = NMDF()
+	String ndf = NMDF(), cdf = ChanDF(chanNum)
+	
+	Variable x0 = NumVarOrDefault(cdf+"GX0", Nan)
+	Variable y0 = NumVarOrDefault(cdf+"GY0", Nan)
+	Variable x1 = NumVarOrDefault(cdf+"GX1", Nan)
+	Variable y1 = NumVarOrDefault(cdf+"GY1", Nan)
 	
 	Variable yPixels = NumVarOrDefault(ndf+"yPixels", 700)
 	String Computer = StrVarOrDefault(ndf+"Computer", "mac")
@@ -547,27 +579,38 @@ Function ChanGraphMove(chanNum) // set channel graph size and placement
 		endif
 	endfor
 	
-	strswitch(Computer)
-		case "pc":
-			wx1 = 8
-			wy1 = 37
-			width = 522
-			height = yPixels / (numchan + 2)
-			yinc = height + 20
-			break
-		default:
-			wx1 = 10
-			wy1 = 44
-			width = 690
-			height = yPixels / (numchan + 1)
-			yinc = height + 30
-			break
-	endswitch
+	if (numtype(x0 * y0 * x1 * y1) > 0) // compute graph coordinates
 	
-	wx1 += xoffset
-	wy1 += yoffset + yinc*where 
+		strswitch(Computer)
+			case "pc":
+				x0 = 8
+				y0 = 37
+				width = 522
+				height = yPixels / (numchan + 2)
+				yinc = height + 20
+				break
+			default:
+				x0 = 10
+				y0 = 44
+				width = 690
+				height = yPixels / (numchan + 1)
+				yinc = height + 30
+				break
+		endswitch
+		
+		x0 += xoffset
+		y0 += yoffset + yinc*where
+		x1 = x0 + width
+		y1 = y0 + height
+		
+		SetNMvar(cdf+"GX0", x0)
+		SetNMvar(cdf+"GY0", y0)
+		SetNMvar(cdf+"GX1", x1)
+		SetNMvar(cdf+"GY1", y1)
 	
-	MoveWindow /W=$gName wx1, wy1, (wx1+width), (wy1+height)
+	endif
+	
+	MoveWindow /W=$gName x0, y0, x1, y1
 
 End // ChanGraphMove
 
@@ -685,10 +728,12 @@ End // IsChanGraph
 
 Function ChanControlsDisable(chanNum, select)
 	Variable chanNum // (-1) for all
-	String select // Overlay, Smooth, F(t), autoscale, PlotMenu (e.g. "11111" for all)
+	String select // Overlay, Smooth, F(t), autoscale, PlotMenu, ToFront (e.g. "11111" for all)
 	
 	Variable ccnt, cbgn = chanNum, cend = chanNum
 	String cc, gname
+	
+	select += "000000"
 	
 	if (chanNum == -1)
 		cbgn = 0; cend = NumVarOrDefault("NumChannels", 0) - 1;
@@ -703,11 +748,12 @@ Function ChanControlsDisable(chanNum, select)
 		cc = num2str(ccnt)
 		gName = ChanGraphName(ccnt)
 	
-		SetVariable $("Overlay"+cc), disable=str2num(select[0,0]), win=$gName
-		SetVariable $("SmoothSet"+cc), disable=str2num(select[1,1]), win=$gName
-		CheckBox $("FtCheck"+cc), disable=str2num(select[2,2]), win=$gName
-		CheckBox $("ScaleCheck"+cc), disable=str2num(select[3,3]), win=$gName
-		PopupMenu $("PlotMenu"+cc), disable=str2num(select[4,4]), win=$gName
+		SetVariable $("Overlay"+cc), disable=binarycheck(str2num(select[0,0])), win=$gName
+		SetVariable $("SmoothSet"+cc), disable=binarycheck(str2num(select[1,1])), win=$gName
+		CheckBox $("FtCheck"+cc), disable=binarycheck(str2num(select[2,2])), win=$gName
+		CheckBox $("ScaleCheck"+cc), disable=binarycheck(str2num(select[3,3])), win=$gName
+		PopupMenu $("PlotMenu"+cc), disable=binarycheck(str2num(select[4,4])), win=$gName
+		CheckBox $("ToFront"+cc), disable=binarycheck(str2num(select[5,5])), win=$gName
 		
 	endfor
 	
@@ -760,18 +806,11 @@ Function ChanCheckbox(ctrlName, checked) : CheckBoxControl // change differentia
 	
 	Variable chanNum
 	String numstr = num2str(checked)
-
-	strswitch(ChanControlPrefix(ctrlName))
+	String cname = ChanControlPrefix(ctrlName)
 	
-		case "FtCheck":
-			sscanf ctrlName, "FtCheck%f", chanNum // determine chan number
-			return ChanCall("F(t)", chanNum, numstr)
-
-		case "ScaleCheck":
-			sscanf ctrlName, "ScaleCheck%f", chanNum // determine chan number
-			return ChanCall("AutoScale", chanNum, numstr)
-
-	endswitch
+	sscanf ctrlName, cname + "%f", chanNum // determine chan number
+	
+	return ChanCall(cname, chanNum, numstr)
 
 End // ChanCheckbox
 
@@ -843,10 +882,14 @@ Function ChanCall(fxn, chanNum, select)
 			return ChanSmthNumCall(chanNum, snum)
 			
 		case "AutoScale":
+		case "ScaleCheck":
 			return ChanAutoScaleCall(chanNum, snum)
 			
+		case "ToFront":
+			return ChanToFrontCall(chanNum, snum)
+			
 		case "F(t)":
-		case "Function":
+		case "FtCheck":
 			return ChanFuncCall(chanNum, -snum)
 	
 	endswitch
@@ -912,7 +955,7 @@ Function ChanFunc(chanNum, ft) // set chan F(t) function
 	endif
 	
 	SetNMVar(ChanDF(chanNum)+"DTflag", ft)
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(1)
 	
 	return 0
 
@@ -974,7 +1017,7 @@ Function ChanSmthNum(chanNum, smthNum) // set chan smooth num
 	SetNMvar(df+"SmthNum", smthNum)
 	SetNMstr(df+"SmthAlg", alg)
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(1)
 	
 	return 0
 
@@ -1105,7 +1148,7 @@ Function ChanGrid(chanNum, on)
 		ModifyGraph /W=$gName grid=1
 	endif
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(1)
 	
 End // ChanGrid
 
@@ -1127,7 +1170,7 @@ End // ChanOnAllCall
 Function ChanOnAll()
 
 	ChanOn(-1, 1)
-	ChanGraphsToFront(-1)
+	ChanGraphsToFront()
 
 	return 0
 
@@ -1169,7 +1212,7 @@ Function ChanOn(chanNum, on)
 		SetNMvar(ChanDF(ccnt)+"On", on)
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(1)
 	
 	return 0
 	
@@ -1217,7 +1260,7 @@ Function ChanAutoScale(chanNum, on)
 	SetNMVar(ChanDF(chanNum)+"AutoScaleX", 0)
 	SetNMVar(ChanDF(chanNum)+"AutoScaleY", 0)
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(1)
 	
 	return 0
 
@@ -1245,7 +1288,7 @@ Function ChanAutoScaleX(chanNum, on)
 		SetNMVar(df+"AutoScaleY", 0)
 	endif
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(1)
 	
 	return 0
 
@@ -1273,7 +1316,7 @@ Function ChanAutoScaleY(chanNum, on)
 		SetNMVar(df+"AutoScaleX", 0)
 	endif
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(1)
 	
 	return 0
 
@@ -1314,6 +1357,15 @@ Function ChanScaleSave(chanNum) // save chan min, max scale values
 			SetNMvar(df+"Ymin", V_min)
 			SetNMvar(df+"Ymax", V_max)
 			
+			// save graph position
+			
+			GetWindow $gName wsize
+			
+			SetNMvar(df+"GX0", V_left)
+			SetNMvar(df+"GY0", V_top)
+			SetNMvar(df+"GX1", V_right)
+			SetNMvar(df+"GY1", V_bottom)
+			
 		endif
 	
 	endfor
@@ -1352,7 +1404,7 @@ Function ChanXYSet(chanNum, left, right, bottom, top)
 	SetNMVar(ChanDF(chanNum)+"AutoScale", 0)
 	
 	ChanScaleSave(chanNum)
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(1)
 	
 	return 0
 
@@ -1428,7 +1480,7 @@ Function ChanOverlay(chanNum, overlayNum)
 		return -1
 	endif
 	
-	if ((numtype(overlayNum) < 0) || (overlayNum < 0))
+	if ((numtype(overlayNum) > 0) || (overlayNum < 0))
 		overlayNum = 0
 	endif
 	
@@ -1544,6 +1596,47 @@ Function ChanOverlayClear(chanNum)
 	endfor
 
 End // ChanOverlayClear
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanToFrontCall(chanNum, toFront)
+	Variable chanNum, toFront
+	
+	String vlist = ""
+	
+	vlist = NMCmdNum(chanNum, vlist)
+	vlist = NMCmdNum(toFront, vlist)
+	NMCmdHistory("ChanToFront", vlist)
+	
+	return ChanToFront(chanNum, toFront)
+	
+End // ChanToFrontCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanToFront(chanNum, toFront)
+	Variable chanNum
+	Variable toFront // (0) no (1) yes
+	
+	String df = ChanDF(chanNum)
+	
+	if (IsChanGraph(chanNum) == 0)
+		return -1
+	endif
+	
+	if (toFront != 0)
+		toFront = 1
+	endif
+	
+	SetNMvar(df+"ToFront", toFront)
+	
+	return toFront
+	
+End // ChanToFront
 
 //****************************************************************
 //****************************************************************

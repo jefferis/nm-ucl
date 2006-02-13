@@ -1,20 +1,20 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Sets Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last Modified 18 Nov 2004
+//	Last Modified 21 Feb 2005
 //
 //****************************************************************
 //****************************************************************
@@ -155,22 +155,6 @@ Function NMSetsCall(fxn, select)
 	return -1
 
 End // NMSetsCall
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function CheckNMSets(setList, npnts) // check sets are correct dimensions
-	String setList
-	Variable npnts
-	
-	Variable icnt
-
-	for (icnt = 0; icnt < ItemsInList(setList); icnt += 1)
-		CheckNMwave(StringFromList(icnt, setList), npnts, 0)
-	endfor
-
-End // CheckNMSets
 
 //****************************************************************
 //****************************************************************
@@ -1363,10 +1347,10 @@ Function /S NMSetsList(strict)
 	Variable wcnt
 	String wName
 	
-	Variable nwaves = NumVarOrDefault("NumWaves",0)
+	Variable nwaves = NumVarOrDefault("NumWaves", 0)
 	
 	String wList = WaveListOfSize(nwaves, "Set*")
-	String wList2 = WaveListOfSize(nwaves, "Set_Data*")
+	String wList2 = NMSetsDataList()
 	String allList = WaveListOfSize(nwaves, "!" + StrVarOrDefault("WavePrefix","") + "*")
 	String remList = WaveList("*TShift*", ";", "")
 	
@@ -1379,7 +1363,8 @@ Function /S NMSetsList(strict)
 	wList = RemoveFromList("SetX", wList)
 	wList = AddListItem("SetX", wList, ";", inf)
 	
-	wList += wList2
+	//wList += wList2
+	remList += wList2 // remove Set_Data waves
 	
 	allList = RemoveListFromList(wList+remList, allList, ";")
 	
@@ -1402,21 +1387,6 @@ Function /S NMSetsList(strict)
 	return wList
 
 End // NMSetsList
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function NMSetsData0()
-	String setName = "Set_Data0"
-	
-	if (WaveExists($setName) == 1)
-		return 0 // already exists
-	endif
-	
-	NMSetsDefine(setName, 1, 0, inf, 0, 0)
-
-End // NMSetsData0
 
 //****************************************************************
 //****************************************************************
@@ -1449,11 +1419,23 @@ Function NMSetsDataNew() // special Sets for importing/appending data
 		
 		Wave oldSet = $(prefix + num2str(icnt))
 		
+		Redimension /N=(nwaves) oldSet
+		
 		newSet = newSet && (!oldSet)
 	
 	endfor
 
 End // NMSetsDataNew
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMSetsDataList()
+
+	return WaveListOfSize(NumVarOrDefault("NumWaves", 0), "Set_Data*")
+
+End // NMSetsDataList
 
 //****************************************************************
 //****************************************************************
@@ -1485,7 +1467,7 @@ End // NMSetsHook
 
 Function /S NMSetsTableName()
 
-	return NMPrefix("SetsTable")
+	return NMPrefix(NMFolderPrefix("")+"SetsTable")
 	
 End // NMSetsTableName
 
@@ -1648,8 +1630,9 @@ End // NMSetsTableIgor5
 //****************************************************************
 
 Function NMSetsEdit()
+
 	String tname = NMSetsTableName()
-	String wlist = NMSetsList(0)
+	String wlist = NMSetsList(0) + NMSetsDataList()
 	
 	if (WinType(tname) == 2)
 		DoWindow /F $tname
@@ -1693,14 +1676,14 @@ End // NMSetsPanelName
 //****************************************************************
 
 Function /S NMSetsPanelList()
-	String df = NMDF()
 
+	String df = NMDF()
 	String setList = StrVarOrDefault(df+"SetsSelect", "")
 	
 	if (StringMatch(setList, "All") == 1)
 	
 		setList = NMSetsList(0)
-	
+		
 		if (NMSetXType() == 1)
 			setList = RemoveFromList("SetX", setList)
 		endif

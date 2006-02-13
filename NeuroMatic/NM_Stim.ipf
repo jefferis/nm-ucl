@@ -1,15 +1,15 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Clamp Acquisition Stim Protocol Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
@@ -20,7 +20,7 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 02 Dec 2004
+//	Last modified 04 March 2005
 //
 //****************************************************************
 //****************************************************************
@@ -58,7 +58,7 @@ Function CheckStim(dp, sname, numADC, numDAC, numTTL) // declare stim global var
 	
 	CheckNMstr(df+"WavePrefix", "Record")					// wave prefix name
 	
-	CheckNMvar(df+"AcqMode", 0)							// acquisition mode (0) episodic (1) continuous (2) epic precise (3) triggered
+	CheckNMvar(df+"AcqMode", 0)							// acquisition mode (0) epic precise (1) continuous (2) episodic (3) triggered
 	
 	CheckNMvar(df+"CurrentChan", 0)						// channel select
 	
@@ -845,6 +845,49 @@ Function /S StimPrefixList(sdf, type)
 	return wlist
 
 End // StimPrefixList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S StimNameListAll(sdf)
+	String sdf // stim data folder
+	
+	return StimNameList(sdf, "DAC") + StimNameList(sdf, "TTL")
+
+End // StimNameListAll
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S StimNameList(sdf, type)
+	String sdf // stim data folder
+	String type // "DAC" or "TTL"
+	
+	Variable icnt
+	String txt, wlist = ""
+	
+	String wname = sdf + type + "on"
+	String wname2 = sdf + type + "name"
+	
+	if ((WaveExists($wname) == 1) && (WaveExists($wname2) == 1))
+	
+		Wave wTemp = $wname
+		Wave /T wTemp2 = $wname2
+	
+		for (icnt = 0; icnt < numpnts(wTemp); icnt += 1)
+			if (wTemp[icnt] == 1)
+				txt = type + "_" + num2str(icnt) + " : " + wTemp2[icnt]
+				wlist = AddListItem(txt, wlist, ";", inf)
+			endif
+		endfor
+	
+	endif
+
+	return wlist
+
+End // StimNameList
 
 //****************************************************************
 //****************************************************************

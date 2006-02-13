@@ -1,19 +1,19 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
-//	NeuroMatic Main Functions, v1.86
+//	NeuroMatic Main Functions, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4 and higher
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	First release: 05 May 2002
-//	Last modified: 02 Dec 2004
+//	Last modified: 31 Jan 2006
 //
 //	Data Analyses Software
 //
@@ -152,13 +152,20 @@ Function CheckNM(force) // check NM Package folders
 	Variable madeFolder
 	String df = NMDF()
 	
+	SetIgorHook AfterFileOpenHook = FileBinOpenHook
+	//SetIgorHook IgorQuitHook = MyIgorQuitHook
+	
+	if (NumVarOrDefault(df+"NMOn", 1) == 0)
+		return 1
+	endif
+	
 	if (DataFolderExists("root:WinGlobals:") == 0)
 		NewDataFolder root:WinGlobals // new folder for Stats drag wave variables
 	endif
 	
 	CheckPackDF("Configurations") // places Config folder first
 	
-	madeFolder = CheckPackage("NeuroMatic", 0)
+	madeFolder = CheckPackage("NeuroMatic", force)
 	
 	if ((force == 1) || (madeFolder == 1))
 
@@ -170,11 +177,13 @@ Function CheckNM(force) // check NM Package folders
 		CheckPackage("Import", 1)
 		CheckPackage("Chan", 1)
 		CheckNMPaths()
+		CheckFileOpen("")
 		
 	endif
 	
 	if (madeFolder == 1)
 		NMConfigOpenAuto()
+		CheckNMPaths()
 		AutoStartNM()
 		KillGlobals("root:", "V_*", "110") // clean root
 		KillGlobals("root:", "S_*", "110")
@@ -190,7 +199,7 @@ End // CheckNM
 
 Function CheckNMversion()
 
-	if (NumVarOrDefault(NMDF()+"NMversion", 0) != 1.86)
+	if (NumVarOrDefault(NMDF()+"NMversion", 0) != 1.91)
 		ResetNM(0)
 	endif
 
@@ -244,6 +253,10 @@ Function CheckCurrentFolder() // check if current NM folder is OK
 	String df = NMDF()
 	String currentFolder = StrVarOrDefault(df+"CurrentFolder", GetDataFolder(1))
 	String thisFolder = GetDataFolder(1)
+	
+	if (NumVarOrDefault(df+"NMOn", 1) == 0)
+		return 1
+	endif
 
 	if ((StringMatch(CurrentFolder, thisFolder) == 0) && (IsNMDataFolder("") == 1))
 		
@@ -259,6 +272,8 @@ Function CheckCurrentFolder() // check if current NM folder is OK
 	
 	if (DataFolderExists(CurrentFolder) == 1)
 		SetDataFolder CurrentFolder
+	else
+		NMFolderChangeToFirst()
 	endif
 	
 	UpdateNMPanelTitle()
@@ -299,9 +314,7 @@ Function ResetNM(killFirst) // use this function to re-initialize neuromatic
 	endif
 	
 	CheckCurrentFolder() // must set this here, otherwise Igor is at root directory
-	
-	DoWindow /K NMpanel
-	
+	NMTabListGet()
 	ChanGraphClose(-1,1)
 	
 	if (killfirst == 1)
@@ -309,20 +322,22 @@ Function ResetNM(killFirst) // use this function to re-initialize neuromatic
 	endif
 	
 	CheckNM(1)
-	CheckPackage("Chan", 1)
 	
 	SetNMvar(df+"CurrentTab", 0) // set Main as current tab
 	
 	CheckNMDataFolders()
 	CheckNMFolderList()
-	CheckNMTabs(1)
 	ChanWaveListSet(0)
 	
-	SetNMvar(df+"NMversion", 1.86)
+	SetNMvar(df+"NMversion", 1.91)
 	
-	NMHistory("\rUpdated to NeuroMatic Version 1.86")
+	MakeNMpanel()
 	
-	UpdateNM(1)
+	if (IsNMDataFolder("") == 1)
+		UpdateCurrentWave()
+	endif
+	
+	NMHistory("\rUpdated to NeuroMatic Version 1.91")
 	
 	return 0
 
@@ -390,7 +405,7 @@ Function UpdateCurrentWave() // set current wave and group number, update displa
 	
 	NMGroupUpdate()
 	UpdateNMSets(0)
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	NMAutoTabCall()
 
 End // UpdateCurrentWave
@@ -437,15 +452,16 @@ Function CheckNeuroMatic() // check NeuroMatic globals
 		return -1
 	endif
 	
-	CheckNMvar(df+"NMversion", 1.86)	// NeuroMatic version
+	CheckNMvar(df+"NMversion", 1.91)	// NeuroMatic version
 	
-	CheckNMvar(df+"AutoStart", 1)		// auto-start NeuroMatic (0) no (1) yes
+	CheckNMvar(df+"NMOn", 1)			// NueorMatic (0) off (1) on
+	CheckNMvar(df+"AutoStart", 1)			// auto-start NeuroMatic (0) no (1) yes
 	CheckNMvar(df+"AutoPlot", 1)			// auto plot data upon loading file (0) no (1) yes
 	CheckNMvar(df+"CountFrom", 0)		// first number to count from (0 or 1)
 	CheckNMvar(df+"NameFormat", 1)		// wave name format (0) short (1) long
 	CheckNMvar(df+"ProgFlag", 1)			// progress display (0) off (1) WinProg XOP of Kevin Boyce
-	CheckNMvar(df+"OverWrite", 1)		// over-write (0) off (1) on
-	CheckNMvar(df+"WriteHistory", 1)	// analysis history (0) off (1) Igor History (2) notebook (3) both
+	CheckNMvar(df+"OverWrite", 1)			// over-write (0) off (1) on
+	CheckNMvar(df+"WriteHistory", 1)		// analysis history (0) off (1) Igor History (2) notebook (3) both
 	CheckNMvar(df+"CmdHistory", 1)		// command history (0) off (1) Igor History (2) notebook (3) both
 	CheckNMvar(df+"GroupsOn", 0)		// groups (0) on (1) off")
 	CheckNMvar(df+"Cascade", 0)			// window cascade counter
@@ -516,6 +532,32 @@ Function NMOverWriteOn(on)
 	SetNMvar(NMDF()+"OverWrite", BinaryCheck(on))
 
 End // NMOverWriteOn
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMOn(on)
+	Variable on // (-1) toggle (0) off (1) on
+	
+	String df = NMDF()
+	Variable nmon = NumVarOrDefault(df+"NMOn", 1)
+	
+	if (on == -1)
+		on = !nmon
+	endif
+	
+	SetNMvar(df+"NMOn", on)
+	
+	if (on == 0)
+		DoWindow /K NMpanel
+	else
+		MakeNMpanel()
+	endif
+	
+	return 1
+
+End // NMOn
 
 //****************************************************************
 //****************************************************************
@@ -710,7 +752,7 @@ Function CurrentChanSet(chanNum) // set current channel
 	
 	if (changeto == -1)
 		ChangeTab(currTab, currTab, TabList) // updates tab display waves
-		ChanGraphsToFront(-2)
+		ChanGraphsToFront()
 	endif
 	
 	return currChan
@@ -806,7 +848,7 @@ Function ChanLabelSet(chanNum, wSelect, xy, labelStr)
 	
 	endfor
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(1)
 	
 	return 0
 
@@ -914,8 +956,8 @@ Function /S ChanWaveListSearch(wPrefix, chanNum) // return list of waves appropr
 	String wPrefix // wave prefix
 	Variable chanNum
 	
-	Variable wcnt, icnt, seqnum
-	String wList, wname, olist = ""
+	Variable wcnt, icnt, jcnt, seqnum
+	String wList, wname, seqstr, olist = ""
 	
 	String chanstr = ChanNum2Char(chanNum)
 
@@ -933,12 +975,17 @@ Function /S ChanWaveListSearch(wPrefix, chanNum) // return list of waves appropr
 		
 			if (StringMatch(wname[icnt,icnt], chanstr) == 1)
 			
-				seqnum = str2num(wname[icnt+1,inf])
+				seqstr = wname[icnt+1,inf]
 				
-				if (numtype(seqnum) == 0)
-					olist = AddListItem(wname, olist, ";", inf) // matches criteria
-					break
-				endif
+				for (jcnt = 0; jcnt < strlen(seqstr); jcnt += 1)
+					if (numtype(str2num(seqstr[jcnt])) > 0)
+						return "" // not a sequence number
+					endif
+				endfor
+			
+				olist = AddListItem(wname, olist, ";", inf) // matches criteria
+					
+				break
 				
 			endif
 			
@@ -1394,7 +1441,7 @@ End // NMHistorySelect
 Function NMCmdHistoryCall()
 	String df = NMDF()
 	
-	Variable cmdhistory = NumVarOrDefault(df+"CmdHistory",2) + 1
+	Variable cmdhistory = NumVarOrDefault(df+"CmdHistory", 1) + 1
 	
 	Prompt cmdhistory "print function commands to:", popup "nowhere;Igor history;Igor notebook;both;"
 	DoPrompt "NeuroMatic Commands History", cmdhistory
@@ -1555,7 +1602,7 @@ Function NMCmdHistory(funcName, varList) // print NM command to history
 	String bullet, cmd, varStr, df = NMDF()
 	
 	Variable history = NumVarOrDefault(df+"WriteHistory", 1)
-	Variable cmdhistory = NumVarOrDefault(df+"CmdHistory", 2)
+	Variable cmdhistory = NumVarOrDefault(df+"CmdHistory", 1)
 	
 	strswitch(StrVarOrDefault(df+"Computer", ""))
 		case "pc":
@@ -2011,42 +2058,51 @@ End // CheckNMstr
 //****************************************************************
 //****************************************************************
 
-Function CheckNMwave(wName, npnts, dflt)
-	String wName
+Function CheckNMwave(wList, npnts, dflt)
+	String wList // wave list
 	Variable npnts // (-1) dont care
 	Variable dflt
 	
-	Variable npnts2 = numpnts($wName)
+	String wName, path
+	Variable wcnt, npnts2, error = 0
 	
-	String path = GetPathName(wName, 1)
+	for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
 	
-	if ((StringMatch(path, "") == 0) && (DataFolderExists(path) == 0))
-		return -1
-	endif
-	
-	if (exists(wName) == 0)
-	
-		if (npnts < 0)
-			Make $wName = dflt
-		else
-			Make /N=(npnts) $wName = dflt
-		endif
+		wName = StringFromList(wcnt, wList)
 		
-	elseif ((exists(wName) == 1) && (npnts >= 0))
-	
 		npnts2 = numpnts($wName)
-	
-		if (npnts > npnts2)
-			Redimension /N=(npnts) $wName
-			Wave wtemp = $wName
-			wtemp[npnts2,inf] = dflt
-		elseif (npnts < npnts2)
-			Redimension /N=(npnts) $wName
+		
+		path = GetPathName(wName, 1)
+		
+		if ((StringMatch(path, "") == 0) && (DataFolderExists(path) == 0))
+			error = -1
 		endif
 		
-	endif
+		if (exists(wName) == 0)
+		
+			if (npnts < 0)
+				Make $wName = dflt
+			else
+				Make /N=(npnts) $wName = dflt
+			endif
+			
+		elseif ((exists(wName) == 1) && (npnts >= 0))
+		
+			npnts2 = numpnts($wName)
+		
+			if (npnts > npnts2)
+				Redimension /N=(npnts) $wName
+				Wave wtemp = $wName
+				wtemp[npnts2,inf] = dflt
+			elseif (npnts < npnts2)
+				Redimension /N=(npnts) $wName
+			endif
+			
+		endif
 	
-	return 0
+	endfor
+	
+	return error
 	
 End // CheckNMwave
 

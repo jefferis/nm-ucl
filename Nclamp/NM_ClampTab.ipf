@@ -1,15 +1,15 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Clamp Tab Control // Stim Pulse Gen Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
@@ -20,7 +20,7 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 03 Dec 2004
+//	Last modified 26 April 2005
 //
 //****************************************************************
 //****************************************************************
@@ -81,7 +81,7 @@ Function CheckClampTab() // declare Clamp Tab global variables
 		return 0 // folder doesnt exist
 	endif
 	
-	CheckNMstr(tdf+"TabList", "CF,CT0_;Tau,CT1_;ADC,CT2_;DAC,CT3_;TTL,CT4_;PG,CT5_;NMPanel,CT_Tab;")
+	CheckNMstr(tdf+"TabList", "CF,CT0_;Tau,CT1_;ADC,CT2_;DAC,CT2_;TTL,CT2_;PG,CT5_;NMPanel,CT_Tab;")
 	
 	CheckNMvar(tdf+"CurrentTab", 0)
 	CheckNMvar(tdf+"StatsOn", 0)
@@ -106,21 +106,11 @@ Function CheckClampTab() // declare Clamp Tab global variables
 	CheckNMstr(tdf+"UnitsList", "V;mV;A;nA;pA;S;nS;pS;")
 	CheckNMstr(tdf+"DataPrefix", "Record")
 	
-	CheckNMstr(tdf+"ADCname", "")
-	CheckNMvar(tdf+"ADCnum", 0)
-	CheckNMvar(tdf+"ADCchan", 0)
-	CheckNMvar(tdf+"ADCscale", 1)
-	CheckNMvar(tdf+"ADCgain", 1)
-	
-	CheckNMstr(tdf+"DACname", "")
-	CheckNMvar(tdf+"DACnum", 0)
-	CheckNMvar(tdf+"DACchan", 0)
-	CheckNMvar(tdf+"DACscale", 1)
-
-	CheckNMstr(tdf+"TTLname", "")
-	CheckNMvar(tdf+"TTLnum", 0)
-	CheckNMvar(tdf+"TTLchan", 0)
-	CheckNMvar(tdf+"TTLscale", 1)
+	CheckNMstr(tdf+"IOname", "")
+	CheckNMvar(tdf+"IOnum", 0)
+	CheckNMvar(tdf+"IOchan", 0)
+	CheckNMvar(tdf+"IOscale", 1)
+	CheckNMvar(tdf+"IOgain", 1)
 	
 	// pulse gen tab
 	
@@ -170,19 +160,19 @@ Function ClampTabMake()
 	x0 = 20; y0 = 190; yinc = 40
 	
 	PopupMenu CT_StimMenu, pos={x0+20,y0}, size={15,0}, bodyWidth= 20, mode=1, title="stim:", proc=StimMenu
-	PopupMenu CT_StimMenu, value=" ;Open;Save;Save As;Kill;---;Open All;Save All;Kill All;---;New;Copy;Rename;---;Retrieve;---;Stim Path;Set Stim List;"
+	PopupMenu CT_StimMenu, value=" ;Open;Save;Save As;Close;Reload;---;Open All;Save All;Close All;---;New;Copy;Rename;---;Retrieve;---;Set Stim Path;Set Stim List;"
 	
-	PopupMenu CT_StimList, pos={x0+220,y0}, size={0,0}, bodyWidth=175, mode=1, value=" ", proc=StimListPopup
+	PopupMenu CT_StimList, pos={x0+215,y0}, size={0,0}, bodyWidth=170, mode=1, value=" ", proc=StimListPopup
 	
-	Checkbox CT_StimCheck, pos={x0+230,y0+4}, title="list", size={10,20}
+	Checkbox CT_StimCheck, pos={x0+225,y0+4}, title="chain", size={10,20}
 	Checkbox CT_StimCheck, value=0, proc=ClampCheckBox
 	
-	Checkbox CT_StatsCheck, pos={x0,y0+yinc+3}, title="stats", size={10,20}
+	Checkbox CT_StatsCheck, pos={x0+225,y0+yinc}, title="stats", size={10,20}
 	Checkbox CT_StatsCheck, value=0, proc=ClampCheckBox
 	
+	Button CT_Note, title="Note", pos={x0,y0+yinc}, size={45,20}, proc=ClampButton
 	Button CT_StartPreview, title="Preview", pos={x0+60,y0+yinc}, size={65,20}, proc=ClampButton
 	Button CT_StartRecord, title="Record", pos={x0+135,y0+yinc}, size={65,20}, proc=ClampButton
-	Button CT_Note, title="Note", pos={x0+210,y0+yinc}, size={45,20}, proc=ClampButton
 	
 	SetVariable CT_ErrorMssg, title= " ", pos={x0,590}, size={260,50}, value=$(cdf+"ClampErrorStr")
 	
@@ -295,43 +285,43 @@ Function ClampTabMake()
 	
 	y0 = 305; xinc = 35
 	
-	Button CT2_ADC0, title="x", pos={x0+0*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT2_ADC1, title="x", pos={x0+1*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT2_ADC2, title="x", pos={x0+2*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT2_ADC3, title="x", pos={x0+3*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT2_ADC4, title="x", pos={x0+4*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT2_ADC5, title="x", pos={x0+5*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
+	Button CT2_IO0, title="0", pos={x0+0*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
+	Button CT2_IO1, title="1", pos={x0+1*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
+	Button CT2_IO2, title="2", pos={x0+2*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
+	Button CT2_IO3, title="3", pos={x0+3*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
+	Button CT2_IO4, title="4", pos={x0+4*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
+	Button CT2_IO5, title="5", pos={x0+5*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
 	
-	SetVariable CT2_ADCnum,pos={x0+6*xinc+5,y0+2},size={45,15},limits={0,20,1},title=" "
-	SetVariable CT2_ADCnum, fsize=12, value=$(tdf+"ADCnum"), proc=StimSetVar, disable=1
+	SetVariable CT2_IOnum,pos={x0+6*xinc+5,y0+2},size={45,15},limits={0,20,1},title=" "
+	SetVariable CT2_IOnum, fsize=12, value=$(tdf+"IOnum"), proc=StimSetVar, disable=1
 	
 	y0 = 335; xinc = 15; yinc = 30
 	
-	GroupBox CT2_ADCgrp, title = "Input Config", pos={x0,y0+5}, size={260,145}, disable=1
+	GroupBox CT2_IOgrp, title = "Input Config", pos={x0,y0+5}, size={260,145}, disable=1
 	
-	Checkbox CT2_ADCactive, pos={x0+xinc,y0+1*yinc}, title="active", size={10,20}
-	Checkbox CT2_ADCactive, value=0, proc=StimActivateCheckBox, disable=1
+	Checkbox CT2_IOactive, pos={x0+xinc,y0+1*yinc}, title="active", size={10,20}
+	Checkbox CT2_IOactive, value=0, proc=StimActivateCheckBox, disable=1
 	
 	Checkbox CT2_ADCpresamp, pos={x0+140,y0+1*yinc}, title="pre-sample", size={10,20}
 	Checkbox CT2_ADCpresamp, value=0, proc=StimPreSampCheckBox, disable=1
 	
-	PopupMenu CT2_ADCboard,title="board", pos={x0+149,y0+2*yinc-4},size={0,0}, bodywidth=100
-	PopupMenu CT2_ADCboard,mode=1,value=" ", proc=StimBoardPopup, disable=1
+	PopupMenu CT2_IOboard,title="board", pos={x0+149,y0+2*yinc-4},size={0,0}, bodywidth=100
+	PopupMenu CT2_IOboard,mode=1,value=" ", proc=StimBoardPopup, disable=1
 	
-	PopupMenu CT2_ADCunits,title="units", pos={x0+245,y0+2*yinc-4},size={0,0}, proc=StimUnitsPopup
-	PopupMenu CT2_ADCunits,bodywidth=55,mode=1,value="V;", disable=1
+	PopupMenu CT2_IOunits,title="units", pos={x0+245,y0+2*yinc-4},size={0,0}, proc=StimUnitsPopup
+	PopupMenu CT2_IOunits,bodywidth=55,mode=1,value="V;", disable=1
 	
-	SetVariable CT2_ADCchan, title= "chan", pos={x0+xinc,y0+3*yinc}, size={75,50}, limits={0,inf,1}
-	SetVariable CT2_ADCchan, value=$(tdf+"ADCchan"), proc=StimSetVar, disable=1
+	SetVariable CT2_IOchan, title= "chan", pos={x0+xinc,y0+3*yinc}, size={75,50}, limits={0,inf,1}
+	SetVariable CT2_IOchan, value=$(tdf+"IOchan"), proc=StimSetVar, disable=1
 	
-	SetVariable CT2_ADCscale, title= "scale (V/V)", pos={x0+105,y0+3*yinc}, size={140,50}, limits={-inf,inf,0}
-	SetVariable CT2_ADCscale, value=$(tdf+"ADCscale"), proc=StimSetVar, disable=1
+	SetVariable CT2_IOscale, title= "scale (V/V)", pos={x0+105,y0+3*yinc}, size={140,50}, limits={-inf,inf,0}
+	SetVariable CT2_IOscale, value=$(tdf+"IOscale"), proc=StimSetVar, disable=1
 	
-	SetVariable CT2_ADCname, title= "name", pos={x0+xinc,y0+4*yinc}, size={140,50}
-	SetVariable CT2_ADCname, value=$(tdf+"ADCname"), proc=StimSetVar, disable=1
+	SetVariable CT2_IOname, title= "name", pos={x0+xinc,y0+4*yinc}, size={140,50}
+	SetVariable CT2_IOname, value=$(tdf+"IOname"), proc=StimSetVar, disable=1
 	
-	SetVariable CT2_ADCgain, title= "gain", pos={x0+170,y0+4*yinc}, size={75,50}, limits={1,inf,1}
-	SetVariable CT2_ADCgain, value=$(tdf+"ADCgain"), proc=StimSetVar, disable=1
+	SetVariable CT2_IOgain, title= "gain", pos={x0+170,y0+4*yinc}, size={75,50}, limits={1,inf,1}
+	SetVariable CT2_IOgain, value=$(tdf+"IOgain"), proc=StimSetVar, disable=1
 	
 	y0 = 470; yinc = 40
 	
@@ -347,89 +337,14 @@ Function ClampTabMake()
 	SetVariable CT2_ADCprefix, title= "wave prefix :", pos={x0+10,y0+2*yinc}, size={130,50}
 	SetVariable CT2_ADCprefix, value=$(tdf+"DataPrefix"), proc=StimSetVar, disable=1
 	
-	Button CT2_ADCtable, title="Table", pos={x0+165,y0+2*yinc-2}, size={75,20}, proc=PulseTableButton, disable=1
-	
-	y0 = 305; xinc = 35
-	
-	Button CT3_DAC0, title="x", pos={x0+0*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT3_DAC1, title="x", pos={x0+1*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT3_DAC2, title="x", pos={x0+2*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT3_DAC3, title="x", pos={x0+3*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT3_DAC4, title="x", pos={x0+4*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT3_DAC5, title="x", pos={x0+5*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	
-	SetVariable CT3_DACnum,pos={x0+6*xinc+5,y0+2},size={45,15},limits={0,20,1},title=" "
-	SetVariable CT3_DACnum, fsize=12, value=$(tdf+"DACnum"), proc=StimSetVar, disable=1
-	
-	y0 = 335; xinc = 15; yinc = 30
-	
-	GroupBox CT3_DACgrp, title = "Output Config", pos={x0,y0+5}, size={260,145}, disable=1
-	
-	Checkbox CT3_DACactive, pos={x0+xinc,y0+1*yinc}, title="active", size={10,20}
-	Checkbox CT3_DACactive, value=0, proc=StimActivateCheckBox, disable=1
-	
-	PopupMenu CT3_DACboard,title="board", pos={x0+149,y0+2*yinc-4},size={0,0}, bodywidth=100
-	PopupMenu CT3_DACboard,mode=1,value="", proc=StimBoardPopup, disable=1
-	
-	PopupMenu CT3_DACunits,title="units", pos={x0+245,y0+2*yinc-4},size={0,0}, proc=StimUnitsPopup
-	PopupMenu CT3_DACunits,bodywidth=55,mode=1,value="V;", disable=1
-	
-	SetVariable CT3_DACchan, title= "chan", pos={x0+xinc,y0+3*yinc}, size={75,50}, limits={0,inf,1}
-	SetVariable CT3_DACchan, value=$(tdf+"DACchan"), proc=StimSetVar, disable=1
-	
-	SetVariable CT3_DACscale, title= "scale (V/V)", pos={x0+105,y0+3*yinc}, size={140,50}, limits={-inf,inf,0}
-	SetVariable CT3_DACscale, value=$(tdf+"DACscale"), proc=StimSetVar, disable=1
-	
-	SetVariable CT3_DACname, title= "name", pos={x0+xinc,y0+4*yinc}, size={230,50}
-	SetVariable CT3_DACname, value=$(tdf+"DACname"), proc=StimSetVar, disable=1
-	
-	Button CT3_DACtable, title="Table", pos={x0+95,y0+6*yinc}, size={75,20}, proc=PulseTableButton, disable=1
-	
-	y0 = 305; xinc = 35
-	
-	Button CT4_TTL0, title="x", pos={x0+0*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT4_TTL1, title="x", pos={x0+1*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT4_TTL2, title="x", pos={x0+2*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT4_TTL3, title="x", pos={x0+3*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT4_TTL4, title="x", pos={x0+4*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	Button CT4_TTL5, title="x", pos={x0+5*xinc,y0}, size={25,20}, proc=StimActivateButton, disable=1
-	
-	SetVariable CT4_TTLnum,pos={x0+6*xinc+5,y0+2},size={45,15},limits={0,20,1},title=" "
-	SetVariable CT4_TTLnum, fsize=12, value=$(tdf+"TTLnum"), proc=StimSetVar, disable=1
-	
-	y0 = 335; xinc = 15; yinc = 30
-	
-	GroupBox CT4_TTLgrp, title = "Output Config", pos={x0,y0+5}, size={260,145}, disable=1
-	
-	Checkbox CT4_TTLactive, pos={x0+xinc,y0+1*yinc}, title="active", size={10,20}
-	Checkbox CT4_TTLactive, value=0, proc=StimActivateCheckBox, disable=1
-	
-	PopupMenu CT4_TTLboard,title="board", pos={x0+149,y0+2*yinc-4},size={0,0}, bodywidth=100
-	PopupMenu CT4_TTLboard,mode=1,value="", proc=StimBoardPopup, disable=1
-	
-	PopupMenu CT4_TTLunits,title="units", pos={x0+245,y0+2*yinc-4},size={0,0}, proc=StimUnitsPopup
-	PopupMenu CT4_TTLunits,bodywidth=55,mode=1,value="V;", disable=1
-	
-	SetVariable CT4_TTLchan, title= "chan", pos={x0+xinc,y0+3*yinc}, size={75,50}, limits={0,inf,1}
-	SetVariable CT4_TTLchan, value=$(tdf+"TTLchan"), proc=StimSetVar, disable=1
-	
-	SetVariable CT4_TTLscale, title= "scale (V/V)", pos={x0+105,y0+3*yinc}, size={140,50}, limits={-inf,inf,0}
-	SetVariable CT4_TTLscale, value=$(tdf+"TTLscale"), proc=StimSetVar, disable=1
-	
-	SetVariable CT4_TTLname, title= "name", pos={x0+xinc,y0+4*yinc}, size={230,50}
-	SetVariable CT4_TTLname, value=$(tdf+"TTLname"), proc=StimSetVar, disable=1
-	
-	Button CT4_TTLtable, title="Table", pos={x0+95,y0+6*yinc}, size={75,20}, proc=PulseTableButton, disable=1
+	Button CT2_IOtable, title="Table", pos={x0+165,y0+2*yinc-2}, size={75,20}, proc=PulseTableButton, disable=1
 	
 	x0 = 30; xinc = 105; y0 = 305; yinc = 30
 	
-	PopupMenu CT5_WavePrefix,pos={x0+180,y0},size={0,0}, bodywidth=100, proc=PulsePrefixPopup, disable=1
+	PopupMenu CT5_WavePrefix,pos={x0+225,y0},size={0,0}, bodywidth=175, proc=PulsePrefixPopup, disable=1
 	PopupMenu CT5_WavePrefix,mode=1,title="Output",value=""
 	
-	Checkbox CT5_PulseOff, pos={x0+215,y0+4}, title="off", size={10,20}, proc=PulseCheckBox
-	Checkbox CT5_PulseOff, value=0, disable=1
-	
-	y0 = 345
+	y0 = 355
 	
 	GroupBox CT5_PulseGrp, title = "Pulse", pos={x0,y0}, size={240,115}, disable=1
 	
@@ -441,21 +356,13 @@ Function ClampTabMake()
 	Button CT5_Train, title="Train", pos={x0+xinc,y0+2*yinc-6}, size={85,20}, proc=PulseButton, disable=1
 	Button CT5_Table, title="Pulse Table", pos={x0+45,y0+3*yinc-6}, size={100,20}, proc=PulseButton, disable=1
 	
-	x0 = 30; y0 = 480
+	x0 = 30; y0 = 460; yinc = 40
 	
-	GroupBox CT5_DsplyGrp, title = "Graph", pos={x0,y0}, size={240,90}, disable=1
-	
-	Checkbox CT5_Display, pos={x0+15,y0+yinc}, title="on", size={10,20}
+	Checkbox CT5_Display, pos={x0+80,y0+yinc}, title="auto graph", size={10,20}
 	Checkbox CT5_Display, value=1, proc=PulseCheckBox, disable=1
-
-	Checkbox CT5_AllOutputs, pos={x0+69,y0+yinc}, title="all outputs", size={16,18}, proc=PulseCheckBox
-	Checkbox CT5_AllOutputs, value=0, disable=1
 	
-	Checkbox CT5_AllWaves, pos={x0+156,y0+yinc}, title="all waves", size={16,18}, proc=PulseCheckBox
-	Checkbox CT5_AllWaves, value=1, disable=1
-	
-	SetVariable CT5_WaveNum, title="wave", pos={x0+80,y0+2*yinc}, size={80,50}, limits={0,inf,1}
-	SetVariable CT5_WaveNum, value=$(tdf+"PulseWaveNum"), proc=PulseSetVar, disable=1
+	Checkbox CT5_PulseOff, pos={x0+80,y0+2*yinc}, title="use \"my\" waves", size={10,20}, proc=PulseCheckBox
+	Checkbox CT5_PulseOff, value=1, disable=1
 	
 	SetNMvar(tdf+"CurrentTab", 0)
 
@@ -484,8 +391,8 @@ Function ClampTabUpdate()
 	
 	PopupMenu CT_StimList, win=NMPanel, mode=slct, value=NMFolderList(ClampDF(),"NMStim")
 	
-	Checkbox CT_StimCheck, win=NMPanel, value=NumVarOrDefault(cdf+"AcqStimList", 0)
-	Checkbox CT_StatsCheck, win=NMPanel, value=ClampStatsOn()
+	Checkbox CT_StimCheck, win=NMPanel, value=StimChainOn()
+	Checkbox CT_StatsCheck, win=NMPanel, value=StimStatsOn()
 	
 	Variable CurrentTab = NumVarOrDefault(tdf+"CurrentTab", 0)
 	
@@ -528,9 +435,10 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 	String slist, sname = "", newname = ""
 	String gdf, cdf = ClampDF(), sdf = StimDF()
 	
-	String CurrentStim = StimCurrent()
+	String currentStim = StimCurrent()
+	String currentFile = StrVarOrDefault(sdf+"CurrentFile", "")
 	
-	if (strlen(CurrentStim) > 0)
+	if (strlen(currentStim) > 0)
 		stimexists = 1
 	endif
 	
@@ -558,6 +466,17 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 			
 			break
 			
+		case "Reload":
+			
+			StimClose(cdf, currentStim)
+			sname = StimOpen(0, cdf, currentFile) // open without dialogue
+			
+			if (strlen(sname) == 0)
+				return 0
+			endif
+			
+			break
+			
 		case "Open All":
 			StimOpenAll(1, cdf, "StimPath")
 			break
@@ -571,19 +490,19 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 				return 0
 			endif
 			
-			if (ClampStatsOn() == 1)
+			if (StimStatsOn() == 1)
 				ClampStatsSave(sdf)
 			endif
 			
 			ClampGraphsCopy(-1, 1)
 			
-			sname = StimSave(ask, new, cdf, CurrentStim)
+			sname = StimSave(ask, new, cdf, currentStim)
 			
 			if (strlen(sname) == 0)
 				return 0 // cancel
 			endif
 			
-			if (StringMatch(sname, CurrentStim) == 1)
+			if (StringMatch(sname, currentStim) == 1)
 				return 0 // nothing to update
 			endif
 			
@@ -605,7 +524,7 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 				return 0
 			endif
 			
-			if (ClampStatsOn() == 1)
+			if (StimStatsOn() == 1)
 				ClampStatsSave(StimDF())
 			endif
 			
@@ -619,13 +538,13 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 		case "Kill":
 			
 			slist = NMFolderList(cdf,"NMStim")
-			slist = RemoveFromList(CurrentStim, slist)
+			slist = RemoveFromList(currentStim, slist)
 			
 			if (strlen(CurrentStim) == 0)
 				return 0
 			endif
 			
-			if (StimClose(cdf, CurrentStim) == -1)
+			if (StimClose(cdf, currentStim) == -1)
 				break
 			endif
 				
@@ -658,7 +577,7 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 				return 0
 			endif
 			
-			sname = CurrentStim + "_copy"
+			sname = currentStim + "_copy"
 			
 			Prompt sname, "new stimulus name:"
 			DoPrompt "Copy Stimulus Protocol", sname
@@ -667,7 +586,7 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 				return 0 // cancel
 			endif
 			
-			StimCopy(cdf, CurrentStim, sname)
+			StimCopy(cdf, currentStim, sname)
 			StimSetCurrent(sname)
 			
 			break
@@ -678,18 +597,18 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 				return 0
 			endif
 			
-			sname = CurrentStim
+			sname = currentStim
 			
 			Prompt sname, "rename stimulus as:"
 			DoPrompt "Rename Stimulus Protocol", sname
 			
-			if ((V_flag == 1) || (strlen(sname) == 0) || (StringMatch(sname, CurrentStim) == 1))
+			if ((V_flag == 1) || (strlen(sname) == 0) || (StringMatch(sname, currentStim) == 1))
 				return 0 // cancel
 			endif
 			
 			sname = FolderNameCreate(sname)
 			
-			if (StimRename(cdf, CurrentStim, sname) == 0)
+			if (StimRename(cdf, currentStim, sname) == 0)
 				StimSetCurrent(sname)
 			endif
 			
@@ -721,7 +640,7 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 			
 			break
 			
-		case "Stim Path":
+		case "Set Stim Path":
 			StimPathSet()
 			return 0
 			
@@ -822,14 +741,16 @@ Function ClampCheckBox(ctrlName, checked) : CheckBoxControl
 	
 	ClampError("")
 	
-	String cdf = ClampDF(), sdf = StimDF()
+	String sdf = StimDF()
 	
 	strswitch(ctrlName)
 	
 		case "CT_StimCheck":
-			SetNMvar(cdf+"AcqStimList", checked)
+			SetNMvar(sdf+"AcqStimChain", checked)
 			if (checked == 1)
-				ClampAcquireListEdit()
+				StimChainEdit()
+			else
+				ClampTabUpdate()
 			endif
 			break
 			
@@ -879,19 +800,19 @@ End // ClampButton
 
 Function ClampButtonDisable(mode)
 	Variable mode // (0) preview (1) record (-1) nothing
-	Variable preview, record
+	String pf = "", rf = ""
 
 	switch (mode)
 		case 0:
-			preview = 2
+			pf = "\\K(65280,0,0)"
 			break
 		case 1:
-			record = 2
+			rf = "\\K(65280,0,0)"
 			break
 	endswitch
 	
-	Button CT_StartPreview, win=NMPanel, disable=preview
-	Button CT_StartRecord, win=NMPanel, disable=record
+	Button CT_StartPreview, win=NMPanel, title=pf+"Preview"
+	Button CT_StartRecord, win=NMPanel, title=rf+"Record"
 
 End // ClampButtonDisable
 
@@ -924,6 +845,19 @@ Function ClampTabControl(name, tab)
 	endif
 
 End // ClampTabControl
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ClampTabName() // return current tab name
+	String tdf = ClampTabDF()
+
+	Variable tabnum = NumVarOrDefault(tdf+"CurrentTab", 0)
+	
+	return TabName(tabnum, StrVarOrDefault(tdf+"TabList", ""))
+
+End // ClampTabName
 
 //****************************************************************
 //****************************************************************
@@ -1525,7 +1459,7 @@ Function ADC(enable) // stim ADC input configure tab
 	
 	if ((enable == 1) && (IsStimFolder(cdf, CurrentStim) == 1))
 	
-		Variable config = NumVarOrDefault(tdf+"ADCnum", 0)
+		Variable config = NumVarOrDefault(tdf+"IOnum", 0)
 	
 		Wave active = $(sdf+"ADCon")
 		Wave mode = $(sdf+"ADCmode")
@@ -1537,24 +1471,34 @@ Function ADC(enable) // stim ADC input configure tab
 		Wave /T name = $(sdf+"ADCname")
 		Wave /T units = $(sdf+"ADCunits")
 		
-		SetNMvar(tdf+"ADCchan", chan[config])
-		SetNMvar(tdf+"ADCscale", scale[config])
-		SetNMvar(tdf+"ADCgain", gain[config])
-		SetNMstr(tdf+"ADCname", name[config])
+		SetNMvar(tdf+"IOchan", chan[config])
+		SetNMvar(tdf+"IOscale", scale[config])
+		SetNMvar(tdf+"IOgain", gain[config])
+		SetNMstr(tdf+"IOname", name[config])
+		
+		 IOdisable(0) // enable ADC controls
 		
 		// activate buttons
 		
 		for (icnt = 0; icnt < 6; icnt += 1)
-			if (active[icnt] == 1)
-				Button $("CT2_ADC"+num2str(icnt)), win=NMpanel, title=num2str(icnt)
-			else
-				Button $("CT2_ADC"+num2str(icnt)), win=NMpanel, title="x"
+		
+			tempstr = ""
+			
+			if (icnt == config)
+				tempstr += "\\f01"
 			endif
+			
+			if (active[icnt] == 1)
+				tempstr +=  "\\K(65280,0,0)"
+			endif
+			
+			Button $("CT2_IO"+num2str(icnt)), win=NMpanel, title=tempstr + num2str(icnt)
+			
 		endfor
 		
 		// Group box
 		
-		GroupBox CT2_ADCgrp, win=NMpanel, title = "Input Config " + num2str(config) 
+		GroupBox CT2_IOgrp, win=NMpanel, title = "Input Config " + num2str(config) 
 		
 		// board driver popup
 		
@@ -1566,22 +1510,22 @@ Function ADC(enable) // stim ADC input configure tab
 		
 		tempvar = 1 + ClampBoardListNum(tempvar)
 		
-		PopupMenu CT2_ADCboard, win=NMpanel,mode=(tempvar),value=StrVarOrDefault(ClampDF()+"BoardList", "")
+		PopupMenu CT2_IOboard, win=NMpanel,mode=(tempvar),value=StrVarOrDefault(ClampDF()+"BoardList", "")
 		
 		// units popup
 		
 		tempstr = units[config]
 		tempvar = WhichListItemLax(tempstr, StrVarOrDefault(tdf+"UnitsList", ""), ";") + 1
-		PopupMenu CT2_ADCunits, win=NMpanel,mode=(tempvar),value=StrVarOrDefault(ClampTabDF()+"UnitsList", "") + "Other...;"
+		PopupMenu CT2_IOunits, win=NMpanel,mode=(tempvar),value=StrVarOrDefault(ClampTabDF()+"UnitsList", "") + "Other...;"
 		
 		// scale
 		
 		tempstr = "scale (V/" + tempstr + "):"
-		SetVariable CT2_ADCscale, win=NMpanel, title=tempstr
+		SetVariable CT2_IOscale, win=NMpanel, title=tempstr
 		
 		// active checkbox
 	
-		Checkbox CT2_ADCactive, win=NMpanel, value=(active[config])
+		Checkbox CT2_IOactive, win=NMpanel, value=(active[config])
 		
 		// pre-samp checkbox
 		
@@ -1622,7 +1566,7 @@ Function StimPreSampCheckBox(ctrlName, checked) : CheckBoxControl
 	
 	String tdf = ClampTabDF(), sdf = StimDF()
 	
-	Variable config = NumVarOrDefault(tdf+"ADCnum", 0)
+	Variable config = NumVarOrDefault(tdf+"IOnum", 0)
 	
 	Wave mode = $(sdf+"ADCmode")
 	
@@ -1777,73 +1721,8 @@ End // StimFxnPopup
 Function DAC(enable) // stim DAC output configure tab
 	Variable enable
 	
-	Variable tempvar, icnt
-	String tempstr, cdf = ClampDF(), tdf = ClampTabDF(), sdf = StimDF()
+	OutEnable("DAC", enable)
 	
-	String CurrentStim = StimCurrent()
-	
-	if ((enable == 1) && (IsStimFolder(cdf, CurrentStim) == 1))
-	
-		Variable config = NumVarOrDefault(tdf+"DACnum", 0)
-	
-		Wave active = $(sdf+"DACon")
-		Wave board = $(sdf+"DACboard")
-		Wave chan = $(sdf+"DACchan")
-		Wave scale = $(sdf+"DACscale")
-		
-		Wave /T name = $(sdf+"DACname")
-		Wave /T units = $(sdf+"DACunits")
-		
-		SetNMvar(tdf+"DACchan", chan[config])
-		SetNMvar(tdf+"DACscale", scale[config])
-		SetNMstr(tdf+"DACname", name[config])
-		
-		// activate buttons
-		
-		for (icnt = 0; icnt < 6; icnt += 1)
-			if (active[icnt] == 1)
-				Button $("CT3_DAC"+num2str(icnt)), win=NMpanel, title=num2str(icnt)
-			else
-				Button $("CT3_DAC"+num2str(icnt)), win=NMpanel, title="x"
-			endif
-		endfor
-		
-		// Group box
-		
-		GroupBox CT3_DACgrp, win=NMpanel, title = "Output Config " + num2str(config)
-		
-		// board driver popup
-		
-		tempvar = board[config]
-	
-		if (tempvar == 0) // nothing selected
-			tempvar = NumVarOrDefault(cdf+"BoardDriver", 0) // default
-		endif
-		
-		tempvar = 1 + ClampBoardListNum(tempvar)
-		
-		PopupMenu CT3_DACboard, win=NMpanel,mode=(tempvar),value=StrVarOrDefault(ClampDF()+"BoardList", "")
-		
-		// units popup
-		
-		tempstr = units[config]
-		tempvar = WhichListItemLax(tempstr, StrVarOrDefault(tdf+"UnitsList", ""), ";") + 1
-		PopupMenu CT3_DACunits, win=NMpanel,mode=(tempvar),value=StrVarOrDefault(ClampTabDF()+"UnitsList", "") + "Other...;"
-		
-		// scale
-		
-		tempstr = "scale (" + tempstr + "/V):"
-		SetVariable CT3_DACscale, win=NMpanel, title=tempstr
-		
-		// active checkbox
-	
-		Checkbox CT3_DACactive, win=NMpanel, value=(active[config])
-		
-		PulseGraph(0)
-		PulseTableUpdate("", 0)
-		
-	endif
-
 End // DAC
 
 //****************************************************************
@@ -1853,40 +1732,68 @@ End // DAC
 Function TTL(enable) // stim TTL output configure tab
 	Variable enable
 	
+	OutEnable("TTL", enable)
+	
+End // TTL
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function OutEnable(io, enable) // stim DAC output configure tab
+	String io // "DAC" or "TTL"
+	Variable enable
+	
 	Variable tempvar, icnt
 	String tempstr, cdf = ClampDF(), tdf = ClampTabDF(), sdf = StimDF()
 	
 	String CurrentStim = StimCurrent()
 	
+	strswitch(io)
+		case "DAC":
+		case "TTL":
+			break
+		default:
+			return -1
+	endswitch
+	
 	if ((enable == 1) && (IsStimFolder(cdf, CurrentStim) == 1))
 	
-		Variable config = NumVarOrDefault(tdf+"TTLnum", 0)
+		Variable config = NumVarOrDefault(tdf+"IOnum", 0)
 	
-		Wave active = $(sdf+"TTLon")
-		Wave board = $(sdf+"TTLboard")
-		Wave chan = $(sdf+"TTLchan")
-		Wave scale = $(sdf+"TTLscale")
+		Wave active = $(sdf+io+"on")
+		Wave board = $(sdf+io+"board")
+		Wave chan = $(sdf+io+"chan")
+		Wave scale = $(sdf+io+"scale")
 		
-		Wave /T name = $(sdf+"TTLname")
-		Wave /T units = $(sdf+"TTLunits")
+		Wave /T name = $(sdf+io+"name")
+		Wave /T units = $(sdf+io+"units")
 		
-		SetNMvar(tdf+"TTLchan", chan[config])
-		SetNMvar(tdf+"TTLscale", scale[config])
-		SetNMstr(tdf+"TTLname", name[config])
+		SetNMvar(tdf+"IOchan", chan[config])
+		SetNMvar(tdf+"IOscale", scale[config])
+		SetNMstr(tdf+"IOname", name[config])
 		
 		// activate buttons
 		
 		for (icnt = 0; icnt < 6; icnt += 1)
-			if (active[icnt] == 1)
-				Button $("CT4_TTL"+num2str(icnt)), win=NMpanel, title=num2str(icnt)
-			else
-				Button $("CT4_TTL"+num2str(icnt)), win=NMpanel, title="x"
+			
+			tempstr = ""
+			
+			if (icnt == config)
+				tempstr += "\\f01"
 			endif
+			
+			if (active[icnt] == 1)
+				tempstr +=  "\\K(65280,0,0)"
+			endif
+			
+			Button $("CT2_IO"+num2str(icnt)), win=NMpanel, title=tempstr + num2str(icnt)
+			
 		endfor
 		
 		// Group box
 		
-		GroupBox CT4_TTLgrp, win=NMpanel, title = "Output Config " + num2str(config)
+		GroupBox CT2_IOgrp, win=NMpanel, title = "Output Config " + num2str(config)
 		
 		// board driver popup
 		
@@ -1898,18 +1805,47 @@ Function TTL(enable) // stim TTL output configure tab
 		
 		tempvar = 1 + ClampBoardListNum(tempvar)
 		
-		PopupMenu CT4_TTLboard, win=NMpanel,mode=(tempvar),value=StrVarOrDefault(ClampDF()+"BoardList", "")
+		PopupMenu CT2_IOboard, win=NMpanel,mode=(tempvar),value=StrVarOrDefault(ClampDF()+"BoardList", "")
+		
+		// units popup
+		
+		tempstr = units[config]
+		tempvar = WhichListItemLax(tempstr, StrVarOrDefault(tdf+"UnitsList", ""), ";") + 1
+		PopupMenu CT2_IOunits, win=NMpanel,mode=(tempvar),value=StrVarOrDefault(ClampTabDF()+"UnitsList", "") + "Other...;"
+		
+		// scale
+		
+		tempstr = "scale (" + tempstr + "/V):"
+		SetVariable CT2_IOscale, win=NMpanel, title=tempstr
 		
 		// active checkbox
 	
-		Checkbox CT4_TTLactive, win=NMpanel, value=(active[config])
+		Checkbox CT2_IOactive, win=NMpanel, value=(active[config])
+		
+		IOdisable(1) // disable ADC controls
 		
 		PulseGraph(0)
 		PulseTableUpdate("", 0)
 		
 	endif
 
-End // TTL
+End // OutEnable
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function IOdisable(dFlag)
+	Variable dFlag
+	
+	Checkbox CT2_ADCpresamp, win=NMPanel, disable=dFlag
+	SetVariable CT2_IOgain, win=NMPanel, disable=dFlag
+	PopupMenu CT2_PreAnalysis, win=NMPanel, disable=dFlag
+	PopupMenu CT2_InterAnalysis, win=NMPanel, disable=dFlag
+	PopupMenu CT2_PostAnalysis, win=NMPanel, disable=dFlag
+	SetVariable CT2_ADCprefix, win=NMPanel, disable=dFlag
+
+End // IOenable
 
 //****************************************************************
 //****************************************************************
@@ -1921,9 +1857,9 @@ Function StimActivateCheckBox(ctrlName, checked) : CheckBoxControl
 	ClampError("")
 	
 	String tdf = ClampTabDF()
-	String io = ctrlName[4,6]
+	String io = ClampTabName()
 	
-	Variable config = NumVarOrDefault(tdf+io+"num", 0)
+	Variable config = NumVarOrDefault(tdf+"IOnum", 0)
 	
 	StimActivate(io, config, checked)
 	
@@ -1941,12 +1877,13 @@ Function StimActivateButton(ctrlName) : ButtonControl
 	ClampError("")
 	
 	String tdf = ClampTabDF()
-	String io = ctrlName[4,6]
+	String io = ClampTabName()
 	
-	Variable config = str2num(ctrlName[7,7])
+	Variable j = strlen(ctrlName) - 1
+	Variable config = str2num(ctrlName[j, j])
 	
-	SetNMvar(tdf+io+"num", config)
-	StimActivate(io, config, 1)
+	SetNMvar(tdf+"IOnum", config)
+	//StimActivate(io, config, 1)
 	
 	Execute /Z io + "(1)" // update tab
 	
@@ -2003,7 +1940,7 @@ Function PulseTableButton(ctrlName) : ButtonControl
 	
 	ClampError("")
 	
-	StimConfigTable(StimDF(), ctrlName[4,6], 1)
+	StimConfigTable(StimDF(), ClampTabName(), 1)
 	
 End // PulseTableButton
 
@@ -2018,9 +1955,9 @@ Function StimBoardPopup(ctrlName, popNum, popStr) : PopupMenuControl
 	
 	String tdf = ClampTabDF(), sdf = StimDF()
 	
-	String io = ctrlName[4,6]
+	String io = ClampTabName()
 	
-	Variable config = NumVarOrDefault(tdf+io+"num", 0)
+	Variable config = NumVarOrDefault(tdf+"IOnum", 0)
 	
 	strswitch(io)
 		Case "Tau":
@@ -2052,9 +1989,9 @@ Function StimUnitsPopup(ctrlName, popNum, popStr) : PopupMenuControl
 	
 	String tdf = ClampTabDF(), sdf = StimDF()
 	
-	String io = ctrlName[4,6]
+	String io = ClampTabName()
 	
-	Variable config = NumVarOrDefault(tdf+io+"num", 0)
+	Variable config = NumVarOrDefault(tdf+"IOnum", 0)
 	
 	Wave /T units = $(sdf+io+"units")
 	
@@ -2098,54 +2035,64 @@ Function StimSetVar(ctrlName, varNum, varStr, varName) : SetVariableControl
 	
 	ClampError("")
 	
-	String tdf = ClampTabDF(), sdf = StimDF()
+	String wname
+	String tdf = ClampTabDF(), sdf = StimDF(), io = ClampTabName()
 	
-	String io = ctrlName[4,6]
-	
-	Variable config = NumVarOrDefault(tdf+io+"num", 0)
+	Variable config = NumVarOrDefault(tdf+"IOnum", 0)
 	
 	StimRedimenWaves(sdf, io, config + 1) // redimension if necessary
 	
 	strswitch(ctrlName[4,inf])
 	
-		case "DACchan":
-		case "TTLchan":
-		case "ADCchan":
-			Wave chan = $(sdf+ctrlName[4,inf])
-			chan[config] = varNum
-			StimCheckChannels()
+		case "IOchan":
+			wname = sdf + io + "chan"
+			if (WaveExists($wname) == 1)
+				Wave chan = $wname
+				chan[config] = varNum
+				StimCheckChannels()
+			endif
 			break
 			
-		case "DACscale":
-		case "TTLscale":
-			SetNMvar(sdf+"UpdateStim", 1)
-		case "ADCscale":
+		case "IOscale":
+		
+			if (StringMatch(io, "ADC") == 0)
+				SetNMvar(sdf+"UpdateStim", 1)
+			endif
+			
 			if ((numtype(varNum) > 0) || (varNum <= 0))
 				varNum = 1
 			endif
-			Wave scale = $(sdf+ctrlName[4,inf])
-			scale[config] = varNum
+			
+			wname = sdf + io + "scale"
+			
+			if (WaveExists($wname) == 1)
+				Wave scale = $wname
+				scale[config] = varNum
+			endif
+			
 			break
 			
-		case "ADCgain":
-			Wave gain = $(sdf+ctrlName[4,inf])
-			gain[config] = varNum
+		case "IOgain":
+			wname = sdf + io + "gain"
+			if (WaveExists($wname) == 1)
+				Wave gain = $wname
+				gain[config] = varNum
+			endif
 			break
 			
 		case "ADCprefix":
 			SetNMstr(sdf+"WavePrefix", varStr)
 			break
 		
-		case "DACname":
-		case "TTLname":
-		case "ADCname":
-			Wave /T name = $(sdf+ctrlName[4,inf])
-			name[config] = varStr
+		case "IOname":
+			wname = sdf + io + "name"
+			if (WaveExists($wname) == 1)
+				Wave /T name = $wname
+				name[config] = varStr
+			endif
 			break
 		
-		case "DACnum":
-		case "TTLnum":
-		case "ADCnum":
+		case "IOnum":
 			break
 			
 	endswitch
@@ -2282,7 +2229,7 @@ Function PG(enable) // stim pulse generator tab
 			PopupMenu CT5_WavePrefix,win=NMpanel,mode=1,value="no outputs;"
 		else
 			md = WhichListItemLax(wPrefix, wlist, ";") + 1
-			PopupMenu CT5_WavePrefix,win=NMpanel,mode=md,value=StimPrefixListAll(StimDF())
+			PopupMenu CT5_WavePrefix,win=NMpanel,mode=md,value=StimNameListAll(StimDF())
 		endif
 		
 		Checkbox CT5_PulseOff, win=NMpanel, value=NumVarOrDefault(sdf+"PulseGenOff", 0)
@@ -2291,19 +2238,7 @@ Function PG(enable) // stim pulse generator tab
 		
 		GroupBox CT5_PulseGrp, win=NMpanel, title = "Pulse Config ( n = " + num2str(PulseCount(sdf,wPrefix)) + " )"
 		
-		Variable allwaves = NumVarOrDefault(tdf+"PulseAllWaves", 1)
-		
 		Checkbox CT5_Display, win=NMpanel, value=NumVarOrDefault(tdf+"PulseDisplay", 1)
-		Checkbox CT5_AllOutputs, win=NMpanel, value=NumVarOrDefault(tdf+"PulseAllOutputs", 0)
-		Checkbox CT5_AllWaves, win=NMpanel, value=allwaves
-		SetVariable CT5_WaveNum, win=NMpanel, limits={0,numStimWaves-1,1}
-		
-		if (allwaves == 1)
-			SetNMvar(tdf+"PulseWaveNum", 0)
-			SetVariable CT5_WaveNum, win=NMpanel, noedit = 1, limits={0,numStimWaves-1,0}
-		else
-			SetVariable CT5_WaveNum, win=NMpanel, noedit = 0, limits={0,numStimWaves-1,1}
-		endif
 		
 		PulseGraph(1)
 		PulseTableManager(0)
@@ -2321,13 +2256,23 @@ End // PG
 Function PulsePrefixPopup(ctrlName, popNum, popStr) : PopupMenuControl
 	String ctrlName; Variable popNum; String popStr
 	
+	Variable icnt
+	
 	ClampError("")
 	
 	String tdf = ClampTabDF()
 	
 	if (strlen(popStr) > 0)
+	
+		icnt = strsearch(popStr," : ",0)
+		
+		if (icnt >= 0)
+			popStr = popStr[0,icnt-1]
+		endif
+		
 		SetNMstr(tdf+"PulsePrefix", popStr)
 		PG(1)
+		
 	endif
 	
 End // PulsePrefixPopup
@@ -2514,10 +2459,6 @@ Function PulseEditDAC(pulseNum)
 		wlist = AddListItem("Wave"+num2str(icnt), wlist, ";", inf)
 	endfor
 	
-	if (nwaves > 1)
-		wlist += "All;"
-	endif
-	
 	Variable sh = NumVarOrDefault(tdf+"PulseShape", 1)
 	Variable wn = 1 + NumVarOrDefault(tdf+"PulseWaveN", 0)
 	Variable wnd = NumVarOrDefault(tdf+"PulseWaveND", 0)
@@ -2530,9 +2471,14 @@ Function PulseEditDAC(pulseNum)
 	Variable t2 = NumVarOrDefault(tdf+"PulseTau2", 0)
 	Variable t2d = NumVarOrDefault(tdf+"PulseTau2D", 0)
 	
+	if (nwaves > 1)
+		wlist += "All;"
+		wn = ItemsInList(wlist)
+	endif
+	
 	Prompt sh, "pulse shape:", popup shlist
 	Prompt wn, "add pulse to output wave:", popup wlist
-	Prompt wnd, "optional wave delta: (1) every wave after, (2) every other wave after..."
+	Prompt wnd, "optional wave delta: (1) every wave, (2) every other wave..."
 	Prompt am, "amplitude:"
 	Prompt amd, "amplitude delta:"
 	Prompt on, "onset time (ms):"
@@ -2825,6 +2771,7 @@ Function PulseTrainCall()
 		Prompt tbeg, "time window begin (ms):"
 		Prompt intvl, "mean inter-pulse interval (ms):"
 		DoPrompt "Make Pulse Train", shape, tbeg, tend, intvl, refrac
+		wnd = 0
 	endif
 	
 	if (V_flag == 1)
@@ -3094,6 +3041,7 @@ Function PulseGraph(force)
 	String sdf = StimDF() // stim data folder
 	
 	Variable x0 = 90, y0 = 5, xinc = 150
+	Variable madeGraph
 	
 	String titlestr, yLabel, io = "All"
 	String wName, wList, wPrefix, wPrefixList
@@ -3102,6 +3050,9 @@ Function PulseGraph(force)
 	
 	String gName = "PG_PulseGraph"
 	String gTitle = StimCurrent()
+	String Computer = StrVarOrDefault(NMDF()+"Computer", "mac")
+	
+	Variable numStimWaves = NumVarOrDefault(sdf+"NumStimWaves", 1)
 	
 	Variable tabnum = NumVarOrDefault(tdf+"CurrentTab", 0)
 	
@@ -3112,6 +3063,10 @@ Function PulseGraph(force)
 	
 	if (dsply == 0)
 		DoWindow /K $gName
+		return 0
+	endif
+	
+	if (StimChainOn() == 1)
 		return 0
 	endif
 	
@@ -3174,7 +3129,39 @@ Function PulseGraph(force)
 		
 		SetNMstr(tdf+"PulsePrefix", wPrefix)
 
-		PulseGraphUpdate(tdf, wlist) // NM_PulseGen.ipf
+		madeGraph = PulseGraphUpdate(tdf, wlist) // NM_PulseGen.ipf
+		
+		if (madeGraph == 1)
+		
+			ModifyGraph margin(left)=60, margin(right)=0, margin(top)=19, margin(bottom)=0
+			
+			if (StringMatch(computer, "mac") == 1)
+				y0 = 3
+			endif
+			
+			Checkbox CT5_AllOutputs, pos={150,y0}, title="all outputs", size={16,18}, proc=PulseCheckBox
+			Checkbox CT5_AllOutputs, value=0
+	
+			Checkbox CT5_AllWaves, pos={300,y0}, title="all waves", size={16,18}, proc=PulseCheckBox
+			Checkbox CT5_AllWaves, value=1
+	
+			SetVariable CT5_WaveNum, title="wave", pos={450,y0-1}, size={80,50}, limits={0,inf,1}
+			SetVariable CT5_WaveNum, value=$(tdf+"PulseWaveNum"), proc=PulseSetVar
+			
+		else
+		
+			Checkbox CT5_AllOutputs, win=PG_PulseGraph, value=NumVarOrDefault(tdf+"PulseAllOutputs", 0)
+			Checkbox CT5_AllWaves, win=PG_PulseGraph, value=allwaves
+			SetVariable CT5_WaveNum, win=PG_PulseGraph, limits={0,numStimWaves-1,1}
+		
+			if (allwaves == 1)
+				SetNMvar(tdf+"PulseWaveNum", 0)
+				SetVariable CT5_WaveNum, win=PG_PulseGraph, noedit = 1, limits={0,numStimWaves-1,0}
+			else
+				SetVariable CT5_WaveNum, win=PG_PulseGraph, noedit = 0, limits={0,numStimWaves-1,1}
+			endif
+			
+		endif
 	
 		yLabel = StimConfigStr(sdf, wPrefix, "name")
 		

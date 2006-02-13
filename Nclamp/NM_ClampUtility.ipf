@@ -1,13 +1,13 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Clamp Acquisition Utility Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro 4
 //
@@ -20,7 +20,7 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 29 Nov 2004
+//	Last modified 8 Feb 2006
 //
 //****************************************************************
 //****************************************************************
@@ -35,7 +35,7 @@ End
 //****************************************************************
 
 Function /S ClampUtilityInterList()
-	return "OnlineAvg;Rstep;TempRead;"
+	return "OnlineAvg;Rstep;RCstep;TempRead;"
 End
 
 //****************************************************************
@@ -55,7 +55,7 @@ End
 //****************************************************************
 
 Function OnlineAvg(mode)
-	Variable mode // (0) run function (1) config function (-1) kill fxn
+	Variable mode // (0) run fxn (1) config fxn (-1) kill fxn
 	
 	Variable ccnt, cbeg, cend
 	String wname, avgname, gname, sdf = StimDF()
@@ -158,7 +158,7 @@ End // OnlineAvgConfig
 //****************************************************************
 
 Function TModeCheck(mode)
-	Variable mode // (0) run function (1) config function (-1) kill fxn
+	Variable mode // (0) run fxn (1) config fxn (-1) kill fxn
 	
 	Variable telValue
 	String tmode, cdf = ClampDF(), sdf = StimDF()
@@ -243,7 +243,7 @@ End // TModeCheckConfig
 //****************************************************************
 
 Function ReadTemp(mode)
-	Variable mode // (0) run function (1) config function (-1) kill fxn
+	Variable mode // (0) run fxn (1) config fxn (-1) kill fxn
 	
 	Variable telValue
 	String cdf = ClampDF(), sdf = StimDF()
@@ -282,7 +282,7 @@ End // ReadTemp
 //****************************************************************
 
 Function TempRead(mode)
-	Variable mode // (0) run function (1) config function (-1) kill fxn
+	Variable mode // (0) run fxn (1) config fxn (-1) kill fxn
 	
 	Variable telValue
 	String cdf = ClampDF(), sdf = StimDF()
@@ -371,26 +371,29 @@ End // ReadTempConfig
 //****************************************************************
 
 Function Rstep(mode)
-	Variable mode // (0) run function (1) config function (-1) kill fxn
+	Variable mode // (0) run fxn (1) config fxn (-1) kill fxn
 	
-	Variable ADCchan, DACchan, tbgn, tend, scale
-	Variable chan, base, output, input, r
+	Variable chan, base, output, input, tscale = 1
+	Variable /G CT_Rstep
 	String outName, inName, gname
 	String cdf = ClampDF(), sdf = StimDF()
 	
 	if (mode == 1)
 		RstepConfig()
+		return 0
 	elseif (mode == -1)
 		return 0
 	endif
 	
-	ADCchan = NumVarOrDefault(sdf+"RstepADC", Nan)
-	DACchan = NumVarOrDefault(sdf+"RstepDAC", Nan)
-	tbgn = NumVarOrDefault(sdf+"RstepTbgn", Nan)
-	tend = NumVarOrDefault(sdf+"RstepTend", Nan)
-	scale = NumVarOrDefault(sdf+"RstepScale", Nan)
+	Variable ADCconfig = NumVarOrDefault(sdf+"RstepADC", Nan)
+	Variable DACconfig = NumVarOrDefault(sdf+"RstepDAC", Nan)
+	Variable tbgn = NumVarOrDefault(sdf+"RstepTbgn", Nan)
+	Variable tend = NumVarOrDefault(sdf+"RstepTend", Nan)
+	Variable scale = NumVarOrDefault(sdf+"RstepScale", Nan)
 	
-	if (numtype(ADCchan*DACchan*tbgn*tend*scale) > 0)
+	String board = StrVarOrDefault(cdf+"AcqBoard", "")
+	
+	if (numtype(ADCconfig*DACconfig*tbgn*tend*scale) > 0)
 		return 0
 	endif
 	
@@ -398,9 +401,9 @@ Function Rstep(mode)
 	
 	Variable grp = NumVarOrDefault("CurrentGrp", 0)
 	
-	outName = sdf + "DAC_" + num2str(DACchan) + "_" + num2str(grp)
+	outName = sdf + "DAC_" + num2str(DACconfig) + "_" + num2str(grp)
 	
-	chan = WhichListItem(num2str(ADCchan), ADClist, ";")
+	chan = WhichListItem(num2str(ADCconfig), ADClist, ";")
 	
 	inName = GetWaveName("default", chan, 0)
 	
@@ -408,15 +411,19 @@ Function Rstep(mode)
 		return -1
 	endif
 	
-	WaveStats /Q/R=(0,2) $outName
+	if (StringMatch(board, "NIDAQ") == 1)
+		tscale = 0.001 // convert to seconds for NIDAQ boards
+	endif
+	
+	WaveStats /Q/R=(0*tscale,2*tscale) $outName
 	
 	base = V_avg
 	
-	WaveStats /Q/R=(tbgn, tend) $outName
+	WaveStats /Q/R=(tbgn*tscale, tend*tscale) $outName
 	
 	output = abs(V_avg - base)
 	
-	WaveStats /Q/R=(0,2) $inName
+	WaveStats /Q/R=(0,1) $inName
 	
 	base = V_avg
 	
@@ -425,17 +432,17 @@ Function Rstep(mode)
 	input = abs(V_avg - base)
 	
 	if (scale < 0)
-		r = -1 * output * scale / input
+		CT_Rstep = -1 * output * scale / input
 	else
-		r = input * scale / output
+		CT_Rstep = input * scale / output
 	endif
 	
-	r = round(r * 100) / 100
+	CT_Rstep = round(CT_Rstep * 100) / 100
 	
 	gName = ChanGraphName(chan)
 	outName = GetWaveName("Display", chan, 0)
 	
-	Tag /C/W=$gname/N=Rtag bottom, tend, num2str(r) + " Mohms"
+	Tag /C/W=$gname/N=Rtag bottom, tend, num2str(CT_Rstep) + " Mohms"
 	
 End // Rstep
 
@@ -446,7 +453,7 @@ End // Rstep
 Function RstepConfig()
 	String cdf = ClampDF(), sdf = StimDF()
 	
-	Variable ADCchan, DACchan, tbgn, tend, scale
+	Variable ADCconfig, DACconfig, tbgn, tend, scale
 	String ADCstr, DACstr, ADCunit, DACunit
 	
 	String ADClist = StimOnList(sdf, "ADC")
@@ -465,20 +472,20 @@ Function RstepConfig()
 		return 0
 	endif
 	
-	ADCchan = str2num(StringFromList(0, ADClist))
-	DACchan = str2num(StringFromList(0, DAClist))
+	ADCconfig = str2num(StringFromList(0, ADClist))
+	DACconfig = str2num(StringFromList(0, DAClist))
 	
-	ADCchan = NumVarOrDefault(sdf+"RstepADC", ADCchan)
-	DACchan = NumVarOrDefault(sdf+"RstepDAC", DACchan)
+	ADCconfig = NumVarOrDefault(sdf+"RstepADC", ADCconfig)
+	DACconfig = NumVarOrDefault(sdf+"RstepDAC", DACconfig)
 	tbgn = NumVarOrDefault(sdf+"RstepTbgn", 0)
 	tend = NumVarOrDefault(sdf+"RstepTend", 5)
 	scale = NumVarOrDefault(sdf+"RstepScale", 1)
 	
-	ADCstr = num2str(ADCchan)
-	DACstr = num2str(DACchan)
+	ADCstr = num2str(ADCconfig)
+	DACstr = num2str(DACconfig)
 
-	Prompt ADCstr, "ADC input channel to measure:", popup ADClist
-	Prompt DACstr, "DAC output channel to measure:", popup DAClist
+	Prompt ADCstr, "ADC input configuration to measure:", popup ADClist
+	Prompt DACstr, "DAC output configuration to measure:", popup DAClist
 	Prompt tbgn, "measure time begin:"
 	Prompt tend, "measure time end:"
 	DoPrompt "Compute Rstepance", ADCstr, DACstr, tbgn, tend
@@ -487,11 +494,11 @@ Function RstepConfig()
 		return 0 // cancel
 	endif
 	
-	ADCchan = str2num(ADCstr)
-	DACchan = str2num(DACstr)
+	ADCconfig = str2num(ADCstr)
+	DACconfig = str2num(DACstr)
 	
-	SetNMvar(sdf+"RstepADC", ADCchan)
-	SetNMvar(sdf+"RstepDAC", DACchan)
+	SetNMvar(sdf+"RstepADC", ADCconfig)
+	SetNMvar(sdf+"RstepDAC", DACconfig)
 	SetNMvar(sdf+"RstepTbgn", tbgn)
 	SetNMvar(sdf+"RstepTend", tend)
 	
@@ -500,8 +507,8 @@ Function RstepConfig()
 	Wave /T ADCunits = $(sdf+"ADCunits")
 	Wave /T DACunits = $(sdf+"DACunits")
 	
-	ADCstr = ADCunits[ADCchan]
-	DACstr = DACunits[DACchan]
+	ADCstr = ADCunits[ADCconfig]
+	DACstr = DACunits[DACconfig]
 	
 	ADCunit = ADCstr[strlen(ADCstr)-1,inf]
 	DACunit = DACstr[strlen(DACstr)-1,inf]
@@ -519,9 +526,9 @@ Function RstepConfig()
 	DACunit = DACstr[0,strlen(DACstr)-2]
 	
 	if (scale == 1) // compute appropriate scale to get Mohms
-		scale *= 1e-6 * MetricValue(ADCunit) / (MetricValue(DACunits) * DACscale[DACchan])
+		scale *= 1e-6 * MetricValue(ADCunit) / (MetricValue(DACunits) * DACscale[DACconfig])
 	else
-		scale *= 1e-6 * MetricValue(DACunits) *  DACscale[DACchan] / MetricValue(ADCunits)
+		scale *= 1e-6 * MetricValue(DACunits) *  DACscale[DACconfig] / MetricValue(ADCunits)
 	endif
 	
 	SetNMvar(sdf+"RstepScale", scale)
@@ -558,6 +565,324 @@ Function MetricValue(prefix)
 	endswitch
 	
 End // MetricValue
+
+//****************************************************************
+//
+//	RCstep()
+//	measure resistance and capacitence of cell membrane
+//
+//****************************************************************
+
+Function RCstep(mode)
+	Variable mode // (0) run fxn (1) config fxn (-1) kill fxn
+	
+	Variable toffset = 0.02 // time after step to start curve fit
+	
+	Variable fbgn, fend
+	Variable chan, base, vstep, input, tbase, tscale = 1, negstep = 0
+	Variable Ipeak, Iss, tau, Rp, Rm, Cm
+	
+	String outName, inName, inName2, gname
+	String cdf = ClampDF(), sdf = StimDF()
+	
+	if (mode == 1)
+		RCstepConfig()
+		//return 0
+	elseif (mode == -1)
+		return 0
+	endif
+	
+	Variable currentWave = NumVarOrDefault("CurrentWave", 0)
+	Variable nwaves = NumVarOrDefault("NumWaves", 0)
+	Variable grp = NumVarOrDefault("CurrentGrp", 0)
+	
+	Variable ADCconfig = NumVarOrDefault(sdf+"RCstepADC", Nan)
+	Variable DACconfig = NumVarOrDefault(sdf+"RCstepDAC", Nan)
+	Variable tbgn = NumVarOrDefault(sdf+"RCstepTbgn", Nan)
+	Variable tend = NumVarOrDefault(sdf+"RCstepTend", Nan)
+	Variable scale = NumVarOrDefault(sdf+"RCstepScale", Nan)
+	
+	Variable dsply = NumVarOrDefault(sdf+"RCstepDisplay", 1)
+	
+	String ADClist = StimOnList(sdf, "ADC")
+	String board = StrVarOrDefault(cdf+"AcqBoard", "")
+	
+	if (numtype(ADCconfig*DACconfig*tbgn*tend*scale) > 0)
+		return 0 // bad parameters
+	endif
+	
+	if (StringMatch(board, "NIDAQ") == 1)
+		tscale = 0.001 // convert to seconds for NIDAQ boards
+	endif
+	
+	if (CurrentWave == 0)
+		Make /O/N=(nwaves) CT_Cm
+		Make /O/N=(nwaves) CT_Rm
+		Make /O/N=(nwaves) CT_Rp
+		CT_Cm = Nan
+		CT_Rm = Nan
+		CT_Rp = Nan
+	else
+		Wave CT_Cm, CT_Rm, CT_Rp
+	endif
+	
+	outName = sdf + "DAC_" + num2str(DACconfig) + "_" + num2str(grp)
+	
+	chan = WhichListItem(num2str(ADCconfig), ADClist, ";")
+	
+	inName = ChanDisplayWave(chan)
+	
+	if ((WaveExists($outName) == 0) || (WaveExists($inName) == 0))
+		return -1
+	endif
+	
+	tbase = tbgn - 0.5
+	
+	WaveStats /Q/R=(0, tbase) $outName // baseline
+	
+	base = V_avg // should be zero
+	
+	WaveStats /Q/R=(tbgn*tscale, tend*tscale) $outName
+	
+	vstep = abs(V_avg - base)
+	
+	if (V_avg < base)
+		negstep = 1
+	endif
+	
+	WaveStats /Q/R=(tbgn*tscale, tend*tscale) $inName
+	
+	//fbgn = tbgn
+	
+	if (negstep == 1)
+		fbgn = V_minloc + toffset
+	else
+		fbgn = V_maxloc + toffset
+	endif
+	
+	fend = tend
+	
+	gName = ChanGraphName(chan)
+	inName2 = GetWaveName("Display", chan, 0)
+	
+	// prepare graph and do curve fit
+	
+	DoWindow /F $gName
+	
+	if (CurrentWave == 0)
+		ShowInfo /W=$gName
+		Cursor /W=$gName A, $inName2, fbgn
+		Cursor /W=$gName B, $inName2, fend
+	endif
+	
+	Wave wtemp = $ChanDisplayWave(chan)
+	
+	WaveStats /Q/R=(0, tbase) wtemp // baseline
+	
+	base = V_avg
+	
+	if (WaveExists(RCparams) == 0)
+		Make /N=4 RCparams
+	endif
+	
+	Wave RCparams
+	
+	RCparams[0] = tbgn
+	RCparams[1] = V_avg
+	RCparams[3] = (fend - fbgn)  / 4
+	
+	if (negstep == 1)
+		RCparams[2] = V_min // probably a negative transient
+	else
+		RCparams[2] = V_max // probably a positive transient
+	endif
+	
+	FuncFit /Q/W=0/H="1000"/N RCfit RCparams wtemp(fbgn, fend) /D
+	
+	// save results 
+	
+	Ipeak = abs(RCparams[1] + RCparams[2] - base)
+	Iss = abs(RCparams[1] - base)
+	tau = 1 / RCparams[3]
+	
+	Rp = Vstep * scale / Ipeak // recording pipette
+	Rm = (Vstep * scale / Iss) - Rp // membrane resistance
+	Cm = (tau / 0.001) * ( 1 / Rp + 1 / Rm) // membrane cap
+	
+	CT_Rp[CurrentWave] = Rp
+	CT_Rm[CurrentWave] = Rm
+	CT_Cm[CurrentWave] = Cm
+	
+	if (dsply == 1)
+		Print "\r" + inName
+		//Print "Ipeak = " + num2str(Ipeak)
+		//Print "Iss = " + num2str(Iss)
+		//Print "Tau = " + num2str(tau)
+		Print "Rp = " + num2str(Rp)
+		Print "Rm = " + num2str(Rm)
+		Print "Cm = " + num2str(Cm)
+	elseif (dsply == 2)
+		RCstepDisplay()
+	endif
+	
+End // RCstep
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function RCstepDisplay()
+	
+	Variable num, inc = 10
+	Variable currentWave = NumVarOrDefault("CurrentWave", 0)
+	Variable numWaves = NumVarOrDefault("NumWaves", 0)
+	
+	String gName = "ClampRC"
+	
+	String cdf = ClampDF(), stdf = StatsDF()
+	
+	if (WinType(gName) == 0)
+	
+		Display /K=1/W=(0,0,200,100) CT_Rp, CT_Rm as "Nclamp RC Estimation"
+		DoWindow /C $gName
+		
+		AppendToGraph /R=Cm /W=$gName CT_Cm
+		
+		Label /W=$gName bottom StrVarOrDefault("WavePrefix", "Wave")
+		Label /W=$gName left "MOhm"
+		Label /W=$gName Cm "pF"
+		
+		SetAxis /W=$gName bottom 0,10
+		
+		ModifyGraph /W=$gName mode=4
+		ModifyGraph /W=$gName marker(CT_Rp)=5, rgb(CT_Rp)=(0,0,39168)
+		ModifyGraph /W=$gName marker(CT_Rm)=16, rgb(CT_Rm)=(0,0,39168)
+		ModifyGraph /W=$gName marker(CT_Cm)=19, rgb(CT_Cm)=(65280,0,0)
+		
+		ModifyGraph axRGB(Cm)=(65280,0,0),alblRGB(Cm)=(65280,0,0)
+		
+		Legend/C/N=text0/A=LT
+			
+	endif
+	
+	if ((currentWave > 0) && (WinType(gName) == 1))
+		num = inc * (1 + floor(currentWave / inc))
+		num = min(numwaves, num)
+		SetAxis /Z/W=$gName bottom 0, num
+	endif
+
+End // RCstepDisplay
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function RCfit(w,x) : FitFunc
+	Wave w
+	Variable x
+	Variable y
+	
+	if (numpnts(w) !=4)
+		return Nan
+	endif
+	
+	// w[0] = t0
+	// w[1] = Yss
+	// w[2] = Y0
+	// w[3] = invTau
+	
+	y = w[1] + w[2] * exp(-(x - w[0]) * w[3])
+	
+	if ((x < w[0]) || (numtype(y) > 0))
+		return 0
+	else
+		return y
+	endif
+	
+End // RCfit
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function RCstepConfig()
+	String cdf = ClampDF(), sdf = StimDF()
+
+	Variable scale = 1
+	String ADCstr, DACstr, ADCunit, DACunit
+	
+	String ADClist = StimOnList(sdf, "ADC")
+	String DAClist = StimOnList(sdf, "DAC")
+	
+	Variable ADCcount = ItemsInList(ADClist)
+	Variable DACcount = ItemsInList(DAClist)
+	
+	if (ADCcount == 0)
+		ClampError("No ADC input channels to measure.")
+		return 0
+	endif
+	
+	if (DACcount == 0)
+		ClampError("No DAC output channels to measure.")
+		return 0
+	endif
+	
+	Variable ADCconfig = str2num(StringFromList(0, ADClist))
+	Variable DACconfig = str2num(StringFromList(0, DAClist))
+	
+	ADCconfig = NumVarOrDefault(sdf+"RCstepADC", ADCconfig)
+	DACconfig = NumVarOrDefault(sdf+"RCstepDAC", DACconfig)
+	
+	Variable tbgn = NumVarOrDefault(sdf+"RCstepTbgn", 0)
+	Variable tend = NumVarOrDefault(sdf+"RCstepTend", 5)
+	
+	Variable dsply = NumVarOrDefault(sdf+"RCstepDisplay", 2)
+	
+	ADCstr = num2str(ADCconfig)
+	DACstr = num2str(DACconfig)
+
+	Prompt ADCstr, "ADC input configuration to measure (pA):", popup ADClist
+	Prompt DACstr, "DAC output configuration to measure (mV):", popup DAClist
+	Prompt tbgn, "DAC step time begin:"
+	Prompt tend, "DAC step time end:"
+	Prompt dsply, "display results in:", popup "Igor history;graph;"
+	DoPrompt "Compute Membrane R and C", ADCstr, DACstr, tbgn, tend, dsply
+	
+	if (V_flag == 1)
+		return 0 // cancel
+	endif
+	
+	ADCconfig = str2num(ADCstr)
+	DACconfig = str2num(DACstr)
+	
+	SetNMvar(sdf+"RCstepADC", ADCconfig)
+	SetNMvar(sdf+"RCstepDAC", DACconfig)
+	SetNMvar(sdf+"RCstepTbgn", tbgn)
+	SetNMvar(sdf+"RCstepTend", tend)
+	SetNMvar(sdf+"RCstepDisplay", dsply)
+	
+	Wave DACscale = $(sdf+"DACscale")
+	
+	Wave /T ADCunits = $(sdf+"ADCunits")
+	Wave /T DACunits = $(sdf+"DACunits")
+	
+	ADCstr = ADCunits[ADCconfig]
+	DACstr = DACunits[DACconfig]
+	
+	ADCunit = ADCstr[strlen(ADCstr)-1,inf]
+	DACunit = DACstr[strlen(DACstr)-1,inf]
+	
+	if ((StringMatch(ADCunit,"A") == 1) && (StringMatch(DACunit,"V") == 1))
+		ADCunit = ADCstr[0,strlen(ADCstr)-2]
+		DACunit = DACstr[0,strlen(DACstr)-2]
+		scale = 1e-6 * MetricValue(DACunits) *  DACscale[DACconfig] / MetricValue(ADCunits)
+	else
+		DoAlert 0, "RCStep warning: input / output units do not appear to be correct. This function works only in voltage-clamp mode."
+	endif
+	
+	SetNMvar(sdf+"RCstepScale", scale)
+
+End // RCstepConfig
 
 //****************************************************************
 //

@@ -1,19 +1,19 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Folder Functions
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 30 Nov 2004
+//	Last modified 30 Jan 2006
 //
 //****************************************************************
 //****************************************************************
@@ -34,6 +34,10 @@ Function NMFolderCall(select)
 			
 		case "Open All":
 			NMFolderOpenAll()
+			break
+		
+		case "Append All":
+			NMFolderAppendAll()
 			break
 			
 		case "Append":
@@ -60,7 +64,7 @@ Function NMFolderCall(select)
 			
 		case "Kill All":
 		case "Close All":
-			DoAlert 1, "Are you sure you want to kill all NeuroMatic data folders?"
+			DoAlert 1, "Are you sure you want to close all NeuroMatic data folders?"
 			if (V_Flag != 1)
 				break
 			endif
@@ -294,7 +298,8 @@ Function CheckNMDataFolderWaves() // check data folder waves
 	
 	CheckNMwave("Group", nwaves, Nan)
 	
-	CheckNMSets("Set1;Set2;SetX;", nwaves)
+	CheckNMwave("Set1;Set2;SetX;", nwaves, 0)
+	
 	
 	NMSetsTagDefaults() // check Set tags
 	
@@ -495,8 +500,9 @@ End // NMFolderGlobalsSave
 //****************************************************************
 //****************************************************************
 
-Function NMFolderGlobalsGet(wPrefix) // get saved globals from folder
+Function NMFolderGlobalsGet(wPrefix, killFolder) // get saved globals from folder
 	String wPrefix // wave prefix name
+	Variable killFolder // kill folder when finished
 	
 	Variable ocnt
 	String objName, oList
@@ -530,6 +536,10 @@ Function NMFolderGlobalsGet(wPrefix) // get saved globals from folder
 		objName = StringFromList(ocnt, olist)
 		SetNMstr(objName, StrVarOrDefault(subFolder+objName, ""))
 	endfor
+	
+	if (killFolder == 1)
+		KillDataFolder $(df + wPrefix)
+	endif
 	
 	return 0
 
@@ -662,10 +672,27 @@ Function /S NMFolderChange(folder) // change the active folder
 	ChanGraphsReset()
 	ChanWaveListSet(0) // check channel wave names
 	UpdateNM(1)
+	ChanGraphsUpdate(1)
 	
 	return folder
 
 End // NMFolderChange
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMFolderChangeToFirst()
+
+	String flist = NMDataFolderList()
+		
+	if (ItemsInList(flist) > 0)
+		return NMFolderChange(StringFromList(0,flist)) // change to first data folder
+	else
+		NMFolderNew("")
+	endif
+		
+End // NMFolderChangeToFirst
 
 //****************************************************************
 //****************************************************************
@@ -731,20 +758,12 @@ Function /S NMFolderCloseCurrent()
 	SetNMstr(NMDF() + "CurrentFolder", "")
 	
 	if (strlen(nfolder) > 0)
-	
 		return NMFolderChange(nfolder) // change to next data folder
-		
 	else
-	
-		flist = NMDataFolderList()
-		
-		if (ItemsInList(flist) > 0)
-			return NMFolderChange(StringFromList(0,flist)) // change to first data folder
-		endif
-		
+		return NMFolderChangeToFirst()
 	endif
 	
-	UpdateNMPanelTitle()
+	//UpdateNMPanelTitle()
 	
 	return ""
 	
@@ -985,15 +1004,8 @@ Function /S NMFolderOpen()
 	
 	String fname = FileBinOpen(1, 1, "root:", "OpenDataPath", "", 1)
 	
-	UpdateNM(1)
-	
 	NMTab("Main") // force back to Main tab
-	
-	if ((strlen(fname) > 0) && (NumVarOrDefault(NMDF()+"AutoPlot", 0) == 1))
-		NMPlot( "" )
-	endif
-	
-	NMSetsDataNew() // create Set_Data wave
+	UpdateNM(1)
 	
 	return fname
 
@@ -1005,14 +1017,60 @@ End // NMFolderOpen
 
 Function /S NMFolderOpenAll()
 
-	String fname = FileBinOpenAll(1, "root:", "OpenDataPath")
+	String fname, flist
+
+	flist = FileBinOpenAll(1, "root:", "OpenDataPath")
+	
+	if (ItemsInList(flist) == 0)
+		return ""
+	else
+		fname = StringFromList(0, flist)
+		NMFolderChange(fname) 
+	endif
 	
 	NMTab("Main") // force back to Main tab
 	UpdateNM(1)
 
-	return fname
+	return flist
 
 End // NMFolderOpenAll
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMFolderAppendAll()
+	Variable icnt
+	String firstFolder, fname, flist, wprefix
+
+	flist = FileBinOpenAll(1, "root:", "OpenDataPath")
+	
+	if (ItemsInList(flist) == 0)
+		return ""
+	else
+		
+		firstFolder = StringFromList(0, flist)
+		NMFolderChange(firstFolder)
+		wprefix = StrVarOrDefault("WavePrefix", "")
+		
+		if (strlen(wPrefix) > 0)
+			for (icnt = 1; icnt < ItemsInList(flist); icnt += 1)
+				fname = StringFromList(icnt, flist)
+				if (isNMDataFolder(fname) == 1)
+					NMFolderAppendWaves(fname, firstFolder, wprefix)
+					NMFolderClose(fname) // close folder
+				endif
+			endfor
+		endif
+	
+	endif
+	
+	NMTab("Main") // force back to Main tab
+	UpdateNM(1)
+
+	return flist
+
+End // NMFolderAppendAll
 
 //****************************************************************
 //****************************************************************
@@ -1078,7 +1136,8 @@ Function NMDataReload()
 	NMFolderChange(saveDF)
 	
 	if (DataFolderExists(temp) == 1)
-		KillDataFolder temp
+		//KillDataFolder temp
+		NMFolderClose(temp)
 	endif
 	
 	NMPrefixSelectSilent(wPrefix)
@@ -1222,11 +1281,15 @@ Function NMFolderAppendWaves(fromFolder, toFolder, wavePrefix)
 	
 	NMPrefixSelectSilent(wavePrefix)
 	
-	CheckNMSets(setList, nwavesFrom + nwavesTo) // redimension old Sets
+	CheckNMwave("Group;" + setList, nwavesFrom + nwavesTo, 0)
+	
+	CopyWaveValues(fromFolder, toFolder, "Group;" + setList, 0, nwavesTo)
 	
 	NMSetsDataNew() // create next Set_Data wave
 	
 	UpdateNM(0)
+	
+	return 0
 
 End // NMFolderAppendWaves
 

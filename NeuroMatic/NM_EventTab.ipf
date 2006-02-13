@@ -1,19 +1,19 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Spontaneous Event Detection
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 17 Nov 2004
+//	Last modified 22 April 2005
 //
 //	NM tab entry "Event"
 //
@@ -1190,7 +1190,7 @@ Function EventFindAllCall()
 	endif
 	
 	if (tzero == 1)
-		EventSearchTime( 0 )
+		EventSearchTime( EventSearchBgn() )
 	endif
 	
 	NMCmdNum(wselect, vlist)

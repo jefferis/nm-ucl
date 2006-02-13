@@ -1,19 +1,19 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
-#pragma version = 1.86
+#pragma IgorVersion = 5
+#pragma version = 1.91
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Statistical Analysis Tab
-//	To be run with NeuroMatic, v1.86
+//	To be run with NeuroMatic, v1.91
 //	NeuroMatic.ThinkRandom.com
-//	Code for WaveMetrics Igor Pro 4
+//	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 06 Dec 2004
+//	Last modified 21 Feb 2005
 //
 //	NM tab entry "Stats"
 //
@@ -178,6 +178,10 @@ Function CheckStats()
 	CheckNMvar(df+"TablesOn", 1)
 	CheckNMvar(df+"AutoStats2", 1)
 	CheckNMvar(df+"AllWinOn", 1)
+	
+	CheckNMstr(df+"AmpColor", "65535,0,0")
+	CheckNMstr(df+"BaseColor", "0,39168,0")
+	CheckNMstr(df+"RiseColor", "0,0,65535")
 	
 	// waves for display graphs
 	
@@ -1134,7 +1138,7 @@ Function StatsWinSelect(win)
 	StatsAmpInit(win, 0)
 	StatsDisplayUpdate(win)
 	UpdateStats1() // this updates dt flags
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	
 	return 0
 
@@ -1174,7 +1178,6 @@ Function StatsWinCall(tbgn, tend, ampStr)
 	String ampStr
 	
 	Variable rx, lx
-	
 	String vlist = "", df = StatsDF()
 	
 	NVAR AmpNV = $(df+"AmpNV")
@@ -1395,7 +1398,7 @@ Function StatsSmooth(win, smthNum, smthAlg)
 	SetNMVar(cdf+"smthNum", smthNum) // set current channel smooth vars
 	SetNMStr(cdf+"smthAlg", smthAlg)
 	
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	NMAutoStats()
 	UpdateStats1()
 	StatsTimeStamp()
@@ -1541,6 +1544,7 @@ Function StatsBsln(win, on, tbgn, tend, fxn, subtract)
 		SetNMwave(df + "BslnE", win, tend)
 		SetNMtwave(df+"BslnSlct", win, fxn)
 		SetNMwave(df+"BslnSubt", win, subtract)
+	else
 		SetNMwave(df + "BslnRflct", win, Nan) // turn of reflection
 	endif
 	
@@ -1807,7 +1811,7 @@ Function StatsFxn(win, fxn)
 	ChanFunc(NumVarOrDefault("CurrentChan", 0), fxn)
 	
 	NMAutoStats()
-	ChanGraphsUpdate()
+	ChanGraphsUpdate(0)
 	UpdateStats1()
 	StatsTimeStamp()
 	
@@ -2479,10 +2483,6 @@ Function StatsDisplay(appnd) // append/remove display waves to current channel g
 	Variable ampNV = NumVarOrDefault(df+"AmpNV", 0)
 	Variable drag = NumVarOrDefault(df+"DragOn", 1)
 	
-	String ampColor = StrVarOrDefault(df+"AmpColor", "65535,0,0")
-	String baseColor = StrVarOrDefault(df+"BaseColor", "0,39168,0")
-	String riseColor = StrVarOrDefault(df+"RiseColor", "0,0,65535")
-	
 	Wave AmpX = $(df+"AmpX")
 	Wave AmpY = $(df+"AmpY")
 	Wave Dsply = $(df+"Dsply")
@@ -2584,7 +2584,19 @@ Function StatsDisplayColor(select, rgb)
 	String select // (a) Amp (b) Base (r) Rise
 	String rgb // r, g or b
 	
-	String color = StrVarOrDefault(StatsDF()+select+"Color", "0,0,0")
+	String color, df = StatsDF()
+	
+	strswitch(select)
+		case "amp":
+			color = StrVarOrDefault(df+"AmpColor", "65535,0,0")
+			break
+		case "base":
+			color = StrVarOrDefault(df+"BaseColor", "0,39168,0")
+			break
+		case "rise":
+			color = StrVarOrDefault(df+"RiseColor", "0,0,65535")
+			break
+	endswitch
 
 	return str2num(StringFromList(WhichListItem(rgb, "r;g;b;"),color,","))
 
@@ -2916,14 +2928,14 @@ Function StatsChanControls(enable)
 		
 		if ((ccnt == currentChan) && (enable == 1))
 		
-			ChanControlsDisable(ccnt, "01100")
+			ChanControlsDisable(ccnt, "011000")
 			drag = NumVarOrDefault(df+"DragOn", 1)
 		
 			CheckBox $cName, win=$gName, title="stats drag", pos={340,3}, size={16,18}, value=drag, disable=0, proc=StatsCheckBox
 	
 		else
 		
-			ChanControlsDisable(ccnt, "00000")
+			ChanControlsDisable(ccnt, "000000")
 			
 			if (dragExists == 1)
 				CheckBox $cName, win=$gName, disable=1
@@ -3033,7 +3045,7 @@ End // StatsAllWavesCall
 Function StatsAllWaves(winNum)
 	Variable winNum // stats1 window number (-1 for all)
 
-	Variable ccnt, wcnt, pflag, forcenew, first = -1
+	Variable ccnt, wcnt, pflag, forcenew
 	String wList, sName, tName, df = StatsDF()
 	
 	Variable NumWaves = NumVarOrDefault("NumWaves", 0)
@@ -3060,10 +3072,6 @@ Function StatsAllWaves(winNum)
 	
 		if (ChanSelect[ccnt] != 1)
 			continue
-		endif
-		
-		if (first == -1)
-			first = ccnt
 		endif
 		
 		tName = StatsWavesTables(ccnt, forcenew)
@@ -3411,17 +3419,21 @@ Function /S StatsWavesTables(chnNum, forcenew) // create waves/table where Stats
 	Variable forcenew // force new waves
 	
 	Variable wcnt
-	String tprefix, wname, wlist, title, tname = ""
+	String tprefix, wname, wlist, title, slctStr = "", tname = ""
 	String df = StatsDF(), ndf = NMDF()
 	
 	Variable NumWaves = NumVarOrDefault("NumWaves", 0)
-	Variable Nameformat = NumVarOrDefault(ndf+"NameFormat", 1)
+	Variable format = NumVarOrDefault(ndf+"NameFormat", 1)
 	
 	Variable tables = NumVarOrDefault(df+"TablesOn", 1)
 	
 	Variable overwrite = NMOverWrite()
+	
+	if (format == 1)
+		slctStr = NMWaveSelectStr() + "_"
+	endif
 
-	tprefix = StatsPrefix(NMFolderPrefix("") + NMWaveSelectStr() + "_Table_")
+	tprefix = StatsPrefix(NMFolderPrefix("") + slctStr + "Table_")
 	
 	wName = StatsWaveName(Nan, "wName_", chnNum, overwrite)
 	
@@ -3490,7 +3502,6 @@ Function /S StatsWavesMake(chnNum, forcenew)
 	
 	String df = StatsDF()
 	
-	Variable Nameformat=NumVarOrDefault(NMDF() + "NameFormat", 1)
 	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
 	
 	String wPrefix = StrVarOrDefault("CurrentPrefix", "Wave")
@@ -3709,7 +3720,9 @@ Function /S StatsWaveName(win, fxn, chanNum, overWrite)
 	Variable chanNum
 	Variable overWrite
 	
-	String chanStr = ""
+	String chanStr = "", slctStr = ""
+	
+	Variable format=NumVarOrDefault(NMDF() + "NameFormat", 1)
 	
 	if (numtype(win) == 0)
 		chanStr = num2str(win) + "_"
@@ -3724,7 +3737,11 @@ Function /S StatsWaveName(win, fxn, chanNum, overWrite)
 			break
 	endswitch
 	
-	String wPrefix = StatsPrefix(fxn + chanStr + NMWaveSelectStr() + "_")
+	if (format == 1)
+		slctStr = NMWaveSelectStr() + "_"
+	endif
+	
+	String wPrefix = StatsPrefix(fxn + chanStr + slctStr)
 	
 	return NextWaveName(wPrefix, chanNum, overWrite)
 
