@@ -1678,6 +1678,7 @@ Function /S FolderNameCreate(file) // create a folder name based on a given file
 		strswitch(file[icnt,icnt])
 			case " ":
 			case ".":
+			case "#":
 			case "-":
 				file[icnt,icnt] = "_" // replace with underline
 				break

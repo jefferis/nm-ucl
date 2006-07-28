@@ -231,7 +231,7 @@ End // ReadPClampHeader
 //****************************************************************
 //****************************************************************
 
-Function ReadPClampData () // read pClamp file
+Function ReadPClampData() // read pClamp file
 
 	Variable strtnum, numwaves, amode, scale
 	Variable ccnt, wcnt, scnt, pcnt, pflag, smpcnt, npnts1, npnts2, lastwave

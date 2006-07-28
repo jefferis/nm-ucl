@@ -2272,7 +2272,7 @@ Function NMNoteStrReplace(wname, key, replace)
 	endfor
 	
 	if (found == 0)
-		Note $wname key + ":" + replace
+		Note $wname, key + ":" + replace
 		return -1
 	endif
 	
@@ -2313,7 +2313,7 @@ Function NMNoteStrReplace(wname, key, replace)
 	txt = txt[0, icnt] + replace + txt[jcnt, inf]
 	
 	Note /K $wname
-	Note $wname txt
+	Note $wname, txt
 
 End // NMNoteStrReplace
 
@@ -2406,7 +2406,7 @@ Function NMNoteDelete(wname, key)
 	endif
 	
 	Note /K $wname
-	Note $wname txt
+	Note $wname, txt
 
 End // NMNoteDelete
 

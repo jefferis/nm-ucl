@@ -13,7 +13,7 @@
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 15 Sept 2005
+//	Last modified 28 Feb 2006
 //
 //	Functions for opening/saving binary files
 //
@@ -850,6 +850,8 @@ Function /S FileDialogue(dialType, pathname, file, ext)
 		case ".pxp":
 			type = "IGsU????"
 			break
+		case ".txt":
+			type = "TEXT"
 	endswitch
 	
 	PathInfo /S $pathName

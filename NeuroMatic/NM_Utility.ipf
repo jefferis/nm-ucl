@@ -13,7 +13,7 @@
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 30 Jan 2006
+//	Last modified 26 July 2006
 //
 //****************************************************************
 //****************************************************************
@@ -60,6 +60,11 @@ Function MakeWave(srcName, dstName, ft, smthNum, smthAlg)
 	Variable smthNum // smooth number (0 - no smoothing)
 	String smthAlg // smooth algorithm ("binomial" or "boxcar")
 	
+	String df = MainDF()
+	
+	Variable bbgn = NumVarOrDefault(df+"Bsln_Bgn", 0)
+	Variable bend = NumVarOrDefault(df+"Bsln_End", 5)
+	
 	if (StringMatch(srcName, dstName) == 1)
 		return -1 // not to over-write source wave
 	endif
@@ -74,6 +79,10 @@ Function MakeWave(srcName, dstName, ft, smthNum, smthAlg)
 
 	Duplicate /O $srcName, $dstName
 	
+	if (smthNum > 0)
+		SmoothWaves(smthAlg,  smthNum, dstName)
+	endif
+	
 	switch(ft)
 		default:
 			break
@@ -83,13 +92,10 @@ Function MakeWave(srcName, dstName, ft, smthNum, smthAlg)
 			DiffWaves(dstName, ft)
 			break
 		case 4:
-			NormWaves("Max", leftx($dstName), rightx($dstName), dstName)
+			//NormWaves("Max", leftx($dstName), rightx($dstName), dstName)
+			NormWaves2Bsln("Max", bbgn, bend, dstName)
 			break
 	endswitch
-			
-	if (smthNum > 0)
-		SmoothWaves(smthAlg,  smthNum, dstName)
-	endif
 	
 	return 0
 
@@ -397,7 +403,7 @@ Function NMPlotWaves(gName, gTitle, xLabel, yLabel, wList) // renamed from PlotW
 	Label left yLabel
 	Label bottom xLabel
 	ModifyGraph standoff=0
-	//ShowInfo
+	ShowInfo
 	SetAxis /A
 	
 	NMUtilityAlert("NMPlotWaves", badList)
@@ -521,8 +527,9 @@ Function /S CopyWaves(newPrefix, tbgn, tend, wList)
 	for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
 	
 		wName = StringFromList(wcnt, wList)
+		newName = newPrefix + num2str(wcnt)
 		//newName = newPrefix + ChanCharGet(wName) + num2str(ChanWaveNum(wName))
-		newName = newPrefix + wName
+		//newName = newPrefix + wName
 		newList = AddListItem(newName, newList, ";", inf)
 		
 		if (StringMatch(wName, newName) == 1)
@@ -562,8 +569,8 @@ Function /S CopyWaves(newPrefix, tbgn, tend, wList)
 		
 		badList = RemoveFromList(wName, badList)
 		
-		Note $newName "Func:CopyWaves"
-		Note $newName "Copy From:" + num2str(tbgn) + ";Copy To:" + num2str(tend) + ";"
+		Note $newName, "Func:CopyWaves"
+		Note $newName, "Copy From:" + num2str(tbgn) + ";Copy To:" + num2str(tend) + ";"
 		
 	endfor
 	
@@ -1137,7 +1144,7 @@ End // InterpolateWaves
 //****************************************************************
 //
 //	NormWaves()
-//	normalize a list of waves
+//	normalize a list of waves - uses min and max values
 //
 //****************************************************************
 
@@ -1204,6 +1211,78 @@ Function /S NormWaves(fxn, tbgn, tend, wList)
 	return outList
 
 End // NormWaves
+
+//****************************************************************
+//
+//	NormWaves2Bsln()
+//	normalize a list of waves - uses min and max values
+//
+//****************************************************************
+
+Function /S NormWaves2Bsln(fxn, tbgn, tend, wList)
+	String fxn // normalize function ("max" or "min")
+	Variable tbgn, tend // time window
+	String wList // wave list (seperator ";")
+	
+	String wName, outList = "", badList = wList
+	Variable wcnt, value, base, scale = 1, items = ItemsInList(wList)
+	
+	strswitch(fxn)
+		case "max":
+		case "min":
+			break
+		default:
+			return ""
+	endswitch
+	
+	if (items == 0)
+		return ""
+	endif
+	
+	if (tend <= tbgn)
+		return ""
+	endif
+	
+	for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
+	
+		wName = StringFromList(wcnt, wList)
+		
+		if (NMUtilityWaveTest(wName) < 0)
+			continue
+		endif
+		
+		Wave tempwave = $wName
+		
+		WaveStats /Q/R=(tbgn,tend) tempwave
+		base = V_avg
+		
+		WaveStats /Q tempwave
+		
+		strswitch(fxn)
+			case "max":
+				value = V_max
+				break
+			case "min":
+				value = V_min
+				scale = -1
+				break
+		endswitch
+		
+		tempwave = scale * (tempwave - base) / abs(value - base)
+		
+		outList = AddListItem(wName, outList, ";", inf)
+		badList = RemoveFromList(wName, badList)
+		
+		Note tempwave, "Func:NormWaves"
+		Note tempwave, "Norm Value:" + num2str(value) + ";Norm Alg:" + fxn + ";Norm Tbgn:" + num2str(tbgn) + ";Norm Tend:" + num2str(tend) + ";"
+	
+	endfor
+	
+	NMUtilityAlert("NormWaves", badList)
+	
+	return outList
+
+End // NormWaves2Bsln
 
 //****************************************************************
 //
@@ -2731,11 +2810,13 @@ Function ComputeWaveStats(wName, tbgn, tend, fxn, level)
 	strswitch(fxn)
 			
 		case "Max":
+		case "RTSlope+":
 			WaveStats /Q/R=(tbgn, tend) wName
 			ay = V_max; ax = V_maxloc
 			break
 			
 		case "Min":
+		case "RTSlope-":
 			WaveStats /Q/R=(tbgn, tend) wName
 			ay = V_min; ax = V_minloc
 			break
@@ -2832,6 +2913,10 @@ Function FindLevelPosNeg(tbgn, tend, level, direction, wName)
 	t = Nan
 	dt = deltax($wName)
 	
+	if (dtwin < dt)
+		dtwin = 3 * dt
+	endif
+	
 	do
 	
 		FindLevel /Q/R=(tbgn, tend) $wName, level
@@ -2897,6 +2982,12 @@ Function /S FindSlope(tbgn, tend, wName)
 	
 	if ((tbgn >= tend)|| (numtype(tbgn*tend) > 0))
 		return "" // bad inputs
+	endif
+	
+	WaveStats /Q/R=(tbgn, tend) $wName
+	
+	if (V_npnts <= 2)
+		return ""
 	endif
 	
 	Curvefit /Q/N line $wName (tbgn, tend)

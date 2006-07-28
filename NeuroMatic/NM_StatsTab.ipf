@@ -13,7 +13,7 @@
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 21 Feb 2005
+//	Last modified 08 June 2006
 //
 //	NM tab entry "Stats"
 //
@@ -155,9 +155,11 @@ Function CheckStats()
 	CheckNMwave(df+"SmthNum", NumAmps, smthn)
 	CheckNMtwave(df+"SmthAlg", NumAmps, "binomial")
 	
-	CheckNMtwave(df+"OffsetW", NumAmps, "") // new wave
+	CheckNMtwave(df+"OffsetW", NumAmps, "") // new
 	
-	CheckNMwave(df+"WinSelect", NumAmps, 0) // new wave
+	CheckNMwave(df+"WinSelect", NumAmps, 0) // new
+	
+	CheckNMwave(df+"ChanSelect", NumAmps, 0) // new
 	
 	// variables for display controls, Stats1
 	
@@ -312,6 +314,8 @@ Function StatsWavesCopy(fromDF, toDF)
 	StatsWavesCopy2(fromDF+"SmthNum", toDF+"SmthNum")
 	StatsWavesCopy2(fromDF+"SmthAlg", toDF+"SmthAlg")
 	
+	StatsWavesCopy2(fromDF+"ChanSelect", toDF+"ChanSelect")
+	
 	Wave /T AmpSlct = $(toDF+"AmpSlct")
 	Wave /T BslnSlct = $(toDF+"BslnSlct")
 	Wave /T SmthAlg = $(toDF+"SmthAlg")
@@ -361,8 +365,10 @@ Function StatsWavesCopy2(from, to)
 	
 	Variable npnts = 10
 	
-	Duplicate /O $from, $to
-	Redimension /N=(npnts) $to // preserve dimensions
+	if (WaveExists($from) == 1)
+		Duplicate /O $from, $to
+		Redimension /N=(npnts) $to // preserve dimensions
+	endif
 
 End // StatsWavesCopy2
 
@@ -686,6 +692,12 @@ Function UpdateStats1() // update/display current amp result values
 	Wave ST_BslnX = $(df+"ST_BslnX"); Wave ST_BslnY = $(df+"ST_BslnY")
 	Wave ST_RDX = $(df+"ST_RDX"); Wave ST_RDY = $(df+"ST_RDY")
 	
+	Wave ChanSelect = $(df+"ChanSelect")
+	
+	if (ChanSelect[0] != CurrentChan)
+		StatsChanCall(CurrentChan)
+	endif
+	
 	if (strlen(AmpSlct[AmpNV]) == 0)
 		 AmpSlct[AmpNV] = "Off"
 	endif
@@ -796,6 +808,8 @@ Function UpdateStats1() // update/display current amp result values
 			SetVariable ST_AmpXSet, disable=1, win=NMPanel
 			break
 		case "Slope":
+		case "RTSlope+":
+		case "RTSlope-":
 			SetVariable ST_AmpYSet, title = "m:", win=NMPanel
 			SetVariable ST_AmpXSet, title = "b:", win=NMPanel
 			break
@@ -1075,8 +1089,8 @@ Function StatsTimeStamp() // place time stamp on AmpSlct
 	String df = StatsDF()
 	
 	Note /K $(df+"AmpSlct")
-	Note $(df+"AmpSlct") "Stats Date:" + date()
-	Note $(df+"AmpSlct") "Stats Time:" + time()
+	Note $(df+"AmpSlct"), "Stats Date:" + date()
+	Note $(df+"AmpSlct"), "Stats Time:" + time()
 
 End // StatsTimeStamp
 
@@ -1111,6 +1125,57 @@ End // StatsTimeStampCompare
 //****************************************************************
 //****************************************************************
 
+Function StatsChanCall(chan)
+	Variable chan
+	String vlist = ""
+	
+	Variable win = NumVarOrDefault(StatsDF()+"AmpNV", 0)
+	
+	vlist = NMCmdNum(win, vlist)
+	vlist = NMCmdNum(chan, vlist)
+	NMCmdHistory("StatsChan", vlist)
+	
+	return StatsChan(win, chan)
+	
+End // StatsChanCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StatsChan(win, chan)
+	Variable win, chan
+	
+	String df = StatsDF()
+	String wname = df + "ChanSelect"
+	
+	if (numtype(chan) > 0)
+		return -1
+	endif
+	
+	if ((win < 0) || (win > numpnts($wname)))
+		return -1
+	endif
+	
+	//SetNMwave(wname, win, chan)
+	
+	// for now, only allow one channel to be selected
+	
+	Wave temp = $wname
+	temp = chan
+	
+	NMAutoStats()
+	UpdateStats1()
+	StatsTimeStamp()
+	
+	return 0
+
+End // StatsChan
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function StatsWinSelectCall(win)
 	Variable win
 	
@@ -1130,13 +1195,19 @@ Function StatsWinSelect(win)
 	String df = StatsDF()
 	String wname = df + "AmpB"
 	
+	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
+	Variable CurrentWave = NumVarOrDefault("CurrentWave", 0)
+	
+	String StatWaveName = CurrentWaveName() // source wave name
+	
 	if ((win < 0) || (win > numpnts($wname)))
 		return -1
 	endif
 	
 	SetNMvar(df+"AmpNV", win)
 	StatsAmpInit(win, 0)
-	StatsDisplayUpdate(win)
+	
+	StatsComputeAmps(StatWaveName, CurrentChan, CurrentWave, -1, 0, 1)
 	UpdateStats1() // this updates dt flags
 	ChanGraphsUpdate(0)
 	
@@ -1873,7 +1944,7 @@ Function StatsLabel(win, select)
 	SetNMwave(wname, win, select)
 	
 	StatsDisplay(1)
-	StatsDisplayUpdate(win)
+	//StatsDisplayUpdate(win)
 	UpdateStats1()
 	StatsTimeStamp()
 	
@@ -2630,220 +2701,6 @@ End // StatsDisplayClear
 //****************************************************************
 //****************************************************************
 
-Function StatsDisplayUpdate(win) // compute Stat display waves
-	Variable win // stats window number
-	
-	Variable nset, ay, ax, by, offset, vbgn, vend
-	String slct, gName, df = StatsDF(), cdf = ChanDF(-1)
-	
-	if (DataFolderExists(StatsDF()) == 0)
-		return 0 // stats has not been initialized yet
-	endif
-	
-	Variable smthn = NumVarOrDefault(cdf+"smthNum", 0)
-	String smtha = StrVarOrDefault(cdf+"smthAlg", "")
-	Variable dt = NumVarOrDefault(cdf+"DTflag", 0)
-	
-	Variable drag = NumVarOrDefault(df+"DragOn", 1)
-	
-	Variable offsetBsln = NumVarOrDefault(df+"OffsetBsln", 1)
-	
-	if (WaveExists($(df+"ST_DragBYB")) == 0)
-		drag = 0
-	endif
-	
-	if (StringMatch(NMTabCurrent(), "Stats") == 0)
-		drag = 0
-	endif
-	
-	NVAR AmpNV = $(df+"AmpNV")
-	
-	Wave /T AmpSlct = $(df+"AmpSlct")
-	Wave AmpB = $(df+"AmpB"); Wave AmpE = $(df+"AmpE")
-	Wave AmpY = $(df+"AmpY"); Wave AmpX = $(df+"AmpX")
-	
-	Wave BslnB = $(df+"BslnB"); Wave BslnE = $(df+"BslnE")
-	Wave BslnY = $(df+"BslnY"); Wave BslnSubt = $(df+"BslnSubt")
-	
-	Wave RiseBP = $(df+"RiseBP"); Wave RiseEP = $(df+"RiseEP")
-	Wave RiseBX = $(df+"RiseBX"); Wave RiseEX = $(df+"RiseEX")
-	
-	Wave DcayP = $(df+"DcayP"); Wave DcayX = $(df+"DcayX")
-	Wave dtFlag = $(df+"dtFlag"); Wave Dsply = $(df+"Dsply")
-	Wave BFlag = $(df+"BFlag"); 
-	
-	Wave SmthNum = $(df+"SmthNum"); Wave SmthAlg = $(df+"SmthAlg")
-	
-	Wave ST_PntX = $(df+"ST_PntX"); Wave ST_PntY = $(df+"ST_PntY")
-	Wave ST_WinX = $(df+"ST_WinX"); Wave ST_WinY = $(df+"ST_WinY")
-	Wave ST_BslnX = $(df+"ST_BslnX"); Wave ST_BslnY = $(df+"ST_BslnY")
-	Wave ST_RDX = $(df+"ST_RDX"); Wave ST_RDY = $(df+"ST_RDY")
-	
-	if (drag == 1)
-		Wave ST_DragBYB = $(df+"ST_DragBYB"); Wave ST_DragBXB = $(df+"ST_DragBXB")
-		Wave ST_DragBYE = $(df+"ST_DragBYE"); Wave ST_DragBXE = $(df+"ST_DragBXE") 
-		Wave ST_DragWYB = $(df+"ST_DragWYB"); Wave ST_DragWXB = $(df+"ST_DragWXB")
-		Wave ST_DragWYE = $(df+"ST_DragWYE"); Wave ST_DragWXE = $(df+"ST_DragWXE")
-	endif
-	
-	offset = max(0, StatsOffsetValue(win))
-	
-	slct = AmpSlct[win]
-	ay = AmpY[win]
-	ax = AmpX[win]
-	by = BslnY[win]
-	
-	Variable off = ((Dsply[win] == 0) || (StringMatch(slct[0,4], "Off") == 1))
-	
-	if (off == 1)
-		ay = Nan
-		by = Nan
-	endif
-	
-	if ((BslnSubt[win] == 1) && (StringMatch(slct[0,4], "Level") == 0))
-		ay += by
-	endif
-	
-	// amp point x-y waves
-	
-	nset = win*2
-	
-	ST_PntX[nset] = ax
-	ST_PntY[nset] = ay
-	
-	if (StringMatch(slct, "Slope") == 1)
-		ST_PntX[nset] = Nan
-		ST_PntY[nset] = Nan
-	endif
-	
-	// window line x-y waves
-	
-	nset = win*3
-	
-	if (off == 1)
-	
-		ST_WinX[nset] = Nan
-		ST_WinX[nset+1] = Nan
-		
-		if ((drag == 1) && (win == AmpNV))
-			ST_DragWXB = Nan
-			ST_DragWXE = Nan
-		endif
-		
-	else
-	
-		vbgn = AmpB[win] + offset
-		vend = AmpE[win] + offset
-		
-		ST_WinX[nset] = vbgn
-		ST_WinX[nset+1] = vend
-		
-		ST_WinX[nset] = vbgn
-		ST_WinX[nset+1] = vend
-		
-		if ((drag == 1) && (win == AmpNV))
-			ST_DragWXB = vbgn
-			ST_DragWXE = vend
-		endif
-		
-	endif
-	
-	strswitch(slct)
-	
-		case "Slope":
-			vbgn = AmpB[win]*AmpY[win] + AmpX[win]
-			vend = AmpE[win]*AmpY[win] + AmpX[win]
-			ST_WinY[nset] = vbgn
-			ST_WinY[nset+1] = vend
-			break
-			
-		default:
-			ST_WinY[nset] = ay
-			ST_WinY[nset+1] = ay
-			break
-			
-	endswitch
-	
-	gName = CurrentChanGraphName()
-	
-	if ((win == AmpNV) && (drag == 1) && (WinType(gName) == 1))
-	
-		GetAxis /W=$gName/Q left
-		
-		ST_DragWYB[0] = V_min
-		ST_DragWYB[1] = V_max
-		ST_DragWYE[0] = V_min
-		ST_DragWYE[1] = V_max
-		
-		if (Bflag[AmpNV] == 0)
-			ST_DragBYB = Nan
-			ST_DragBYE = Nan
-		else
-			ST_DragBYB[0] = V_min
-			ST_DragBYB[1] = V_max
-			ST_DragBYE[0] = V_min
-			ST_DragBYE[1] = V_max
-		endif
-		
-	endif
-	
-	// baseline x-y waves
-	
-	if (off == 1)
-	
-		ST_BslnX[nset] = Nan
-		ST_BslnX[nset+1] = Nan
-		
-		if ((drag == 1) && (win == AmpNV))
-			ST_DragBXB = Nan
-			ST_DragBXE = Nan
-		endif
-		
-	else
-	
-		vbgn = BslnB[win] + offset*offsetBsln
-		vend = BslnE[win] + offset*offsetBsln
-		ST_BslnX[nset] = vbgn
-		ST_BslnX[nset+1] = vend
-		
-		if ((drag == 1) && (win == AmpNV))
-			ST_DragBXB = vbgn
-			ST_DragBXE = vend
-		endif
-		
-	endif
-	
-	ST_BslnY[nset] = by
-	ST_BslnY[nset+1] = by
-	
-	// rise and decay x-y waves
-	
-	nset = win*4
-	
-	if (off == 1)
-		ST_RDX[nset] = Nan
-		ST_RDX[nset+1] = Nan
-		ST_RDX[nset+2] = Nan
-	else
-		ST_RDX[nset] = RiseBX[win]
-		ST_RDX[nset+1] = RiseEX[win]
-		ST_RDX[nset+2] = DcayX[win]
-	endif
-	
-	ST_RDY[nset] = ((RiseBP[win]/100)*(ay-by)) + by
-	ST_RDY[nset+1] = ((RiseEP[win]/100)*(ay-by)) + by
-	ST_RDY[nset+2] = ((DcayP[win]/100)*(ay-by)) + by
-	
-	ST_RDY[nset] *= (ST_RDX[nset]/ST_RDX[nset]) // becomes Nan if X = Nan
-	ST_RDY[nset+1] *= (ST_RDX[nset+1]/ST_RDX[nset+1])
-	ST_RDY[nset+2] *= (ST_RDX[nset+2]/ST_RDX[nset+2])
-
-End // StatsDisplayUpdate
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
 Function StatsDragTrigger(offsetStr)
 	String offsetStr
 	
@@ -3188,9 +3045,9 @@ End // NMAutoStats
 
 Function StatsComputeAmps(sName, chnNum, wavNum, win, saveflag, dsplyflag) // compute amps of given wave
 	String sName // wave name to measure
-	Variable chnNum // channel number (-1) for current
-	Variable wavNum // wave number (-1) for current
-	Variable win // stat window
+	Variable chnNum // channel number
+	Variable wavNum // wave number
+	Variable win // stat window (-1) all
 	Variable saveflag // save to table waves
 	Variable  dsplyflag // update display waves
 
@@ -3202,14 +3059,6 @@ Function StatsComputeAmps(sName, chnNum, wavNum, win, saveflag, dsplyflag) // co
 	Wave /T SmthAlg = $(df+"SmthAlg")
 	Wave /T AmpSlct = $(df+"AmpSlct")
 	
-	if (chnNum == -1)
-		chnNum = NumVarOrDefault("CurrentChan", 0)
-	endif
-	
-	if (wavNum == -1)
-		wavNum = NumVarOrDefault("CurrentWave", 0)
-	endif
-	
 	if (win == -1)
 		afirst = 0; alast = numpnts(SmthNum)
 	else
@@ -3220,10 +3069,7 @@ Function StatsComputeAmps(sName, chnNum, wavNum, win, saveflag, dsplyflag) // co
 		
 		if (StringMatch(AmpSlct[acnt], "Off") == 1)
 		
-			if (dsplyflag == 1)
-				Wave theWave = Set1 // pass dummy wave
-				StatsAmpCompute(acnt, theWave) // set variables to Nan
-			endif
+			StatsAmpCompute(acnt, "Set1", dsplyflag) // this will set variables to Nan
 			
 		else
 		
@@ -3233,18 +3079,12 @@ Function StatsComputeAmps(sName, chnNum, wavNum, win, saveflag, dsplyflag) // co
 				continue
 			endif
 			
-			Wave theWave = $dName
-			
-			StatsAmpCompute(acnt, theWave)
+			StatsAmpCompute(acnt, dName, dsplyflag)
 		
 			if (saveflag == 1)
 				StatsAmpSave(sName, chnNum, wavNum, acnt, 0)
 			endif
 			
-		endif
-		
-		if (dsplyflag == 1)
-			StatsDisplayUpdate(acnt)
 		endif
 			
 	endfor
@@ -3257,18 +3097,31 @@ End // StatsComputeAmps
 //****************************************************************
 //****************************************************************
 
-Function StatsAmpCompute(win, wName) // compute the amp stats
+Function StatsAmpCompute(win, wName, dsplyflag) // compute the amp stats
 	Variable win // amplitude number
-	Wave wName // wave to measure
+	String wName // wave to measure
+	Variable dsplyflag
+	
+	Variable tbgn, tend, ay, ax, aybsln, by, bx, dumvar
+	Variable offset, displayOff, nset, vbgn, vend
+	String slct, dumstr
 	
 	String df = StatsDF()
+	String gName = CurrentChanGraphName()
+	
+	Variable drag = NumVarOrDefault(df+"DragOn", 1)
+	Variable offsetBsln = NumVarOrDefault(df+"OffsetBsln", 1)
+	Variable ampNV = NumVarOrDefault(df+"AmpNV", 0)
 	
 	if (DataFolderExists(df) == 0)
 		return 0 // stats has not been initialized yet
 	endif
 	
-	Variable tbgn, tend, ay, ax, by, bx, dumvar, offset
-	String slct, dumstr
+	if (WaveExists($wName) == 0)
+		return 0
+	endif
+	
+	Wave wtemp = $wName
 	
 	Wave /T AmpSlct = $(df+"AmpSlct");
 	Wave AmpB = $(df+"AmpB"); Wave AmpE = $(df+"AmpE")
@@ -3285,10 +3138,27 @@ Function StatsAmpCompute(win, wName) // compute the amp stats
 	
 	Wave Dflag = $(df+"Dflag"); Wave DcayT = $(df+"DcayT")
 	Wave DcayP = $(df+"DcayP"); Wave DcayX = $(df+"DcayX")
+	Wave Dsply = $(df+"Dsply")
 	
-	offset = max(0,StatsOffsetValue(win))
+	Wave ST_PntX = $(df+"ST_PntX"); Wave ST_PntY = $(df+"ST_PntY")
+	Wave ST_WinX = $(df+"ST_WinX"); Wave ST_WinY = $(df+"ST_WinY")
+	Wave ST_BslnX = $(df+"ST_BslnX"); Wave ST_BslnY = $(df+"ST_BslnY")
+	Wave ST_RDX = $(df+"ST_RDX"); Wave ST_RDY = $(df+"ST_RDY")
 	
-	strswitch(AmpSlct[win])
+	if (drag == 1)
+		Wave ST_DragBYB = $(df+"ST_DragBYB"); Wave ST_DragBXB = $(df+"ST_DragBXB")
+		Wave ST_DragBYE = $(df+"ST_DragBYE"); Wave ST_DragBXE = $(df+"ST_DragBXE") 
+		Wave ST_DragWYB = $(df+"ST_DragWYB"); Wave ST_DragWXB = $(df+"ST_DragWXB")
+		Wave ST_DragWYE = $(df+"ST_DragWYE"); Wave ST_DragWXE = $(df+"ST_DragWXE")
+	endif
+	
+	offset = max(0, StatsOffsetValue(win))
+	
+	slct = AmpSlct[win]
+	
+	displayOff = ((Dsply[win] == 0) || (StringMatch(slct[0,4], "Off") == 1))
+	
+	strswitch(slct)
 		case "Level":
 		case "Level+":
 		case "Level-":
@@ -3317,12 +3187,49 @@ Function StatsAmpCompute(win, wName) // compute the amp stats
 		by = Nan; bx = Nan
 	
 		if (tbgn < tend)
-			ComputeWaveStats(wName, tbgn, tend, slct, 0)
+			ComputeWaveStats(wtemp, tbgn, tend, slct, 0)
 			by = NumVarOrDefault("U_ay", Nan)
 			bx = NumVarOrDefault("U_ax", Nan)
 		endif
 		
-		BslnY[win] = by; BslnX[win] = bx
+		BslnY[win] = by
+		BslnX[win] = bx
+	
+	endif
+	
+	// baseline display waves
+	
+	if (dsplyflag == 1)
+	
+		nset = win*3
+		
+		if (displayOff == 1)
+		
+			ST_BslnX[nset] = Nan
+			ST_BslnX[nset+1] = Nan
+		
+			if ((drag == 1) && (win == AmpNV))
+				ST_DragBXB = Nan
+				ST_DragBXE = Nan
+			endif
+			
+		else
+		
+			vbgn = BslnB[win] + offset*offsetBsln
+			vend = BslnE[win] + offset*offsetBsln
+			
+			ST_BslnX[nset] = vbgn
+			ST_BslnX[nset+1] = vend
+			
+			if ((drag == 1) && (win == AmpNV))
+				ST_DragBXB = vbgn
+				ST_DragBXE = vend
+			endif
+			
+		endif
+		
+		ST_BslnY[nset] = by
+		ST_BslnY[nset+1] = by
 	
 	endif
 	
@@ -3338,11 +3245,31 @@ Function StatsAmpCompute(win, wName) // compute the amp stats
 	tend = AmpE[win] + offset
 	slct = AmpSlct[win]
 	
-	ComputeWaveStats(wName, tbgn, tend, slct, AmpY[win])
+	ComputeWaveStats(wtemp, tbgn, tend, slct, AmpY[win])
+	
 	ay = NumVarOrDefault("U_ay", Nan)
 	ax = NumVarOrDefault("U_ax", Nan)
 	
-	// compute rise time stats
+	// amp display waves
+	
+	if (dsplyflag == 1)
+	
+		nset = win*2
+		
+		ST_PntX[nset] = ax
+		ST_PntY[nset] = ay
+		
+		strswitch(slct)
+			case "Slope":
+			case "RTSlope+":
+			case "RTSlope-":
+				ST_PntX[nset] = Nan
+				ST_PntY[nset] = Nan
+		endswitch
+		
+	endif
+	
+	// compute rise/decay time stats
 	
 	strswitch(slct)
 		case "SDev":
@@ -3356,14 +3283,14 @@ Function StatsAmpCompute(win, wName) // compute the amp stats
 		if (Rflag[win] == 1)
 		
 			dumvar = ((RiseBP[win]/100)*(ay-by)) + by
-			FindLevel /Q/R=(ax, tbgn) wName, dumvar
+			FindLevel /Q/R=(ax, tbgn) wtemp, dumvar
 		
 			if (V_Flag == 0)
 				RiseBX[win] =  V_LevelX
 			endif
 		
 			dumvar = ((RiseEP[win]/100)*(ay-by)) + by
-			FindLevel /Q/R=(ax, tbgn) wName, dumvar
+			FindLevel /Q/R=(ax, tbgn) wtemp, dumvar
 			
 			if (V_Flag == 0)
 				RiseEX[win] =  V_LevelX
@@ -3378,7 +3305,7 @@ Function StatsAmpCompute(win, wName) // compute the amp stats
 		if ((Dflag[win] == 1) && (StringMatch(slct, "Avg") == 0))
 			
 			dumvar = ((DcayP[win]/100)*(ay-by)) + by
-			FindLevel /Q/R=(ax, tend) wName, dumvar
+			FindLevel /Q/R=(ax, tend) wtemp, dumvar
 			
 			if (V_Flag == 0)
 				DcayX[win] = V_LevelX
@@ -3390,15 +3317,152 @@ Function StatsAmpCompute(win, wName) // compute the amp stats
 	
 	endswitch
 	
-	if ((BslnSubt[win] == 1) && (StringMatch(slct[0,4], "Level") == 0) && (StringMatch(slct[0,4], "Slope") == 0))
-		ay -= by
+	// rise/decay display waves
+	
+	if (dsplyflag == 1)
+	
+		nset = win*4
+		
+		if (displayOff == 1)
+			ST_RDX[nset] = Nan
+			ST_RDX[nset+1] = Nan
+			ST_RDX[nset+2] = Nan
+		else
+			ST_RDX[nset] = RiseBX[win]
+			ST_RDX[nset+1] = RiseEX[win]
+			ST_RDX[nset+2] = DcayX[win]
+		endif
+		
+		ST_RDY[nset] = ((RiseBP[win]/100)*(ay-by)) + by
+		ST_RDY[nset+1] = ((RiseEP[win]/100)*(ay-by)) + by
+		ST_RDY[nset+2] = ((DcayP[win]/100)*(ay-by)) + by
+		
+		ST_RDY[nset] *= (ST_RDX[nset]/ST_RDX[nset]) // becomes Nan if X = Nan
+		ST_RDY[nset+1] *= (ST_RDX[nset+1]/ST_RDX[nset+1])
+		ST_RDY[nset+2] *= (ST_RDX[nset+2]/ST_RDX[nset+2])
+	
 	endif
+	
+	// new rise-time slope functions
+	
+	strswitch(slct)
+		case "RTSlope+":
+		case "RTSlope-":
+			dumstr = FindSlope(RiseBX[win], RiseEX[win], wName) // function located in "Utility.ipf"
+			ax = str2num(StringByKey("b", dumstr, "="))
+			ay = str2num(StringByKey("m", dumstr, "="))
+			break
+	endswitch
+	
+	// subtract baseline values
+	
+	aybsln = ay
+	
+	if ((BslnSubt[win] == 1) && (StringMatch(slct[0,4], "Level") == 0) && (StringMatch(slct[0,4], "Slope") == 0))
+		aybsln -= by
+	endif
+	
+	// save final results
 	
 	if (tbgn >= tend)
-		ay = Nan; ax = Nan
+		aybsln = Nan
+		ax = Nan
 	endif
 	
-	AmpY[win] = ay; AmpX[win] = ax
+	AmpY[win] = aybsln
+	AmpX[win] = ax
+	
+	// amp window display line
+	
+	if (dsplyflag == 1)
+		
+		nset = win*3
+		
+		if (displayOff == 1)
+		
+			ST_WinX[nset] = Nan
+			ST_WinX[nset+1] = Nan
+			
+			if ((drag == 1) && (win == AmpNV))
+				ST_DragWXB = Nan
+				ST_DragWXE = Nan
+			endif
+			
+		else
+		
+			strswitch(slct)
+				case "RTSlope+":
+				case "RTSlope-":
+					vbgn = RiseBX[win] + offset
+					vend = RiseEX[win] + offset
+					break
+				
+				default:
+					vbgn = AmpB[win] + offset
+					vend = AmpE[win] + offset
+			endswitch
+		
+			ST_WinX[nset] = vbgn
+			ST_WinX[nset+1] = vend
+			
+			ST_WinX[nset] = vbgn
+			ST_WinX[nset+1] = vend
+			
+			if ((drag == 1) && (win == AmpNV))
+				ST_DragWXB = AmpB[win] + offset
+				ST_DragWXE = AmpE[win] + offset
+			endif
+			
+		endif
+		
+		strswitch(slct)
+		
+			case "Slope":
+				vbgn = AmpB[win]*ay + ax
+				vend = AmpE[win]*ay + ax
+				ST_WinY[nset] = vbgn
+				ST_WinY[nset+1] = vend
+				break
+				
+			case "RTSlope+":
+			case "RTSlope-":
+				vbgn = RiseBX[win]*ay + ax
+				vend = RiseEX[win]*ay + ax
+				ST_WinY[nset] = vbgn
+				ST_WinY[nset+1] = vend
+				break
+				
+			default:
+				ST_WinY[nset] = ay
+				ST_WinY[nset+1] = ay
+				break
+				
+		endswitch
+		
+		// drag waves
+	
+		if ((win == ampNV) && (drag == 1) && (WinType(gName) == 1))
+		
+			GetAxis /W=$gName/Q left
+			
+			ST_DragWYB[0] = V_min
+			ST_DragWYB[1] = V_max
+			ST_DragWYE[0] = V_min
+			ST_DragWYE[1] = V_max
+			
+			if (Bflag[AmpNV] == 0)
+				ST_DragBYB = Nan
+				ST_DragBYE = Nan
+			else
+				ST_DragBYB[0] = V_min
+				ST_DragBYB[1] = V_max
+				ST_DragBYE[0] = V_min
+				ST_DragBYE[1] = V_max
+			endif
+			
+		endif
+	
+	endif
 	
 	KillVariables /Z U_ax, U_ay
 
@@ -3765,6 +3829,8 @@ Function /S StatsAmpName(win)
 			fxn = "Lvl"
 			break
 		case "Slope":
+		case "RTSlope+":
+		case "RTSlope-":
 			fxn = "Slp"
 			break
 		case "Off":
@@ -3847,7 +3913,7 @@ End // StatsWinList
 
 Function /S StatsAmpList()
 
-	return "Max;Min;Avg;SDev;Var;RMS;Area;Slope;Level;Level+;Level-;Off;"
+	return "Max;Min;Avg;SDev;Var;RMS;Area;Slope;RTSlope+;RTSlope-;Level;Level+;Level-;Off;"
 
 End // StatsAmpList
 

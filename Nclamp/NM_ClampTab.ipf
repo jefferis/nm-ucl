@@ -20,7 +20,7 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 26 April 2005
+//	Last modified 03 March 2006
 //
 //****************************************************************
 //****************************************************************
@@ -728,7 +728,7 @@ End // OpenStimListSet
 Function StimSetCurrent(fname) // set current stim
 	String fname // stimulus name
 	
-	StimCurrentSet(fname)
+	return StimCurrentSet(fname)
 
 End // StimSetCurrent
 
@@ -2704,9 +2704,9 @@ End // PulseClearCall
 
 Function PulseTrainCall()
 	Variable icnt
-	String wlist = ""
+	String wlist = "", wlist2 = "", wname = ""
 	
-	String tdf = ClampTabDF(), sdf = StimDF()
+	String tdf = ClampTabDF(), sdf = StimDF(), cdf = ClampDF()
 	
 	String wPrefix = StrVarOrDefault(tdf+"PulsePrefix", "")
 	
@@ -2730,13 +2730,18 @@ Function PulseTrainCall()
 	Variable amp = NumVarOrDefault(tdf+"PulseAmp", 1)
 	Variable width = NumVarOrDefault(tdf+"PulseWidth", 0)
 	Variable tau2 = NumVarOrDefault(tdf+"PulseTau2", 0)
+	Variable continuous = 0
+	
+	if (NumVarOrDefault(sdf+"AcqMode", 0) == 1)
+		continuous = 1
+	endif
 	
 	Prompt wn, "add pulses to wave:", popup wlist
 	Prompt wnd, "optional wave delta: (1) every wave after, (2) every other wave after..."
 	
 	Prompt tend, "time window end (ms):"
 	Prompt npulses, "number of pulses:"
-	Prompt type, "pulse intervals:", popup "fixed intervals;random intervals;"
+	Prompt type, "pulse intervals:", popup "fixed intervals;random intervals;my intervals;"
 	
 	Prompt intvl, "inter-pulse interval (ms):"
 	Prompt refrac, "refractory period (ms):"
@@ -2772,6 +2777,21 @@ Function PulseTrainCall()
 		Prompt intvl, "mean inter-pulse interval (ms):"
 		DoPrompt "Make Pulse Train", shape, tbeg, tend, intvl, refrac
 		wnd = 0
+	elseif (type == 3)
+		
+		wlist2 = FolderObjectList(cdf, 1)
+		
+		if (strlen(wlist2) == 0)
+			DoAlert 0, "No waves detected in root:Packages:Clamp directory"
+			return -1 // no waves in Clamp directory
+		endif
+		
+		Prompt tbeg, "time window begin (ms):"
+		Prompt wname, "choose wave of pulse intervals (wave must be in root:Packages:Clamp directory):", popup wlist2
+		DoPrompt "Make Pulse Train", wname, shape, tbeg, tend
+		
+		wname = cdf + wname
+		
 	endif
 	
 	if (V_flag == 1)
@@ -2810,7 +2830,12 @@ Function PulseTrainCall()
 		return -1 // cancel
 	endif
 	
-	PulseTrain(sdf, wPrefix, wn, nwaves-1, wnd, tbeg, tend, type, intvl, refrac, shape, amp, width, tau2)
+	SetNMvar(tdf+"PulseShape", shape)
+	SetNMvar(tdf+"PulseAmp", amp)
+	SetNMvar(tdf+"PulseWidth", width)
+	SetNMvar(tdf+"PulseTau2", tau2)
+	
+	PulseTrain(sdf, wPrefix, wn, nwaves-1, wnd, tbeg, tend, type, intvl, refrac, shape, amp, width, tau2, continuous, wname)
 
 End // PulseTrainCall
 
@@ -2949,19 +2974,22 @@ Function PulseConfigCheck()
 		errorStr = "pulse config " + num2str(pcnt)
 		
 		value = Pulse[index+1]
+		
 		if ((value < 1) || (value > 5)) // shape
 			ClampError(errorStr + " shape out of range : " + num2str(value))
 			Pulse[index+1] = 1
 		endif
 		
 		value = Pulse[index+2]
+		
 		if ((value < 0) || (value >= NumStimWaves)) // waveN
 			for (icnt = 0; icnt < NumStimWaves; icnt += 1)
 				numstr = AddListItem("wave"+num2str(icnt), numstr, ";", inf)
 			endfor
 			Prompt value, "wave" + num2str(value) + " out or range. choose new wave or clear:", popup numstr + "clear config;"
+			Print value, "wave" + num2str(value) + " out or range."
 			value = 1
-			DoPrompt "Pulse Config " + num2str(pcnt) + " Error", value
+			//DoPrompt "Pulse Config " + num2str(pcnt) + " Error", value
 			if (value <= NumStimWaves)
 				Pulse[index+2] = value - 1
 			else
@@ -2970,48 +2998,56 @@ Function PulseConfigCheck()
 		endif
 		
 		value = Pulse[index+3]
+		
 		if (value < 0) // waveND
 			ClampError(errorStr + " wave delta out of range : " + num2str(value))
 			Pulse[index+3] = 0
 		endif
 		
 		value = Pulse[index+4]
+		
 		if (value < 0) // onset
 			ClampError(errorStr + " onset out of range : " + num2str(value))
 			Pulse[index+4] = 0
 		endif
 		
 		value = Pulse[index+5]
+		
 		if (value < 0) // onsetD
 			ClampError(errorStr + " onset delta out of range : " + num2str(value))
 			Pulse[index+5] = 0
 		endif
 		
 		value = Pulse[index+7]
+		
 		if (value < 0) // ampD
 			ClampError(errorStr + " amp delta out of range : " + num2str(value))
 			Pulse[index+7] = 0
 		endif
 		
 		value = Pulse[index+8]
+		
 		if (value < 0) // width
 			ClampError(errorStr + " width out of range : " + num2str(value))
 			Pulse[index+8] = 0
 		endif
 		
 		value = Pulse[index+9]
+		
 		if (value < 0) // widthD
 			ClampError(errorStr + " width delta out of range : " + num2str(value))
 			Pulse[index+9] = 0
 		endif
 		
 		value = Pulse[index+10]
+		
 		if (value < 0) // tau2
 			ClampError(errorStr + " tau decay out of range : " + num2str(value))
 			Pulse[index+10] = 0
 		endif
 		
 		value = Pulse[index+11]
+		
 		if (value < 0) // tau2D
 			ClampError(errorStr + " tau decay delta out of range : " + num2str(value))
 			Pulse[index+11] = 0

@@ -20,7 +20,7 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 08 Feb 2006
+//	Last modified 08 June 2006
 //
 //	NM tab entry "Clamp"
 //
@@ -84,6 +84,9 @@ Function Clamp(enable)
 	Variable enable // (0) disable (1) enable
 	
 	Variable statsOn
+	
+	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
+	Variable CurrentWave = NumVarOrDefault("CurrentWave", 0)
 
 	if (enable == 1)
 	
@@ -96,7 +99,7 @@ Function Clamp(enable)
 		statsOn = StimStatsOn()
 		
 		if (statsOn == 1)
-			StatsComputeAmps(CurrentChanDisplayWave(), -1, -1, -1, 0, 1)
+			StatsComputeAmps(CurrentChanDisplayWave(), CurrentChan, CurrentWave, -1, 0, 1)
 		endif
 		
 	endif
@@ -2004,6 +2007,11 @@ Function ClampStatsRetrieve(sdf) // retrieve Stats waves from stim folder
 	endif
 	
 	StatsWavesCopy(sdf+"Stats", StatsDF())
+	
+	if (WaveExists($(StatsDF()+"ChanSelect")) == 1)
+		Wave chan = $(StatsDF()+"ChanSelect")
+		CurrentChanSet(chan[0])
+	endif
 		
 	return 0
 

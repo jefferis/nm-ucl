@@ -14,7 +14,7 @@
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began March 2001
-//	Last modified 07 March 2005
+//	Last modified 02 March 2006
 //
 //	Functions for creating/displaying "pulse" waves
 //
@@ -392,43 +392,74 @@ End // PulseClear
 //****************************************************************
 //****************************************************************
 
-Function PulseTrain(df, wPrefix, wbeg, wend, winc, tbeg, tend, type, intvl, refrac, shape, amp, width, tau2)
+Function PulseTrain(df, wPrefix, wbgn, wend, winc, tbgn, tend, type, intvl, refrac, shape, amp, width, tau2, continuous, wName)
 	String df // data folder
 	String wPrefix // wave prefix
 
-	Variable wbeg, wend // wave number begin, end
+	Variable wbgn, wend // wave number begin, end
 	Variable winc // wave increment
-	Variable tbeg, tend // window begin/end time
-	Variable type // (1) fixed (2) random
+	Variable tbgn, tend // window begin/end time
+	Variable type // (1) fixed (2) random (3) from wave
 	Variable intvl // inter-pulse interval
 	Variable refrac // refractory period for random train
 	Variable shape // pulse shape
 	Variable amp // pulse amplitude
 	Variable width // pulse width or time constant
 	Variable tau2 // decay time constant for 2-exp
+	Variable continuous // if waves are to be treated as continuous (0) no (1) yes
 	
-	Variable onset, tlast, wcnt, pcnt
+	String wName // wave name, for type 3
 	
-	for (wcnt = wbeg; wcnt <= wend; wcnt += 1)
+	Variable onset, tlast, wcnt, pcnt, hold, plimit = 99999
+	
+	if ((type == 3) && (WaveExists($wName) == 0))
+		return -1
+	endif
+	
+	if (type == 3)
+		Wave wtemp = $wName
+		plimit = numpnts(wtemp)
+	endif
+	
+	for (wcnt = wbgn; wcnt <= wend; wcnt += 1)
 		
-		tlast = tbeg
+		if (continuous == 0)
+			tlast = tbgn
+		elseif (wcnt == wbgn)
+			tlast = tbgn
+		else
+			tlast = 0
+		endif
 	
-		do
+		do // add pulses
 	
-			if (type == 1) // fixed intervals
-				onset = tbeg + intvl * pcnt
+			if (hold > 0)
+				onset = tlast + hold
+				hold = 0
+			elseif (type == 1) // fixed intervals
+				onset = tbgn + intvl * (pcnt + 1)
 			elseif (type == 2) // random intervals
 				onset = tlast - ln(abs(enoise(1))) * intvl
+			elseif (type == 3) // user wave of intervals
+				if (numtype(wtemp[pcnt]) == 0)
+					onset = tlast + wtemp[pcnt]
+				else
+					pcnt = plimit
+					onset = tend
+				endif
 			endif
 			
-			if ((onset >= tlast + refrac) && (onset < tend))
+			if (onset == tlast)
+				pcnt += 1
+			elseif ((onset > tlast + refrac) && (onset < tend))
 				PulseSave(df, wPrefix, -1, shape, wcnt, winc, onset, 0, amp, 0, width, 0, tau2, 0)
 				tlast = onset
+				pcnt += 1
+			elseif (continuous == 1)
+				hold = onset - tend
 			endif
 			
-			pcnt += 1
-			
-		while (onset < tend)
+		while ((hold == 0) && (onset < tend) && (pcnt < plimit))
 	
 	endfor
 

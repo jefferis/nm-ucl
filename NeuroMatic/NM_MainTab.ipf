@@ -13,7 +13,7 @@
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 03 Jan 2006
+//	Last modified 26 July 2006
 //
 //	NM tab entry "Main"
 //
@@ -834,7 +834,7 @@ End // NMReplaceNanZero
 Function /S NMCopyWavesCall()
 	String vlist = "", df = MainDF()
 	
-	String newPrefix = "C_" // NMPrefixNext("C", "")
+	String newPrefix = "C_" + StrVarOrDefault(df + "CurrentPrefix", "Record")
 	
 	Variable select = 1 + NumVarOrDefault(df+"CopySelect", 1)
 	Variable tbgn = -inf
@@ -901,7 +901,7 @@ Function /S NMCopyWaves(newPrefix, tbgn, tend, select)
 			continue
 		endif
 		
-		outList = CopyWaves(newPrefix, tbgn, tend, wList) // NM_Utility.ipf
+		outList = CopyWaves(newPrefix+ "_" + ChanNum2Char(ccnt), tbgn, tend, wList) // NM_Utility.ipf
 		allList += outList
 	
 		NMMainHistory("Copied to " + newPrefix + "*", ccnt, outList, 0)
@@ -2720,7 +2720,7 @@ Function /S NMBaselineCall()
 	
 	Variable method = NumVarOrDefault(df+"Bsln_Method", 1)
 	Variable tbgn = NumVarOrDefault(df+"Bsln_Bgn", 0)
-	Variable tend = NumVarOrDefault(df+"Bsln_End", 10)
+	Variable tend = NumVarOrDefault(df+"Bsln_End", 5)
 	
 	Prompt tbgn, "compute baseline FROM (ms):"
 	Prompt tend, "compute baseline TO (ms):"
@@ -3569,11 +3569,15 @@ Function /S NMNormWavesCall()
 	Variable rx = rightx($CurrentChanDisplayWave())
 	
 	String fxn = StrVarOrDefault(df+"NormFxn", "max")
-	Variable tbgn = NumVarOrDefault(df+"NormTbgn", 0)
-	Variable tend = NumVarOrDefault(df+"NormTend", rx)
 	
-	Prompt tbgn, "measured from (ms):"
-	Prompt tend, "measured to (ms):"
+	Variable bbgn = NumVarOrDefault(df+"Bsln_Bgn", 0)
+	Variable bend = NumVarOrDefault(df+"Bsln_End", 5)
+	
+	Variable tbgn = NumVarOrDefault(df+"NormTbgn", bbgn)
+	Variable tend = NumVarOrDefault(df+"NormTend", bend)
+	
+	Prompt tbgn, "measure baseline from (ms):"
+	Prompt tend, "measure baseline to (ms):"
 	Prompt fxn, "normalize waves to:", popup "max;min;"
 	
 	DoPrompt NMPromptStr("Normalize"), fxn, tbgn, tend
@@ -3638,10 +3642,10 @@ Function /S NMNormWaves(fxn, tbgn, tend)
 			continue
 		endif
 		
-		outList = NormWaves(fxn, tbgn, tend, wList) // NM_Utility.ipf
+		outList = NormWaves2Bsln(fxn, tbgn, tend, wList) // NM_Utility.ipf
 		allList += outList
 		
-		NMMainHistory("Normalized to " + fxn + " (t=" + num2str(tbgn) + "," + num2str(tend) + ")", ccnt, outList, 0)
+		NMMainHistory("Normalized to baseline" + fxn + " (t=" + num2str(tbgn) + "," + num2str(tend) + ")", ccnt, outList, 0)
 		
 	endfor
 	
