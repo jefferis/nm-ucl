@@ -1,40 +1,34 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Log Display Functions
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last Modified 18 Nov 2004
+//	Last Modified 25 Feb 2007
 //
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function CheckLog(ldf) // check log data folder exists
-	String ldf // log data folder
-	
-	// log folders are created in "root:" directory
-	
-	ldf = LastPathColon(ldf,1)
-	
-	if (DataFolderExists(ldf) == 0) // check Log folder exists
-		NewDataFolder $LastPathColon(ldf, 0)
-		SetNMstr(ldf+"FileType", "NMLog")
-		SetNMstr(ldf+"FileDate", date())
-		SetNMstr(ldf+"FileTime", time())
+Function /S LogParent() // directory of log folders
+
+	if (DataFolderExists("root:Logs:") == 0)
+		NewDataFolder root:Logs
 	endif
 	
-End // CheckLog
+	return "root:Logs:"
+	
+End // LogParent
 
 //****************************************************************
 //****************************************************************
@@ -340,6 +334,7 @@ End // LogTable
 
 Function LogNotebook(ldf) // create a log notebook from a log data folder
 	String ldf // log data folder
+	String name, tabs
 	
 	ldf = LastPathColon(ldf,1)
 	
@@ -359,23 +354,27 @@ Function LogNotebook(ldf) // create a log notebook from a log data folder
 	SetCascadeXY(nbName)
 	
 	Notebook $nbName text=("NeuroMatic Clamp Notebook")
-	Notebook $nbName text=("\rFile:\t\t\t" + StrVarOrDefault(ldf+"FileName", GetPathName(ldf,0)))
-	Notebook $nbName text=("\rCreated:\t\t" + StrVarOrDefault(ldf+"FileDate", ""))
-	Notebook $nbName text=("\rTime:\t\t" + StrVarOrDefault(ldf+"FileTime", ""))
-	Notebook $nbName text=("\r")
+	Notebook $nbName text=("\rFILE:\t\t\t\t\t" + StrVarOrDefault(ldf+"FileName", GetPathName(ldf,0)))
+	//Notebook $nbName text=("\rCreated:\t\t\t\t" + StrVarOrDefault(ldf+"FileDate", ""))
+	//Notebook $nbName text=("\rTime:\t\t\t\t" + StrVarOrDefault(ldf+"FileTime", ""))
+	//Notebook $nbName text=("\r")
 	
 	olist = LogVarList(ldf, "H_", "string")
 	
 	for (ocnt = 0; ocnt < ItemsInList(olist); ocnt += 1)
 		objName = StringFromList(ocnt, olist)
-		Notebook $nbName text=("\r" + objName[2,inf] + ":\t\t" + StrVarOrDefault(ldf+objName, ""))
+		name = UpperStr(ReplaceString("H_", objName, "") + ":")
+		tabs = LogNotebookTabs(name)
+		Notebook $nbName text=("\r" + name + tabs + StrVarOrDefault(ldf+objName, ""))
 	endfor
 	
 	olist = LogVarList(ldf, "H_", "numeric")
 	
 	for (ocnt = 0; ocnt < ItemsInList(olist); ocnt += 1)
 		objName = StringFromList(ocnt, olist)
-		Notebook $nbName text=("\r" + objName[2,inf] + ":\t\t" + num2str(NumVarOrDefault(ldf+objName, Nan)))
+		name = UpperStr(ReplaceString("H_", objName, "") + ":")
+		tabs = LogNotebookTabs(name)
+		Notebook $nbName text=("\r" + name + tabs + num2str(NumVarOrDefault(ldf+objName, Nan)))
 	endfor
 	
 	olist = LogSubFolderList(ldf)
@@ -394,6 +393,7 @@ End // LogNotebook
 Function LogNotebookFileVars(ndf, nbName)
 	String ndf // notes data folder
 	String nbName
+	String name, tabs
 
 	if ((WinType(nbName) == 0) || (DataFolderExists(ndf) == 0))
 		return 0
@@ -416,7 +416,10 @@ Function LogNotebookFileVars(ndf, nbName)
 	
 	for (icnt = 0; icnt < ItemsInList(slist); icnt += 1) // string vars
 		objName = StringFromList(icnt,slist)
-		Notebook $nbName text=("\r" + objName[2,inf] + ":\t\t" + StrVarOrDefault(ndf+objName, ""))
+		name = ReplaceString("H_", objName, "") + ":"
+		name = UpperStr(ReplaceString("F_", name, ""))
+		tabs = LogNotebookTabs(name)
+		Notebook $nbName text=("\r" + name + tabs + StrVarOrDefault(ndf+objName, ""))
 	endfor
 	
 	Notebook $nbName text=("\r")
@@ -424,6 +427,8 @@ Function LogNotebookFileVars(ndf, nbName)
 	for (icnt = 0; icnt < ItemsInList(nlist); icnt += 1) // numeric vars
 	
 		objName = StringFromList(icnt,nlist)
+		name = UpperStr(ReplaceString("F_", objName, "") + ":")
+		tabs = LogNotebookTabs(name)
 		value = NumVarOrDefault(ndf+objName, Nan)
 		strvalue = ""
 		
@@ -431,7 +436,7 @@ Function LogNotebookFileVars(ndf, nbName)
 			strvalue = num2str(value)
 		endif
 		
-		Notebook $nbName text=("\r" + objName[2,inf] + ":\t\t" + strvalue)
+		Notebook $nbName text=("\r" + name + tabs + strvalue)
 		
 	endfor
 	
@@ -440,15 +445,38 @@ Function LogNotebookFileVars(ndf, nbName)
 	for (icnt = 0; icnt < ItemsInList(notelist); icnt += 1) // note vars
 	
 		objName = StringFromList(icnt,notelist)
+		name = UpperStr(ReplaceString("F_", objName, "") + ":")
+		tabs = LogNotebookTabs(name)
 		strvalue = StrVarOrDefault(ndf+objName, "")
 		
 		if (strlen(strvalue) > 0)
-			Notebook $nbName text=("\r" + objName[2,inf] + ":\t\t" + strvalue)
+			Notebook $nbName text=("\r" + name + tabs + strvalue)
 		endif
 		
 	endfor
 	
 End // LogNotebookFileVars
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /T LogNotebookTabs(name)
+	String name
+	
+	if (strlen(name) < 4)
+		return "\t\t\t\t\t"
+	elseif (strlen(name) < 7)
+		return "\t\t\t\t"
+	elseif (strlen(name) < 10)
+		return "\t\t\t"
+	elseif (strlen(name) < 13)
+		return "\t\t"
+	else
+		return "\t"
+	endif
+
+End // LogNotebookTabs
 
 //****************************************************************
 //****************************************************************

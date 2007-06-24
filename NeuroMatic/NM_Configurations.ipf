@@ -1,20 +1,20 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Configuration Functions
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last Modified 08 Nov 2005
+//	Last Modified 28 Dec 2006
 //
 //	New Configurations
 //
@@ -63,29 +63,25 @@ Function CheckNMConfig(fname)
 	
 		case "NeuroMatic": // Neuromatic Main Configurations
 		
-			NMConfigVar(fname, "AutoStart", 1, "Auto-start NeuroMatic (0) no (1) yes")
+			NMConfigVar(fname, "AutoStart", 1, "Auto-start NM (0) no (1) yes")
 			NMConfigVar(fname, "AutoPlot", 1, "Auto plot data upon loading file (0) no (1) yes")
-			NMConfigVar(fname, "CountFrom", 0, "First number to count from (0 or 1)")
 			NMConfigVar(fname, "NameFormat", 1, "Wave name format (0) short (1) long")
-			NMConfigVar(fname, "ProgFlag", 1, "Progress display (0) off (1) WinProg XOP of Kevin Boyce")
-			NMConfigVar(fname, "OverWrite", 1, "Over-write (0) off (1) on")
+			//NMConfigVar(fname, "ProgFlag", 1, "Progress display (0) off (1) WinProg XOP of Kevin Boyce")
+			
 			NMConfigVar(fname, "WriteHistory", 1, "Analysis history (0) off (1) Igor History (2) notebook (3) both")
 			NMConfigVar(fname, "CmdHistory", 1, "Command history (0) off (1) Igor History (2) notebook (3) both")
-			
-			NMConfigVar(fname, "GroupsOn", 0, "Groups (0) off (1) on")
-			NMConfigVar(fname, "GroupsAutoClear", 1, "Groups auto clear (0) off (1) on")
-			
-			NMConfigVar(fname, "SetsAutoAdvance", 0, "Auto-advance wave number (0) off (1) on")
-			NMConfigVar(fname, "SetsAutoClear", 1, "Sets auto clear (0) off (1) on")
 			
 			//NMConfigVar(fname, "xPixels", 1000, "Screen x-pixels") // auto-detected
 			//NMConfigVar(fname, "yPixels", 800, "Screen y-pixels") // auto-detected
 			//NMConfigStr(fname,"Computer", "mac", "Computer type (mac or pc)") // auto-detected
 			
-			NMConfigVar(fname, "ChangePrefixPrompt", 1, "Prefix select num channel prompt (0) off (1) on")
+			NMConfigVar(fname, "ImportPrompt", 1, "Import prompt (0) off (1) on")
 			
+			NMConfigVar(fname, "OverWrite", 1, "Over-write (0) off (1) on")
+			
+			NMConfigStr(fname, "FolderPrefix", "nm", "NM folder prefix")
 			NMConfigStr(fname, "PrefixList", "Record;Avg_;ST_;", "List of wave prefix names")
-			NMConfigStr(fname, "NMTabList", "Main;", "List of NeuroMatic tabs")
+			NMConfigStr(fname, "NMTabList", "Main;Stats;Spike;MyTab;", "List of NM tabs")
 			
 			NMConfigStr(fname, "OpenDataPath", "", "Open data file path (i.e. C:Jason:TestData:)")
 			NMConfigStr(fname, "SaveDataPath", "", "Save data file path (i.e. C:Jason:TestData:)")
@@ -94,96 +90,18 @@ Function CheckNMConfig(fname)
 			
 		case "Main": // Main Tab Configurations
 		
-			NMConfigStr(fname, "PlotColor", "rainbow", "Plot wave color (black, red, blue, yellow, green, purple, rainbow)")
-		
 			NMConfigVar(fname, "Bsln_Method", 1, "(1) subtract wave's individual mean (2) subtract mean of all waves")
 			NMConfigVar(fname, "Bsln_Bgn", 0, "Baseline window begin (ms)")
 			NMConfigVar(fname, "Bsln_End", 10, "Baseline window end (ms)")
 			
-			NMConfigVar(fname, "AvgMode", 2, "(1) mean (2) mean + stdv (3) mean + var (4) mean + sem")
-			NMConfigVar(fname, "AvgDisplay", 1, "display data waves with results? (0) no (1) yes")
-			NMConfigVar(fname, "AvgChanFlag", 0, "use channel smooth and F(t)? (0) no (1) yes")
-			NMConfigVar(fname, "AvgAllGrps", 0, "average all groups? (0) no (1) yes")
-			NMConfigVar(fname, "AvgGrpDisplay", 1, "display groups in same plot? (0) no (1) yes")
-			
-			NMConfigVar(fname, "SmoothNum", 1, "Number of smoothing points/operations")
-			NMConfigStr(fname, "SmoothAlg", "binomial", "Smoothing algorithm (binomial, boxcar, polynomial)")
-			
-			NMConfigVar(fname, "CopySelect", 1, "Select copied waves as current? (0) no (1) yes")
-			
-			NMConfigStr(fname, "RenameFind", "", "Wave rename find string")
-			NMConfigStr(fname, "RenameReplace", "", "Wave rename replace string")
-			
-			NMConfigVar(fname, "RenumFrom", 0, "Renumber waves from")
-			
-			NMConfigVar(fname, "DecimateN", 4, "Decimate number of points")
-			
-			NMConfigVar(fname, "XAlignPosTime", 1, "During alignment, allow only positive time values? (0) no (1) yes")
-			NMConfigVar(fname, "XAlignInterp", 0, "Make alignments permanent by interpolation? (0) no (1) yes")
-			
-			NMConfigStr(fname, "ScaleByNumAlg", "*", "Scale by number algorithm (*, /, +, -)")
-			NMConfigVar(fname, "ScaleByNumVal", 1, "Scale by number value")
-			
-			NMConfigVar(fname, "ScaleByWaveMthd", 0, "(0) none (1) scale by wave of values (2) scale by wave")
-			NMConfigStr(fname, "ScaleByWaveAlg", "*", "Scale by wave algorithm (*, /, +, -)")
-			NMConfigVar(fname, "ScaleByWaveVal", 1, "Scale by wave value")
-			
-			NMConfigStr(fname, "NormFxn", "*", "Normalize by measurement (min, max, avg)")
-			NMConfigVar(fname, "NormTbgn", 0, "Normalize measure time begin")
-			//NMConfigVar(fname, "NormTend", 0, "Normalize measure time end")
-			
-			NMConfigStr(fname, "IVFxnX", "Avg", "IV x-data algorithm (min, max, avg, slope)")
-			NMConfigStr(fname, "IVFxnY", "Avg", "IV y-data algorithm (min, max, avg, slope)")
-			NMConfigVar(fname, "IVChX", 1, "IV x-data channel select")
-			NMConfigVar(fname, "IVChY", 0, "IV y-data channel select")
-			NMConfigVar(fname, "IVTbgnX", 0, "IV x-data time begin")
-			//NMConfigVar(fname, "IVTendX", 10, "IV x-data time end")
-			NMConfigVar(fname, "IVTbgnY", 0, "IV y-data time begin")
-			//NMConfigVar(fname, "IVTendY", 10, "IV y-data time end")
-			
-			break
-			
-		case "Chan": // Channel Graph Configurations
-			
-			NMConfigVar(fname, "GridFlag", 1, "Graph grid display (0) off (1) on")
-			NMConfigVar(fname, "Overlay", 0, "Number of waves to overlay (0) none")
-			NMConfigVar(fname, "DTflag", 0, "F(t) (0) none (1) d/dt (2) dd/dt*dt (3) integral (4) normalize")
-			NMConfigVar(fname, "SmthNum", 0, "Wave smooth number (0) none")
-			
-			NMConfigStr(fname, "SmthAlg", "", "Smooth algorithm (binomial, boxcar)")
-			
-			NMConfigVar(fname, "AutoScale", 1, "Auto scale (0) off (1) on")
-			NMConfigVar(fname, "Xmin", 0, "X-min scale value")
-			NMConfigVar(fname, "Xmax", 1, "X-max scale value")
-			NMConfigVar(fname, "Ymin", 0, "Y-min scale value")
-			NMConfigVar(fname, "Ymax", 1, "Y-max scale value")
-			
-			NMConfigStr(fname, "TraceColor", "0,0,0", "Trace rgb color")
-			NMConfigStr(fname, "OverlayColor", "34816,34816,34816", "Overlay trace rgb color")
-			
-			break
-			
-		case "Import": // Import File Configurations
-		
-			NMConfigVar(fname, "ImportPrompt", 1, "Import prompt (0) off (1) on")
-			NMConfigStr(fname, "xLabel", "", "X-axis label")
-		
-			NMConfigTWave(fname, "yLabel", 10, "", "Channel y-axis label")
-			NMConfigWave(fname, "MyScaleFactors", 10, 1, "Post-import channel scale factor")
-		
 			break
 			
 		case "Stats": // Stats Tab Configurations
 		
 			Variable win, numwin = 10
 			
-			NMConfigVar(fname, "DragOn", 1, "Display drag waves (0) no (1) yes")
-			NMConfigVar(fname, "TablesOn", 1, "Display Stats1 results in tables? (0) no (1) yes")
-			NMConfigVar(fname, "AllWinOn", 1, "Compute all Stats windows (0) no (1) yes")
-			NMConfigVar(fname, "AutoStats2", 1, "Auto select Stats2 for All Waves (0) no (1) yes")
-			
-			NMConfigVar(fname, "WavSelectOn", 0, "Stats2 wave select filter (0) off (1) on")
 			NMConfigVar(fname, "AutoPlot", 1, "Stats2 auto plot (0) off (1) on")
+			NMConfigVar(fname, "TablesOn", 1, "Display Stats1 results in tables? (0) no (1) yes")
 			
 			NMConfigStr(fname, "AmpColor", "65535,0,0", "Amp display rgb color")
 			NMConfigStr(fname, "BaseColor", "0,39168,0", "Baseline display rgb color")
@@ -197,7 +115,7 @@ Function CheckNMConfig(fname)
 			NMConfigTWave(fname, "BslnSlct", numwin, "Avg", "Baseline measurement")
 			NMConfigWave(fname, "BslnB", numwin, 0, "Baseline begin time (ms)")
 			NMConfigWave(fname, "BslnE", numwin, 0, "Baseline end time (ms)")
-			NMConfigWave(fname, "BslnSub", numwin, 0, "Baseline auto subtract (0) no (1) yes")
+			NMConfigWave(fname, "BslnSubt", numwin, 0, "Baseline auto subtract (0) no (1) yes")
 			NMConfigWave(fname, "BslnRflct", numwin, Nan, "Baseline reflected window (0) off (1) on")
 			
 			NMConfigWave(fname, "Rflag", numwin, 0, "Compute rise-time (0) no (1) yes")
@@ -208,20 +126,13 @@ Function CheckNMConfig(fname)
 			NMConfigWave(fname, "DcayP", numwin, 37, "Decay %")
 			
 			NMConfigWave(fname, "dtFlag", numwin, 0, "F(t) (0) none (1) d/dt (2) dd/dt*dt (3) integral")
-			NMConfigWave(fname, "Dsply", numwin, 2, "Display tags (0) off (1) no text (2) win + value (3) win (4) value")
 			
 			NMConfigWave(fname, "SmthNum", numwin, 0, "Smooth number")
 			NMConfigTWave(fname, "SmthAlg", numwin, "binomial", "Smooth algorithm")
 			
+			NMConfigWave(fname, "ChanSelect", numwin, 0, "Channel to analyze")
+			
 			NMConfigTWave(fname, "OffsetW", numwin, "", "Offset wave name (/g for group num, /w for wave num)")
-			
-			break
-			
-		case "Spike": // Spike Tab Configurations
-			
-			NMConfigVar(fname, "Thresh", 20, "Spike threshold trigger level")
-			NMConfigVar(fname, "WinB", 0, "Search begin time (ms)")
-			NMConfigVar(fname, "WinE", 10, "Search end time (ms)")
 			
 			break
 			
@@ -249,12 +160,6 @@ Function CheckNMConfig(fname)
 			
 			break
 			
-		case "MyTab":
-			
-			NMConfigVar(fname, "MyVar", 44, "This is my variable")
-			
-			break
-			
 		case "Clamp": // Clamp Tab Configurations
 			
 			NMConfigVar(fname, "TestTimers", 1, "Test acquisition timers (0) no (1) yes")
@@ -268,6 +173,7 @@ Function CheckNMConfig(fname)
 			NMConfigStr(fname, "AcqBoard", "Demo", "Acquisition board (NIDAQ, ITC18, ITC16, Demo)")
 			NMConfigStr(fname, "DataPrefix", "Record", "Data wave prefix name")
 			
+			NMConfigStr(fname, "FolderPrefix", "", "Folder name prefix")
 			NMConfigStr(fname, "StimPath", "C:Jason:TestStims:", "Directory where stim protocols are saved")
 			NMConfigStr(fname, "OpenStimList", "iv;", "List of stim files to open")
 			
@@ -602,7 +508,9 @@ Function /S NMConfigSaveAll()
 	
 	CheckNMPath()
 	
-	return FileBinSave(1, 1, df, "NMPath", file, 1, -1) // new file
+	file = FileBinSave(1, 1, df, "NMPath", file, 1, -1) // new file
+	
+	return file
 
 End // NMConfigSaveAll
 
@@ -745,7 +653,7 @@ Function NMConfigKillCall(fname)
 	if ((strlen(fname) == 0) || (FindListItem(fname, flist) < 0))
 	
 		if (ItemsInList(flist) == 0)
-			DoAlert 0, "No Configurations to kill."
+			DoAlert 0, "No configuration to kill."
 			return 0
 		endif
 		

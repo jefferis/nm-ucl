@@ -1,13 +1,13 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Spearman Rank-Order Stability Test
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic, v1.97
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //

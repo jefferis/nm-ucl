@@ -1,19 +1,19 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
-//	Misc. Utility Functions
-//	To be run with NeuroMatic, v1.91
+//	NeuroMatic Utility Functions
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 26 July 2006
+//	Last modified 22 June 2007
 //
 //****************************************************************
 //****************************************************************
@@ -46,127 +46,6 @@ Function WavesExist(wList)
 	return yes
 
 End // WavesExist
-
-//****************************************************************
-//
-//	MakeWave()
-//	create destination wave from source wave, given differentiation and F(t) flags
-//
-//****************************************************************
-
-Function MakeWave(srcName, dstName, ft, smthNum, smthAlg)
-	String srcName, dstName // source and destination wave names
-	Variable ft // F(t) (0) none (1) d/dt (2) dd/dt*dt (3) integral (4) normalize
-	Variable smthNum // smooth number (0 - no smoothing)
-	String smthAlg // smooth algorithm ("binomial" or "boxcar")
-	
-	String df = MainDF()
-	
-	Variable bbgn = NumVarOrDefault(df+"Bsln_Bgn", 0)
-	Variable bend = NumVarOrDefault(df+"Bsln_End", 5)
-	
-	if (StringMatch(srcName, dstName) == 1)
-		return -1 // not to over-write source wave
-	endif
-		
-	if (WaveExists($srcName) == 0)
-		return -1 // source wave does not exist
-	endif
-
-	if (WaveType($srcName) == 0)
-		return -1 // text wave
-	endif
-
-	Duplicate /O $srcName, $dstName
-	
-	if (smthNum > 0)
-		SmoothWaves(smthAlg,  smthNum, dstName)
-	endif
-	
-	switch(ft)
-		default:
-			break
-		case 1:
-		case 2:
-		case 3:
-			DiffWaves(dstName, ft)
-			break
-		case 4:
-			//NormWaves("Max", leftx($dstName), rightx($dstName), dstName)
-			NormWaves2Bsln("Max", bbgn, bend, dstName)
-			break
-	endswitch
-	
-	return 0
-
-End // MakeWave
-
-//****************************************************************
-//
-//	GetWaveName()
-//	return NM wave name string, given prefix, channel and wave number
-//
-//****************************************************************
-
-Function /S GetWaveName(prefix, chanNum, waveNum)
-	String prefix // wave prefix name (pass "default" to use data's WavePrefix)
-	Variable chanNum // channel number (pass -1 for none)
-	Variable waveNum // wave number
-	
-	String name
-	
-	if ((StringMatch(prefix, "default") == 1) || (StringMatch(prefix, "Default") == 1))
-		prefix = StrVarOrDefault("WavePrefix", "Wave")
-	endif
-	
-	if (chanNum == -1)
-		name = prefix + num2str(waveNum)
-	else
-		name = prefix + ChanNum2Char(chanNum) + num2str(waveNum)
-	endif
-	
-	return name
-
-End // GetWaveName
-
-//****************************************************************
-//
-//	NextWaveName()
-//	return wave name in a sequence, given prefix and channel number
-//
-//****************************************************************
-
-Function /S NextWaveName(prefix, chanNum, overwrite) 
-	String prefix // wave prefix name
-	Variable chanNum // channel number (pass -1 for none)
-	Variable overwrite // overwrite flag: (1) return last name in sequence (0) return next name in sequence
-	
-	Variable count
-	String wName
-	
-	for (count = 0; count <= 99; count += 1) // search thru sequence numbers
-	
-		if (chanNum == -1)
-			wName = prefix + num2str(count)
-		else
-			wName = prefix+ ChanNum2Char(chanNum) + num2str(count)
-		endif
-		
-		if (WaveExists($wName) == 0)
-			break // found name not in use
-		endif
-		
-	endfor
-	
-	if ((overwrite == 0) || (count == 0))
-		return wName
-	elseif (chanNum < 0)
-		return prefix + num2str(count-1)
-	else
-		return prefix + ChanNum2Char(chanNum) + num2str(count-1)
-	endif
-
-End // NextWaveName
 
 //****************************************************************
 //
@@ -240,6 +119,35 @@ End // WaveListOfSize
 
 //****************************************************************
 //
+//	WaveListFolder
+//
+//****************************************************************
+
+Function /S WaveListFolder(folder, matchStr, separatorStr, optionsStr)
+	String folder
+	String matchStr, separatorStr, optionsStr // see Igor WaveList
+	
+	String wList
+	String saveDF = GetDataFolder(1) // save current directory
+	
+	folder = LastPathColon(folder,0)
+	
+	if (DataFolderExists(folder) == 0)
+		return ""
+	endif
+	
+	SetDataFolder $folder
+	
+	wList = WaveList(matchStr, separatorStr, optionsStr)
+	
+	SetDataFolder $saveDF // back to original data folder
+	
+	return wList
+
+End // WaveListFolder
+
+//****************************************************************
+//
 //	WaveListText0()
 //
 //****************************************************************
@@ -297,6 +205,43 @@ End // Wave2List
 
 //****************************************************************
 //
+//	List2Wave()
+//	convert list items to wave items
+//
+//****************************************************************
+
+Function List2Wave(strList, wName)
+	String strList
+	String wName // wave name
+	
+	Variable icnt
+	String item
+	
+	Variable items = ItemsInList(strList)
+	
+	if (items == 0)
+		return 0 // nothing to do
+	endif
+	
+	if (WaveExists($wName) == 1)
+		DoAlert 0, "Abort List2Wave: wave " + wName + " already exists."
+		return -1
+	endif
+	
+	Make /T/N=(items) $wName
+	
+	Wave /T wtemp = $wName
+	
+	for (icnt = 0; icnt < items; icnt += 1)
+		wtemp[icnt] = StringFromList(icnt, strList)
+	endfor
+	
+	return 0
+
+End // Wave2List
+
+//****************************************************************
+//
 //
 //
 //****************************************************************
@@ -311,7 +256,7 @@ Function NMUtilityAlert(fxn, badList)
 	
 	String alert = fxn + " Alert : the following waves did not pass sucessfully through function execution : " + badList
 	
-	DoAlert 0, alert
+	//DoAlert 0, alert
 	
 	NMhistory(alert)
 	
@@ -378,7 +323,7 @@ Function NMPlotWaves(gName, gTitle, xLabel, yLabel, wList) // renamed from PlotW
 		WaveStats /Q $wName
 		
 		if ((V_numNaNs > 2) && (V_npnts > 0) && (V_npnts < 1000))
-			gmode = 4
+			//gmode = 4
 		endif
 	
 		if (first == 1)
@@ -427,11 +372,41 @@ Function EditWaves(tName, tTitle, wList)
 	String wName, badList = wList
 	Variable wcnt, first = 1
 	
-	if (ItemsInList(wList) == 0)
+	if ((strlen(tName) == 0) || (ItemsInList(wList) == 0))
 		return -1
 	endif
 	
-	DoWindow /K $tName // warning, this function will kill window named tName if it already exists
+	if (WinType(tName) > 0)
+	
+		if (WinType(tName) != 2)
+			DoAlert 0, "Abort EditWaves: window already exists with that name : " + tName
+			return -1
+		endif
+	
+		DoAlert 2, "Warning: table \"" + tName + "\" already exists. Do you want to overwrite it?"
+		
+		if (V_flag == 1) // yes
+		
+			DoWindow /K $tName // kill window
+			
+		elseif (V_flag == 2) // no
+			
+			tName += "_0"
+			
+			Prompt tName, "enter new name for table:"
+			DoPrompt "Edit Waves", tName
+			
+			if (V_flag == 1)
+				return -1 // cancel
+			endif
+		
+		elseif (V_flag == 3) // cancel
+		
+			return - 1
+			
+		endif
+	
+	endif
 
 	for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
 	
@@ -527,9 +502,8 @@ Function /S CopyWaves(newPrefix, tbgn, tend, wList)
 	for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
 	
 		wName = StringFromList(wcnt, wList)
-		newName = newPrefix + num2str(wcnt)
 		//newName = newPrefix + ChanCharGet(wName) + num2str(ChanWaveNum(wName))
-		//newName = newPrefix + wName
+		newName = newPrefix + wName
 		newList = AddListItem(newName, newList, ";", inf)
 		
 		if (StringMatch(wName, newName) == 1)
@@ -582,8 +556,23 @@ End // CopyWaves
 
 //****************************************************************
 //
+//	CopyAllWavesTo()
+//	copy all waves from one folder to another
+//
+//****************************************************************
+
+Function /S CopyAllWavesTo(fromFolder, toFolder, alert)
+	String fromFolder, toFolder
+	Variable alert // (0) no alert (1) alert if overwriting
+	
+	CopyWavesTo(fromFolder, toFolder, "", -inf, inf, "", alert)
+	
+End // CopyAllWavesTo
+
+//****************************************************************
+//
 //	CopyWavesTo()
-//	move waves from one folder to another
+//	copy waves from one folder to another
 //
 //****************************************************************
 
@@ -601,12 +590,8 @@ Function /S CopyWavesTo(fromFolder, toFolder, newPrefix, tbgn, tend, wList, aler
 		return ""
 	endif
 	
-	String saveDF = GetDataFolder(1) // save current directory
-	
-	SetDataFolder fromFolder
-	
 	if (strlen(wList) == 0)
-		wList = WaveList("*", ";", "")
+		wList = WaveListFolder(fromFolder, "*", ";", "")
 	endif
 	
 	toFolder = LastPathColon(toFolder,1)
@@ -614,12 +599,8 @@ Function /S CopyWavesTo(fromFolder, toFolder, newPrefix, tbgn, tend, wList, aler
 	for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
 	
 		wname = StringFromList(wcnt, wList)
-		
-		if (strlen(newPrefix) > 0)
-			dname = toFolder + newPrefix + ChanCharGet(wName) + num2str(ChanWaveNum(wName))
-		else
-			dname = toFolder + wname
-		endif
+	
+		dname = toFolder + newPrefix + wname
 		
 		if ((WaveExists($dname) == 1) && (alert == 1) && (first == 1))
 		
@@ -637,10 +618,16 @@ Function /S CopyWavesTo(fromFolder, toFolder, newPrefix, tbgn, tend, wList, aler
 			continue
 		endif
 		
+		if (WaveExists($(fromFolder+wname)) == 0)
+			continue
+		endif
+		
+		Wave wtemp = $(fromFolder+wname)
+		
 		if ((numtype(tbgn) == 0) && (numtype(tend) == 0))
-			Duplicate /O/R=(tbgn,tend) $wname $dname
+			Duplicate /O/R=(tbgn,tend) wtemp $dname
 		else
-			Duplicate /O $wname $dname
+			Duplicate /O wtemp $dname
 		endif
 		
 		outList = AddListItem(dname, outList, ";", inf)
@@ -649,9 +636,7 @@ Function /S CopyWavesTo(fromFolder, toFolder, newPrefix, tbgn, tend, wList, aler
 		
 	endfor
 	
-	SetDataFolder $saveDF // back to original data folder
-	
-	NMUtilityAlert("CopyWavesTo", badList)
+	//NMUtilityAlert("CopyWavesTo", badList)
 	
 	return outList
 
@@ -673,7 +658,7 @@ Function /S RenameWaves(findStr, repStr, wList)
 		return ""
 	endif
 	
-	String wName, newName, outList = "", badList = wList
+	String wName, newName = "", outList = "", badList = wList
 	Variable wcnt, first = 1, kill
 	
 	if (ItemsInList(wList) == 0)
@@ -713,7 +698,7 @@ Function /S RenameWaves(findStr, repStr, wList)
 		
 	endfor
 	
-	NMUtilityAlert("RenameWaves", badList)
+	//NMUtilityAlert("RenameWaves", badList)
 	
 	return outList
 
@@ -721,7 +706,7 @@ End // RenameWaves
 
 //****************************************************************
 //
-//	RenameWaves()
+//	RenumberWaves()
 //	string replace name
 //
 //****************************************************************
@@ -730,74 +715,9 @@ Function /S RenumberWaves(from, wList)
 	Variable from // renumber from
 	String wList // wave list (seperator ";")
 	
-	String wName, newName, outList = "", badList = wList
-	Variable wcnt, icnt, first = 1, kill, found, jcnt, nwaves
+	DoAlert 0, "Alert: RenumberWaves has been deprecated."
 	
-	if ((from < 0) || (numtype(from) > 0))
-		return ""
-	endif
-	
-	if (ItemsInList(wList) == 0)
-		return ""
-	endif
-	
-	nwaves = ItemsInList(wList)
-	
-	jcnt = from + nwaves - 1
-	
-	for (wcnt = nwaves - 1; wcnt >= 0; wcnt -= 1) // must renum backwards
-	
-		wName = StringFromList(wcnt, wList)
-		
-		found = 0
-		
-		for (icnt = strlen(wName) - 1; icnt > 0; icnt -= 1)
-		
-			if (numtype(str2num(wName[icnt,icnt])) > 0)
-				found = 1
-				break
-			endif
-		
-		endfor
-		
-		if (found == 0)
-			continue
-		endif
-		
-		newName = wname[0,icnt] + num2str(jcnt)
-		
-		if (StringMatch(newName, wName) == 1)
-			continue // no change
-		endif
-		
-		if ((WaveExists($newName) == 1) && (first == 1))
-			DoAlert 1, "Name Conflict: wave(s) already exist with new name. Do you want to over-write them?"
-			first = 0
-			if (V_Flag == 1)
-				kill = 1
-			endif
-		endif
-		
-		if ((WaveExists($newName) == 1) && (kill == 1) && (first == 0))
-			KillWaves /Z $newName
-		endif
-		
-		if ((WaveExists($wName) == 0) || (WaveExists($newName) == 1))
-			continue
-		endif
-
-		Rename $wName $newName
-		
-		outList = AddListItem(newName, outList, ";", inf)
-		badList = RemoveFromList(wName, badList)
-		
-		jcnt -= 1
-		
-	endfor
-	
-	NMUtilityAlert("RenumberWaves", badList)
-	
-	return outList
+	return ""
 
 End // RenumberWaves
 
@@ -1148,27 +1068,25 @@ End // InterpolateWaves
 //
 //****************************************************************
 
-Function /S NormWaves(fxn, tbgn, tend, wList)
-	String fxn // normalize function ("max" or "min")
-	Variable tbgn, tend // time window
+Function /S NormWaves(fxn, tbgn, tend, bbgn, bend, wList)
+	String fxn // normalize function ("max" or "min" or "avg")
+	Variable tbgn, tend // window to compute max or min
+	Variable bbgn, bend // baseline window
 	String wList // wave list (seperator ";")
 	
 	String wName, outList = "", badList = wList
-	Variable wcnt, value, base, scale = 1, items = ItemsInList(wList)
+	Variable wcnt, value, amp, base, scale = 1, items = ItemsInList(wList)
 	
 	strswitch(fxn)
 		case "max":
 		case "min":
+		case "avg":
 			break
 		default:
 			return ""
 	endswitch
 	
 	if (items == 0)
-		return ""
-	endif
-	
-	if (tend <= tbgn)
 		return ""
 	endif
 	
@@ -1182,27 +1100,41 @@ Function /S NormWaves(fxn, tbgn, tend, wList)
 		
 		Wave tempwave = $wName
 		
+		WaveStats /Q/R=(bbgn,bend) tempwave
+		base = V_avg
+		
 		WaveStats /Q/R=(tbgn,tend) tempwave
 		
 		strswitch(fxn)
 			case "max":
 				value = V_max
-				base = V_min
 				break
 			case "min":
 				value = V_min
-				base = V_max
-				scale = -1
+				break
+			case "avg":
+				value = V_avg
 				break
 		endswitch
 		
-		tempwave = scale * (tempwave - base) / abs(value - base)
+		if (value < base)
+			scale = -1
+		endif
+		
+		amp = abs(value - base)
+		
+		if ((amp == 0) || (numtype(amp) > 0))
+			Print "Normalization error, skipped wave:", wName
+			continue
+		else
+			tempwave = scale * (tempwave - base) / amp
+		endif
 		
 		outList = AddListItem(wName, outList, ";", inf)
 		badList = RemoveFromList(wName, badList)
 		
 		Note tempwave, "Func:NormWaves"
-		Note tempwave, "Norm Value:" + num2str(value) + ";Norm Alg:" + fxn + ";Norm Tbgn:" + num2str(tbgn) + ";Norm Tend:" + num2str(tend) + ";"
+		Note tempwave, "Norm Value:" + num2str(value) + ";Norm Alg:" + fxn + ";Norm PeakBgn:" + num2str(tbgn) + ";Norm PeakEnd:" + num2str(tend) + ";Norm BaseBgn:" + num2str(bbgn) + ";Norm BaseEnd:" + num2str(bend) + ";"
 	
 	endfor
 	
@@ -1214,32 +1146,84 @@ End // NormWaves
 
 //****************************************************************
 //
-//	NormWaves2Bsln()
-//	normalize a list of waves - uses min and max values
+//	BlankWaves()
+//	blank waves using a wave of event times
 //
 //****************************************************************
 
-Function /S NormWaves2Bsln(fxn, tbgn, tend, wList)
-	String fxn // normalize function ("max" or "min")
-	Variable tbgn, tend // time window
+Function /S BlankWaves(waveOfEventTimes, tbefore, tafter, bvalue, wList)
+	String waveOfEventTimes // wave of event times
+	Variable tbefore // blank time before event
+	Variable tafter // blank time after event
+	Variable bvalue // blank value (try Nan)
 	String wList // wave list (seperator ";")
 	
+	Variable wcnt, icnt, t, tbgn, tend, pbgn, pend, nwaves = ItemsInList(wList)
 	String wName, outList = "", badList = wList
-	Variable wcnt, value, base, scale = 1, items = ItemsInList(wList)
 	
-	strswitch(fxn)
-		case "max":
-		case "min":
-			break
-		default:
-			return ""
-	endswitch
-	
-	if (items == 0)
+	if ((WaveExists($waveOfEventTimes) == 0) || (nwaves == 0))
 		return ""
 	endif
 	
-	if (tend <= tbgn)
+	Wave events = $waveOfEventTimes
+	
+	for (wcnt = 0; wcnt < nwaves; wcnt += 1)
+	
+		wName = StringFromList(wcnt, wList)
+		
+		if (NMUtilityWaveTest(wName) < 0)
+			continue
+		endif
+		
+		Wave tempwave = $wName
+		
+		for (icnt = 0; icnt < numpnts(events); icnt += 1)
+			t = events[icnt]
+			if (numtype(t) > 0)
+				continue
+			endif	
+			tbgn = t - tbefore
+			tend = t + tafter
+			if (tbgn < leftx(tempwave))
+				tbgn = leftx(tempwave)
+			endif
+			if (tend > rightx(tempwave))
+				tend = rightx(tempwave)
+			endif
+			pbgn = x2pnt(tempwave, tbgn)
+			pend = x2pnt(tempwave, tend)
+			tempwave[pbgn, pend] = bvalue
+		endfor
+		
+		outList = AddListItem(wName, outList, ";", inf)
+		badList = RemoveFromList(wName, badList)
+		
+		Note tempwave, "Func:BlankWaves"
+		Note tempwave, "Blank Event Times:" + waveOfEventTimes + ";Blank Before:" + num2str(tbefore) + ";Blank After:" + num2str(tafter) + ";"
+	
+	endfor
+	
+	NMUtilityAlert("BlankWaves", badList)
+	
+	return outList
+
+End // BlankWaves
+
+//****************************************************************
+//
+//	DFOFWaves()
+//	compute DF/Fo
+//
+//****************************************************************
+
+Function /S DFOFWaves(bbgn, bend, wList)
+	Variable bbgn, bend // baseline window
+	String wList // wave list (seperator ";")
+	
+	String wName, outList = "", badList = wList
+	Variable wcnt, value, amp, base, scale = 1, items = ItemsInList(wList)
+	
+	if (items == 0)
 		return ""
 	endif
 	
@@ -1253,36 +1237,29 @@ Function /S NormWaves2Bsln(fxn, tbgn, tend, wList)
 		
 		Wave tempwave = $wName
 		
-		WaveStats /Q/R=(tbgn,tend) tempwave
+		WaveStats /Q/R=(bbgn,bend) tempwave
 		base = V_avg
 		
-		WaveStats /Q tempwave
-		
-		strswitch(fxn)
-			case "max":
-				value = V_max
-				break
-			case "min":
-				value = V_min
-				scale = -1
-				break
-		endswitch
-		
-		tempwave = scale * (tempwave - base) / abs(value - base)
+		if (numtype(base) > 0)
+			Print "dF/Fo error, skipped wave:", wName
+			continue
+		else
+			tempwave = (tempwave - base) / base
+		endif
 		
 		outList = AddListItem(wName, outList, ";", inf)
 		badList = RemoveFromList(wName, badList)
 		
-		Note tempwave, "Func:NormWaves"
-		Note tempwave, "Norm Value:" + num2str(value) + ";Norm Alg:" + fxn + ";Norm Tbgn:" + num2str(tbgn) + ";Norm Tend:" + num2str(tend) + ";"
+		Note tempwave, "Func:dFoFWaves"
+		Note tempwave, "dFoF Bsln Value:" + num2str(base) + ";dFoF BaseBgn:" + num2str(bbgn) + ";dFoF BaseEnd:" + num2str(bend) + ";"
 	
 	endfor
 	
-	NMUtilityAlert("NormWaves", badList)
+	NMUtilityAlert("DFOFWaves", badList)
 	
 	return outList
 
-End // NormWaves2Bsln
+End // DFOFWaves
 
 //****************************************************************
 //
@@ -1394,12 +1371,12 @@ End // AlignByNum
 //****************************************************************
 //
 //	ScaleByNum()
-//	scale a list of waves (*, /, +, -) by a single number
+//	scale a list of waves (x, /, +, -) by a single number
 //
 //****************************************************************
 
 Function /S ScaleByNum(alg, num, wList)
-	String alg // arhithmatic symbol (*, /, +, -)
+	String alg // arhithmatic symbol (x, /, +, -)
 	Variable num // scale value
 	String wList // wave list (seperator ";")
 	
@@ -1414,7 +1391,7 @@ Function /S ScaleByNum(alg, num, wList)
 		//return ""
 	//endif
 	
-	if (strsearch("*/+-", alg, 0) == -1)
+	if (strsearch("x*/+-", alg, 0) == -1)
 		return ""
 	endif
 	
@@ -1430,6 +1407,7 @@ Function /S ScaleByNum(alg, num, wList)
 		
 		strswitch(alg)
 			case "*":
+			case "x":
 				wtemp *= num
 				break
 			case "/":
@@ -1464,12 +1442,12 @@ End // ScaleByNum
 //****************************************************************
 //
 //	ScaleWave()
-//	scale a list of waves (*, /, +, -) by a single number
+//	scale a list of waves (x, /, +, -) by a single number
 //
 //****************************************************************
 
 Function /S ScaleWave(alg, num, tbgn, tend, wList)
-	String alg // arhithmatic symbol (*, /, +, -)
+	String alg // arhithmatic symbol (x, /, +, -)
 	Variable num // scale value
 	Variable tbgn, tend // time begin, end values
 	String wList // wave list (seperator ";")
@@ -1485,7 +1463,7 @@ Function /S ScaleWave(alg, num, tbgn, tend, wList)
 	//	return ""
 	//endif
 	
-	if (strsearch("*/+-", alg, 0) == -1)
+	if (strsearch("x*/+-", alg, 0) == -1)
 		return ""
 	endif
 	
@@ -1519,6 +1497,7 @@ Function /S ScaleWave(alg, num, tbgn, tend, wList)
 			
 			strswitch(alg)
 				case "*":
+				case "x":
 					wtemp[pcnt] *= num
 					break
 				case "/":
@@ -1553,12 +1532,12 @@ End // ScaleWave
 //****************************************************************
 //
 //	ScaleByWave()
-//	scale a list of waves (*, /, +, -) by another wave of equal points
+//	scale a list of waves (x, /, +, -) by another wave of equal points
 //
 //****************************************************************
 
 Function /S ScaleByWave(alg, sclWave, wList) // all input waves should have same number of points
-	String alg // arhithmatic symbol (*, /, +, -)
+	String alg // arhithmatic symbol (x, /, +, -)
 	String sclWave // wave to scale by
 	String wList // wave list (seperator ";")
 	
@@ -1573,7 +1552,7 @@ Function /S ScaleByWave(alg, sclWave, wList) // all input waves should have same
 		return ""
 	endif
 
-	if (strsearch("*/+-", alg, 0) == -1)
+	if (strsearch("x*/+-", alg, 0) == -1)
 		return ""
 	endif
 	
@@ -1600,6 +1579,7 @@ Function /S ScaleByWave(alg, sclWave, wList) // all input waves should have same
 		
 		strswitch(alg)
 			case "*":
+			case "x":
 				wtemp *= stemp
 				break
 			case "/":
@@ -1704,11 +1684,14 @@ Function /S BaselineWaves(method, tbgn, tend, wList)
 	String wName, mnsd, outList = "", badList = wList
 	Variable wcnt, mn, sd, cnt
 	
+	//String wPrefix = "MN_Bsln_" + NMWaveSelectStr()
+	//String outName = NextWaveName(wPrefix, NMCurrentChan(), 1)
+	
 	if (ItemsInList(wList) == 0)
 		return ""
 	endif
 	
-	if ((method < 0) || (method > 2) || (tend <= tbgn) || (numtype(tend*tbgn) != 0))
+	if ((method < 0) || (method > 2) || (tend <= tbgn) || (numtype(tend*tbgn) == 2))
 		return ""
 	endif
 	
@@ -1832,8 +1815,13 @@ Function /S AvgWaves(wList)
 	
 	txt = "Wave List:" + ChangeListSep(wList, ",")
 	
-	Note U_Avg, txt
-	Note U_Sdv, txt
+	if (WaveExists(U_Avg) == 1)
+		Note U_Avg, txt
+	endif
+	
+	if (WaveExists(U_Sdv) == 1)
+		Note U_Sdv, txt
+	endif
 	
 	KillWaves /Z U_waveCopy
 	
@@ -1842,133 +1830,6 @@ Function /S AvgWaves(wList)
 	return outList
 
 End // AvgWaves
-
-//****************************************************************
-//
-//	AvgChanWaves()
-//	compute avg and stdv of waves based on channel smooth and F(t) parameters
-//	results stored in U_Avg and U_Sdv
-//
-//****************************************************************
-
-Function /S AvgChanWaves(chanNum, wList)
-	Variable chanNum
-	String wList // wave list (seperator ";")
-	
-	Variable wcnt, icnt, items
-	String xl, yl, txt, wName, dName, outList = "", badList = wList
-	String df = ChanDF(chanNum)
-	
-	if ((chanNum < 0) || (chanNum >= NumVarOrDefault("NumChannels", 0)))
-		return "" // out of range
-	endif
-	
-	if (ItemsInList(wList) == 0)
-		return ""
-	endif
-	
-	Variable dx = GetXStats("deltax", wList)
-	Variable lftx = GetXStats("maxleftx", wList)
-	Variable rghtx = GetXStats("minrightx", wList)
-	
-	if (numtype(dx) != 0)
-		DoAlert 0, "AvgWaves Abort : waves do not have the same deltax values."
-		return ""
-	endif
-	
-	Variable ft = NumVarOrDefault(df+"DTflag", 0)
-	Variable smthNum = NumVarOrDefault(df+"SmthNum", 0)
-	String smthAlg = StrVarOrDefault(df+"SmthAlg", "binomial")
-	
-	items = ItemsInList(wList)
-	
-	NMProgressStr("Averaging Channel Waves...")
-	
-	for (wcnt = 0; wcnt < items; wcnt += 1)
-		
-		if (CallProgress(wcnt/(items-1)) == 1)
-			wcnt = -1
-			break
-		endif
-	
-		wName = StringFromList(wcnt, wList)
-		
-		if (NMUtilityWaveTest(wName) < 0)
-			continue
-		endif
-		
-		dName = "U_waveCopy"
-		ChanWaveMake(chanNum, wname, dName) 
-		
-		if (WaveExists($dname) == 0)
-			continue
-		endif
-		
-		if (icnt == 0) // first wave
-			Duplicate /O/R=(lftx,rghtx)  $dName U_Avg, U_Sdv
-			U_Sdv *= U_Sdv
-		else
-			Wave wtemp = $dname
-			U_Avg += wtemp
-			U_Sdv += wtemp^2
-		endif
-		
-		icnt += 1
-		
-		outList = AddListItem(wName, outList, ";", inf)
-		badList = RemoveFromList(wName, badList)
-		
-	endfor
-	
-	if (wcnt > 1)
-		U_Sdv = sqrt((U_Sdv - ((U_Avg^2) / icnt)) / (icnt - 1))
-		U_Avg = U_Avg / icnt
-		Setscale /P x lftx, dx, U_Avg, U_Sdv
-	endif
-	
-	xl = NMNoteLabel("x", wList, "")
-	yl = NMNoteLabel("y", wList, "")
-	
-	NMNoteType("U_Avg", "NMAvg", xl, yl, "Func:AvgChanWaves")
-	NMNoteType("U_Sdv", "NMSdv", xl, yl, "Func:AvgChanWaves")
-	
-	switch(ft)
-		case 1:
-			Note U_Avg, "F(t):d/dt;"
-			Note U_Sdv, "F(t):d/dt;"
-			break
-		case 2:
-			Note U_Avg, "F(t):dd/dt*dt;"
-			Note U_Sdv, "F(t):dd/dt*dt;"
-			break
-		case 3:
-			Note U_Avg, "F(t):integrate;"
-			Note U_Sdv, "F(t):integrate;"
-			break
-		case 4:
-			Note U_Avg, "F(t):normalize;"
-			Note U_Sdv, "F(t):normalize;"
-			break
-	endswitch
-	
-	if (smthNum > 0)
-		txt = "Smth Alg:" + smthAlg + ";Smth Num:" + num2str(smthNum) + ";"
-		Note U_Avg, txt
-		Note U_Sdv, txt
-	endif
-	
-	txt = "Wave List:" + ChangeListSep(wList, ",")
-	
-	Note U_Avg, txt
-	Note U_Sdv, txt
-	
-	KillWaves /Z U_waveCopy
-	
-	NMUtilityAlert("AvgChanWaves", badList)
-	
-	return outList
-
-End // AvgChanWaves
 
 //****************************************************************
 //
@@ -2056,137 +1917,22 @@ End // SumWaves
 
 //****************************************************************
 //
-//	SumChanWaves()
-//	compute sum of waves based on channel smooth and F(t) parameters
-//	results stored in U_Sum
-//
-//****************************************************************
-
-Function /S SumChanWaves(chanNum, wList)
-	Variable chanNum
-	String wList // wave list (seperator ";")
-	
-	Variable wcnt, icnt, items
-	String xl, yl, txt, wName, dName, outList = "", badList = wList
-	String df = ChanDF(chanNum)
-	
-	if ((chanNum < 0) || (chanNum >= NumVarOrDefault("NumChannels", 0)))
-		return "" // out of range
-	endif
-	
-	if (ItemsInList(wList) == 0)
-		return ""
-	endif
-	
-	Variable dx = GetXStats("deltax", wList)
-	Variable lftx = GetXStats("maxleftx", wList)
-	Variable rghtx = GetXStats("minrightx", wList)
-	Variable npnts = GetXStats("numpnts", wList)
-	
-	if (numtype(dx*npnts) > 0)
-	
-		DoAlert 1, "Alert : waves have different x-scaling. Do you want to continue?"
-		
-		if (V_flag != 1)
-			return ""
-		endif
-		
-	endif
-	
-	Variable ft = NumVarOrDefault(df+"DTflag", 0)
-	Variable smthNum = NumVarOrDefault(df+"SmthNum", 0)
-	String smthAlg = StrVarOrDefault(df+"SmthAlg", "binomial")
-	
-	items = ItemsInList(wList)
-	
-	NMProgressStr("Summing Channel Waves...")
-	
-	for (wcnt = 0; wcnt < items; wcnt += 1)
-		
-		if (CallProgress(wcnt/(items-1)) == 1)
-			wcnt = -1
-			break
-		endif
-	
-		wName = StringFromList(wcnt, wList)
-		
-		if (NMUtilityWaveTest(wName) < 0)
-			continue
-		endif
-		
-		dName = "U_waveCopy"
-		ChanWaveMake(chanNum, wname, dName) 
-		
-		if (WaveExists($dname) == 0)
-			continue
-		endif
-		
-		if (icnt == 0) // first wave
-			Duplicate /O/R=(lftx,rghtx)  $dName U_Sum
-		else
-			Wave wtemp = $dname
-			U_Sum += wtemp
-		endif
-		
-		icnt += 1
-		
-		outList = AddListItem(wName, outList, ";", inf)
-		badList = RemoveFromList(wName, badList)
-		
-	endfor
-	
-	if (wcnt > 1)
-		Setscale /P x lftx, dx, U_Sum
-	endif
-	
-	xl = NMNoteLabel("x", wList, "")
-	yl = NMNoteLabel("y", wList, "")
-	
-	NMNoteType("U_Sum", "NMSum", xl, yl, "Func:SumChanWaves")
-	
-	switch(ft)
-		case 1:
-			Note U_Sum, "F(t):d/dt;"
-			break
-		case 2:
-			Note U_Sum, "F(t):dd/dt*dt;"
-			break
-		case 3:
-			Note U_Sum, "F(t):integrate;"
-			break
-		case 4:
-			Note U_Sum, "F(t):normalize;"
-			break
-	endswitch
-	
-	if (smthNum > 0)
-		txt = "Smth Alg:" + smthAlg + ";Smth Num:" + num2str(smthNum) + ";"
-		Note U_Sum, txt
-	endif
-	
-	txt = "Wave List:" + ChangeListSep(wList, ",")
-	
-	Note U_Sum, txt
-	
-	KillWaves /Z U_waveCopy
-	
-	NMUtilityAlert("SumChanWaves", badList)
-	
-	return outList
-
-End // SumChanWaves
-
-//****************************************************************
-//
 //	DeleteNANs()
 //	remove NANs in a wave
 //
 //****************************************************************
 
-Function DeleteNANs(wname, yname, xflag)
-	String wname // input wave name
+Function DeleteNANs(wList, yname, xflag)
+	String wList // input wave names (Nan's are searched in first waves, same points deleted for all waves)
 	String yname // output wave name
 	Variable xflag // (0) no x wave (1) compute x wave
+	
+	Variable nwaves = ItemsInList(wList)
+	String wName = StringFromList(0, wList)
+	
+	if (nwaves == 0)
+		return -1
+	endif
 	
 	if (WaveExists($wName) == 0)
 		return -1
@@ -2197,7 +1943,7 @@ Function DeleteNANs(wname, yname, xflag)
 	Variable numNans = V_numNaNs
 	
 	if (numNans == 0)
-		return 0
+		return 0 // nothing to do
 	endif
 	
 	String xname = yname + "_X"
@@ -2272,10 +2018,81 @@ End // CopyWaveValues
 //****************************************************************
 //****************************************************************
 
+Function BinAndAverage(xWave, yWave, xbgn, xbin)
+	String xWave // x-wave name, ("") enter null-string to use x-scale of y-wave
+	String yWave // y-wave name
+	Variable xbgn // beginning xvalue
+	Variable xbin // bin size
+	
+	Variable x0 = xbgn, x1 = x0 + xbin
+	Variable sumy, count, nbins, icnt, jcnt, savex
+	
+	String yOut = yWave + "_binned"
+	
+	if (numtype(x0 * x1) > 0)
+		return -1
+	endif
+	
+	If (WaveExists($yWave) == 0)
+		return -1
+	endif
+	
+	If ((strlen(xWave) > 0) && (WaveExists($xWave) == 0))
+		return -1
+	endif
+	
+	if (strlen(xWave) == 0)
+		Duplicate /O $yWave U_BinAvg_x
+		Wave xtemp = U_BinAvg_x
+		xtemp = x
+	else
+		Duplicate /O $xWave U_BinAvg_x
+	endif
+	
+	Duplicate /O $yWave U_BinAvg_y
+	
+	Sort U_BinAvg_x U_BinAvg_y, U_BinAvg_x
+	
+	Wavestats /Q U_BinAvg_x
+	
+	nbins = ceil((V_max - xbgn) / xbin)
+	
+	Make /O/N=(nbins) $yOut
+	Wave outy = $yOut
+	
+	Setscale /P x xbgn, xbin, outy
+	
+	for (icnt = 0; icnt < nbins; icnt += 1)
+	
+		sumy = 0
+		count = 0
+	
+		for (jcnt = 0; jcnt < numpnts(U_BinAvg_x); jcnt += 1)
+			if ((U_BinAvg_x[jcnt] > x0) && (U_BinAvg_x[jcnt] <= x1))
+				sumy += U_BinAvg_y[jcnt]
+				count += 1
+			endif
+		endfor
+		
+		outy[icnt] = sumy / count
+		
+		x0 += xbin
+		x1 += xbin
+		
+	endfor
+	
+	KillWaves /Z U_BinAvg_x, U_BinAvg_y
+	
+End // BinAndAverage
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function BinaryCheck(n)
 	Variable n
 	
-	if (n == 1)
+	if (n >= 1)
 		return 1
 	else
 		return 0
@@ -2565,7 +2382,7 @@ Function GetXStats(select, wList)
 	String wName, badList = wList
 	
 	if (ItemsInList(wList) == 0)
-		return -1
+		return Nan
 	endif
 	
 	for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
@@ -2797,13 +2614,13 @@ End // MeanStdv
 //
 //****************************************************************
 
-Function ComputeWaveStats(wName, tbgn, tend, fxn, level)
-	Wave wName // wave to measure
+Function ComputeWaveStats(wv, tbgn, tend, fxn, level)
+	Wave wv // wave to measure
 	Variable tbgn, tend // measure window times
-	String fxn // function (Max, Min, Avg, SDev, Var, RMS, Area, Slope, Level, Level+, Level-)
+	String fxn // function (Max, Min, Avg, SDev, Var, RMS, Area, Slope, Level, Level+, Level-, FWHM+, FWHM-)
 	Variable level // level detection value
 	
-	String dumstr
+	String dumstr, wName = GetWavesDataFolder(wv, 2)
 	
 	Variable ax = Nan, ay = Nan
 	
@@ -2811,51 +2628,88 @@ Function ComputeWaveStats(wName, tbgn, tend, fxn, level)
 			
 		case "Max":
 		case "RTSlope+":
-			WaveStats /Q/R=(tbgn, tend) wName
+		case "FWHM+":
+		
+			WaveStats /Q/R=(tbgn, tend) wv
 			ay = V_max; ax = V_maxloc
+			
+			if (numtype(ax * ay) > 0)
+				ax = Nan
+				ay = Nan
+			endif
+			
 			break
 			
 		case "Min":
 		case "RTSlope-":
-			WaveStats /Q/R=(tbgn, tend) wName
+		case "FWHM-":
+		
+			WaveStats /Q/R=(tbgn, tend) wv
 			ay = V_min; ax = V_minloc
+			
+			if (numtype(ax * ay) > 0)
+				ax = Nan
+				ay = Nan
+			endif
+			
 			break
 			
 		case "Avg":
-			WaveStats /Q/R=(tbgn, tend) wName
+			WaveStats /Q/R=(tbgn, tend) wv
 			ay = V_avg; ax = Nan
 			break
 			
 		case "SDev":
-			WaveStats /Q/R=(tbgn, tend) wName
+			WaveStats /Q/R=(tbgn, tend) wv
 			ay = V_sdev; ax = Nan
 			break
 			
 		case "Var":
-			WaveStats /Q/R=(tbgn, tend) wName
+			WaveStats /Q/R=(tbgn, tend) wv
 			ay = V_sdev*V_sdev; ax = Nan
 			break
 			
 		case "RMS":
-			WaveStats /Q/R=(tbgn, tend) wName
+			WaveStats /Q/R=(tbgn, tend) wv
 			ay = V_rms; ax = Nan
 			break
 			
 		case "Area":
-			WaveStats /Q/R=(tbgn, tend) wName
-			ay = area(wName,tbgn, tend); ax = Nan
+			ay = area(wv,tbgn, tend); ax = Nan
+			break
+			
+		case "Sum":
+			ay = sum(wv,tbgn, tend); ax = Nan
 			break
 			
 		case "Slope":
-			dumstr = FindSlope(tbgn, tend, GetWavesDataFolder(wName,2))
+		
+			dumstr = FindSlope(tbgn, tend, wName)
 			ax = str2num(StringByKey("b", dumstr, "="))
 			ay = str2num(StringByKey("m", dumstr, "="))
+			
+			if (numtype(ax * ay) > 0)
+				ax = Nan
+				ay = Nan
+			endif
+			
+			break
+			
+		case "Onset":
+		
+			dumstr = FindMaxCurvatures(tbgn, tend, wName)
+			ax = str2num(StringByKey("t1", dumstr, "=")) // use the first time value
+			
+			if (numtype(ax) == 0)
+				ay = wv[x2pnt(wv, ax)]
+			endif
+		
 			break
 			
 		case "Level":
 		
 			ay = level
-			FindLevel /Q/R=(tbgn, tend) wName, ay
+			FindLevel /Q/R=(tbgn, tend) wv, ay
 			
 			if (V_flag == 1)
 				ax = Nan
@@ -2867,12 +2721,12 @@ Function ComputeWaveStats(wName, tbgn, tend, fxn, level)
 			
 		case "Level+":
 			ay = level
-			ax = FindLevelPosNeg(tbgn, tend,ay, "+", GetWavesDataFolder(wName,2))
+			ax = FindLevelPosNeg(tbgn, tend,ay, "+", wName)
 			break
 			
 		case "Level-":
 			ay = level
-			ax = FindLevelPosNeg(tbgn, tend, ay, "-", GetWavesDataFolder(wName,2))
+			ax = FindLevelPosNeg(tbgn, tend, ay, "-", wName)
 			break	
 			
 	endswitch
@@ -2974,6 +2828,8 @@ Function /S FindSlope(tbgn, tend, wName)
 	Variable tend // time window end
 	String wName // wave name
 	
+	Variable m, b
+	
 	String rslts = ""
 	
 	if (NMUtilityWaveTest(wName) < 0)
@@ -2994,13 +2850,76 @@ Function /S FindSlope(tbgn, tend, wName)
 	
 	Wave W_Coef
 	
-	rslts = "m=" + num2str(W_Coef[1]) + ";b=" + num2str(W_Coef[0])+";"
+	m = W_Coef[1]
+	b = W_Coef[0]
+	
+	if (numtype(m * b) > 0)
+		m = Nan
+		b = Nan
+	endif
+	
+	rslts = "m=" + num2str(m) + ";b=" + num2str(b)+";"
 	
 	KillWaves /Z W_coef, W_sigma
 	
 	return rslts // return slope (m) and intercept (b) as a string list
 
 End // FindSlope
+
+//****************************************************************
+//
+//	FindMaxCurvatures()
+//	find maximum curvature by fitting sigmoidal function (Boltzmann equation) 
+//     based on analysis of Fedchyshyn and Wang, J Physiol 2007 June, 581:581-602
+//	returns three times t1, t2, t3, where max occurs
+//
+//****************************************************************
+
+Function /S FindMaxCurvatures(tbgn, tend, wName)
+	Variable tbgn // time window begin
+	Variable tend // time window end
+	String wName // wave name
+	
+	Variable tmid, tc, t1, t2, t3
+	
+	String rslts = ""
+	
+	if (NMUtilityWaveTest(wName) < 0)
+		return "" // bad input wave
+	endif
+	
+	if ((tbgn >= tend) || (numtype(tbgn*tend) > 0))
+		return "" // bad inputs
+	endif
+	
+	WaveStats /Q/R=(tbgn, tend) $wName
+	
+	if (V_npnts <= 2)
+		return ""
+	endif
+	
+	Curvefit /N/Q Sigmoid $wName (tbgn, tend)
+	
+	Wave W_Coef
+	
+	tmid = W_Coef[2]
+	tc = W_Coef[3]
+	
+	if (numtype(tmid * tc) > 0)
+		return ""
+	endif
+	
+	t1 = tmid - ln(5 + 2 * sqrt(6)) * tc
+	t2 = tmid
+	t3 = tmid - ln(5 - 2 * sqrt(6)) * tc
+	
+	rslts = "t1=" + num2str(t1) + ";t2=" + num2str(t2) + ";t3=" + num2str(t3) + ";"
+	
+	KillWaves /Z W_coef, W_sigma
+	
+	return rslts
+
+End // FindMaxCurvatures
 
 //****************************************************************
 //
@@ -3039,9 +2958,11 @@ Function SortWave(sName, dName, method, xv, yv, nv)
 			
 			for (scnt = 0; scnt < numpnts(wTemp); scnt += 1)
 				if (numtype(wTemp[scnt]) > 0)
-					wSort[scnt] = 0
+					wSort[scnt] = Nan
 				elseif (wTemp[scnt] > xv)
 					wSort[scnt] = 1
+				else
+					wSort[scnt] = 0
 				endif
 			endfor
 			
@@ -3053,9 +2974,11 @@ Function SortWave(sName, dName, method, xv, yv, nv)
 			
 			for (scnt = 0; scnt < numpnts(wTemp); scnt += 1)
 				if (numtype(wTemp[scnt]) > 0)
-					wSort[scnt] = 0
+					wSort[scnt] = Nan
 				elseif (wTemp[scnt] > xv - (nv * yv))
 					wSort[scnt] = 1
+				else
+					wSort[scnt] = 0
 				endif
 			endfor
 			
@@ -3065,11 +2988,15 @@ Function SortWave(sName, dName, method, xv, yv, nv)
 		
 			alg = "[a] < x"
 			
+			print xv
+			
 			for (scnt = 0; scnt < numpnts(wTemp); scnt += 1)
 				if (numtype(wTemp[scnt]) > 0)
-					wSort[scnt] = 0
+					wSort[scnt] = Nan
 				elseif (wTemp[scnt] < xv)
 					wSort[scnt] = 1
+				else
+					wSort[scnt] = 0
 				endif
 			endfor
 			
@@ -3081,9 +3008,11 @@ Function SortWave(sName, dName, method, xv, yv, nv)
 			
 			for (scnt = 0; scnt < numpnts(wTemp); scnt += 1)
 				if (numtype(wTemp[scnt]) > 0)
-					wSort[scnt] = 0
+					wSort[scnt] = Nan
 				elseif (wTemp[scnt] < xv + (nv * yv))
 					wSort[scnt] = 1
+				else
+					wSort[scnt] = 0
 				endif
 			endfor
 			
@@ -3095,9 +3024,11 @@ Function SortWave(sName, dName, method, xv, yv, nv)
 			
 			for (scnt = 0; scnt < numpnts(wTemp); scnt += 1)
 				if (numtype(wTemp[scnt]) > 0)
-					wSort[scnt] = 0
+					wSort[scnt] = Nan
 				elseif ((wTemp[scnt] > xv) && (wTemp[scnt] < yv))
 					wSort[scnt] = 1
+				else
+					wSort[scnt] = 0
 				endif
 			endfor
 			
@@ -3109,9 +3040,11 @@ Function SortWave(sName, dName, method, xv, yv, nv)
 			
 			for (scnt = 0; scnt < numpnts(wTemp); scnt += 1)
 				if (numtype(wTemp[scnt]) > 0)
-					wSort[scnt] = 0
+					wSort[scnt] = Nan
 				elseif ((wTemp[scnt] > xv - (nv * yv)) && (wTemp[scnt] < xv + (nv * yv)))
 					wSort[scnt] = 1
+				else
+					wSort[scnt] = 0
 				endif
 			endfor
 			
@@ -3247,6 +3180,18 @@ End // WaveSequence
 
 Function WaveCountOnes(wname)
 	String wname
+
+	return WaveCountValue(wname, 1)
+
+End // WaveCountOnes
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function WaveCountValue(wname, valueToCount)
+	String wname
+	Variable valueToCount // value to count, or (inf) all positive numbers (-inf) all negative numbers
 	
 	Variable icnt, count
 
@@ -3257,14 +3202,32 @@ Function WaveCountOnes(wname)
 	Wave wtemp = $wname
 	
 	for (icnt = 0; icnt < numpnts(wtemp); icnt += 1)
-		if (wtemp[icnt] == 1)
-			count += 1
+	
+		if (numtype(valueToCount) == 0)
+		
+			if (wtemp[icnt] == valueToCount)
+				count += 1
+			endif
+		
+		elseif (valueToCount == inf)
+		
+			if (wtemp[icnt] > 0)
+				count += 1
+			endif
+		
+		elseif (valueToCount == -inf)
+		
+			if (wtemp[icnt] < 0)
+				count += 1
+			endif
+			
 		endif
+		
 	endfor
 	
 	return count
 
-End // WaveCountOnes
+End // WaveCountValue
 
 //****************************************************************
 //****************************************************************
@@ -3275,7 +3238,7 @@ Function Time2Intervals(wname, tMin, tMax, iMin, iMax) // compute inter-time int
 	Variable tMin, tMax // time window
 	Variable iMin, iMax // min, max allowed interval
 	
-	Variable isi, ecnt, icnt, event, last = inf
+	Variable isi, ecnt, icnt, event, last
 	String xl, yl
 	
 	if ((exists(wname) == 0) || (numpnts($wname) == 0) || (iMin >= iMax))
@@ -3288,11 +3251,12 @@ Function Time2Intervals(wname, tMin, tMax, iMin, iMax) // compute inter-time int
 	
 	U_INTVLS = Nan
 	
-	for (ecnt = 0; ecnt < numpnts(wtemp); ecnt += 1)
+	for (ecnt = 1; ecnt < numpnts(wtemp); ecnt += 1)
 	
+		last = wtemp[ecnt - 1]
 		event = wtemp[ecnt]
 		
-		if (numtype(event) > 0)
+		if ((numtype(last) > 0) || (numtype(event) > 0))
 			continue
 		endif
 		
@@ -3307,11 +3271,7 @@ Function Time2Intervals(wname, tMin, tMax, iMin, iMax) // compute inter-time int
 			
 		endif
 		
-		last = event
-		
 	endfor
-	
-	//Duplicate /O U_INTVLS $(wname + "_intvl")
 	
 	xl = NMNoteLabel("x", wname, "")
 	yl = NMNoteLabel("y", wname, "msec")
@@ -3328,38 +3288,60 @@ End // Time2Intervals
 //****************************************************************
 //****************************************************************
 
-Function /S Event2Wave(rwave, ewave, before, after, chan, prefix) // save events to waves
+Function /S Event2Wave(rwave, ewave, before, after, stopAtNextEvent, chan, prefix) // save events to waves
 	String rwave // wave of record numbers
 	String ewave // wave of event times
 	Variable before, after // save time before, after event time
+	Variable stopAtNextEvent // (< 0) no (>= 0) yes...  if greater than zero, use value to limit time before next event
 	Variable chan // channel number
 	String prefix // prefix name
 	
-	Variable icnt, tbgn, tend, npnts, event
-	String xl, yl, wName1, wName2, wlist = ""
+	Variable icnt, jcnt, tbgn, tend, npnts, event, wnum, continuous, dx, intvl
+	String xl, yl, wName1, wName2, wName3, lastWave, nextWave, wlist = ""
 	
 	if (numpnts($rwave) != numpnts($ewave))
 		return ""
 	endif
 	
-	Wave rn = $rwave; Wave et = $ewave
+	Wave recordNum = $rwave
+	Wave eventTimes = $ewave
 	
-	npnts = numpnts(rn)
+	npnts = numpnts(recordNum)
 	
-	//DoAlert 1, "Warning: this function will create " + num2str(npnts) + "  waves beginning with \"" + prefix +  "\" in the current directory. Do you want to continue?"
+	wName3 = prefix + "Times"
 	
-	//if (V_flag != 1)
-	//	return ""
-	//endif
+	Make /O/N=(npnts) $wName3 = Nan
+	
+	Wave st = $wName3
 	
 	for (icnt = 0; icnt < npnts; icnt += 1)
 	
-		wName1 = ChanWaveName(chan, rn[icnt]) // source wave, raw data
+		wnum = recordNum[icnt]
+		wName1 = ChanWaveName(chan, wnum) // source wave, raw data
+		nextWave = ChanWaveName(chan, wnum+1)
+		
+		if (wnum == 0)
+			lastWave = ""
+		else
+			lastWave = ChanWaveName(chan, wnum-1) 
+		endif
+		
+		continuous = 0
+		
+		if (WaveExists($wName1) == 0)
+			continue
+		endif
 		
 		xl = NMNoteLabel("x", wName1, "msec")
 		yl = NMNoteLabel("y", wName1, "")
 		
-		event = et[icnt]
+		event = eventTimes[icnt]
+		
+		if (icnt < npnts - 1)
+			intvl = eventTimes[icnt+1] - eventTimes[icnt]
+		else
+			intvl = Nan
+		endif
 		
 		if (numtype(event) > 0)
 			continue
@@ -3368,26 +3350,81 @@ Function /S Event2Wave(rwave, ewave, before, after, chan, prefix) // save events
 		tbgn = event - before
 		tend = event + after
 		
-		if ((tbgn < leftx($wName1)) || (tend > rightx($wName1)))
-			Print "Event " + num2str(icnt) + " out of range."
-			continue // out of range
+		if (tbgn < leftx($wName1))
+			if ((WaveExists($lastWave) == 1) && (tbgn >= leftx($lastWave)) && (tbgn <= rightx($lastWave))) // continuous
+				continuous = 1
+			else
+				Print "Event " + num2str(icnt) + " out of range on left:" + wName1
+				continue
+			endif
+		endif
+		
+		if (tend > rightx($wName1))
+			if ((WaveExists($nextWave) == 1) && (tend >= leftx($nextWave)) && (tend <= rightx($nextWave))) // continuous
+				continuous = 2
+			else
+				Print "Event " + num2str(icnt) + " out of range on right:" + wName1
+				continue
+			endif
 		endif
 		
 		wName2 = GetWaveName(prefix + "_", chan, icnt)
 		
-		Duplicate /O/R=(tbgn,tend) $wName1 $wName2
-		Setscale /P x 0, deltax($wName1), $wName2
+		dx = deltax($wName1)
+		
+		switch (continuous)
+		
+			case 1:
+				Duplicate /O/R=(tbgn,rightx($lastWave)) $lastWave $(wName2 + "_last")
+				Duplicate /O/R=(leftx($wName1),tend) $wName1 $wName2
+				Wave w1 = $(wName2 + "_last")
+				Wave w2 = $wName2
+				Concatenate /KILL/NP/O {w1, w2}, U_EventConcat
+				Duplicate /O U_EventConcat, $wName2
+				KillWaves /Z U_EventConcat
+				break
+				
+			case 2:
+				Duplicate /O/R=(tbgn,rightx($wName1)) $wName1 $wName2
+				Duplicate /O/R=(leftx($nextWave),tend) $nextWave $(wName2 + "_next")
+				Wave w1 = $wName2
+				Wave w2 = $(wName2 + "_next")
+				Concatenate /KILL/NP/O {w1, w2}, U_EventConcat
+				Duplicate /O U_EventConcat, $wName2
+				KillWaves /Z U_EventConcat
+				break
+				
+			default:
+				Duplicate /O/R=(tbgn,tend) $wName1 $wName2
+			
+		endswitch
+		
+		Setscale /P x 0, dx, $wName2
+		
+		if ((stopAtNextEvent >= 0) && (numtype(intvl) == 0) && (before + intvl - stopAtNextEvent < tend))
+			Wave wtemp = $wName2
+			tbgn = before + intvl - stopAtNextEvent
+			wtemp[x2pnt(wtemp, tbgn), inf] = Nan
+		endif
 		
 		NMNoteType(wName2, "Event", xl, yl, "Func:Event2Wave")
-		Note $wName2, "Event Source:" + wName1 + ";Event Time:" + Num2StrLong(et[icnt], 3) + ";"
+		Note $wName2, "Event Source:" + wName1 + ";Event Time:" + Num2StrLong(event, 3) + ";"
+		
+		st[jcnt] = event
+		
+		jcnt += 1
 	
 		wlist = AddListItem(wName2, wlist, ";", inf)
 		
 	endfor
 	
-	NMPrefixAdd(prefix)
+	if (jcnt == 0) 
+		KillWaves /Z st
+	else
+		Redimension /N=(jcnt) st
+	endif
 	
-	KillWaves /Z EV_TempWave
+	NMPrefixAdd(prefix + "_")
 	
 	return wlist
 
@@ -3635,9 +3672,9 @@ Function /S StringReplace(str, findstr, repstr)
 	String repstr // replace string
 	
 	Variable icnt
-	String pname
+	String pname = ""
 	
-	do
+	//do
 	
 		icnt = strsearch(UpperStr(str),UpperStr(findstr),0)
 		
@@ -3651,7 +3688,9 @@ Function /S StringReplace(str, findstr, repstr)
 	
 		str = pname + repstr + str[icnt+strlen(findstr),inf]
 	
-	while (1)
+	//while (1)
+	
+	return str
 
 End // StringReplace
 
@@ -4078,6 +4117,71 @@ Function IgorVersion()
 	return NumberByKey("IGORVERS", IgorInfo(0))
 
 End // IgorVersion
+
+//****************************************************************
+//
+//	Igor-timed clock functions
+//
+//****************************************************************
+
+Function NMwait(t)
+	Variable t
+	
+	if (IgorVersion() >= 5)
+		return NMwaitMSTimer(t)
+	else
+		return NMwaitTicks(t)
+	endif
+	
+End // NMwait
+
+//****************************************************************
+//
+//
+//
+//****************************************************************
+
+Function NMwaitTicks(t) // wait t msec (only accurate to 17 msec)
+	Variable t
+	
+	if (t == 0)
+		return 0
+	endif
+	
+	Variable t0 = ticks
+	
+	t *= 60 / 1000
+
+	do
+	while (ticks - t0 < t )
+	
+	return 0
+	
+End // NMwaitTicks
+
+//****************************************************************
+//
+//
+//
+//****************************************************************
+
+Function NMwaitMSTimer(t) // wait t msec (this is more accurate)
+	Variable t
+	
+	if (t == 0)
+		return 0
+	endif
+	
+	Variable t0 = stopMSTimer(-2)
+	
+	t *= 1000 // convert to usec
+	
+	do
+	while (stopMSTimer(-2) - t0 < t )
+	
+	return 0
+	
+End // NMwaitMSTimer
 
 //****************************************************************
 //

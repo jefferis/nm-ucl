@@ -1,13 +1,13 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Pulse Generator Functions
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
@@ -64,18 +64,19 @@ Function PulseGraphUpdate(df, wlist)
 	String df // data folder
 	String wlist // wave list
 	
-	String gName = "PG_PulseGraph"
-	
-	Variable madeGraph = 0
+	Variable icnt, madeGraph
+	String rlist, gName = "PG_PulseGraph"
 
 	if (WinType(gName) == 0)
 		PulseGraphMake()
 		madeGraph = 1
 	endif
 	
-	Variable icnt
+	if (WinType(gName) == 0)
+		return -1
+	endif
 	
-	String rlist = TraceNameList(gName,";",1)
+	rlist = TraceNameList(gName,";",1)
 	
 	for (icnt = 0; icnt < ItemsInList(rlist); icnt += 1) // remove all waves first
 		RemoveFromGraph /Z/W=$gName $StringFromList(icnt, rlist)

@@ -1,13 +1,12 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
-//	Clamp Acquisition Stim Protocol Functions
-//	To be run with NeuroMatic, v1.91
+//	NeuroMatic Stim Protocol Functions
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
@@ -20,197 +19,29 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 04 March 2005
-//
-//****************************************************************
-//****************************************************************
-//****************************************************************
-//
-//	Stim Global Functions
+//	Last modified 25 Feb 2007
 //
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function CheckStim(dp, sname, numADC, numDAC, numTTL) // declare stim global variables
-	String dp // path
-	String sname // stim name
-	Variable numADC, numDAC, numTTL
+Function /S StimAcqStr(acqMode)
+	Variable acqMode
 	
-	String df = dp + sname + ":"
+	switch(acqMode)
+		case 0:
+			return "episodic"
+		case 1:
+			return "continuous"
+		case 2:
+			return "epic precise"
+		case 3:
+			return "triggered"
+		default:
+			return ""
+	endswitch
 	
-	Variable numStimWaves = 1
-	Variable waveLength = 100
-	Variable sampleInterval = 0.2
-	Variable interStimTime = 900
-	Variable interRepTime = 0
-	Variable stimRate = 1000 / (waveLength + interStimTime)
-	Variable repRate = 1000 / (interRepTime + numStimWaves * (waveLength + interStimTime))
-	Variable samplesPerWave = floor(waveLength/sampleInterval)
-	
-	if (DataFolderExists(df) == 0)
-		NewDataFolder $LastPathColon(df, 0) 				// make new stim folder
-	endif
-	
-	CheckNMstr(df+"FileType", "NMStim")					// type of data file
-	
-	CheckNMvar(df+"Version", NumVarOrDefault(NMDF()+"NMversion",-1))
-	
-	CheckNMstr(df+"WavePrefix", "Record")					// wave prefix name
-	
-	CheckNMvar(df+"AcqMode", 0)							// acquisition mode (0) epic precise (1) continuous (2) episodic (3) triggered
-	
-	CheckNMvar(df+"CurrentChan", 0)						// channel select
-	
-	CheckNMvar(df+"WaveLength", waveLength)				// wave length (ms)
-	CheckNMvar(df+"SampleInterval", sampleInterval)			// time sample interval (ms)
-	CheckNMvar(df+"SamplesPerWave", samplesPerWave)
-	
-	CheckNMvar(df+"NumStimWaves", numStimWaves)		// stim waves per channel
-	CheckNMvar(df+"InterStimTime", interStimTime)			// time between stim waves (ms)
-	CheckNMvar(df+"NumStimReps", 1)					// repitions of stimulus
-	CheckNMvar(df+"InterRepTime", interRepTime)			// time between stimulus repititions (ms)
-	CheckNMvar(df+"StimRate", stimRate)
-	CheckNMvar(df+"RepRate", repRate)
-	CheckNMvar(df+"TotalTime", 1/repRate)
-	
-	CheckNMvar(df+"NumPulseVar", 12)					// number of variables in pulse waves
-	
-	CheckNMstr(df+"InterStimFxnList", "")					// during acquisition run function list
-	CheckNMstr(df+"PreStimFxnList", "")					// pre-acquisition run function list
-	CheckNMstr(df+"PostStimFxnList", "")					// post-acquisition run function list
-	
-	// IO Channels
-	
-	CheckNMwave(df+"ADCon", numADC, 0)				// ADC input selector
-	CheckNMtwave(df+"ADCname", numADC,"ADC")			// ADC channel name
-	CheckNMtwave(df+"ADCunits", numADC, "V")			// ADC channel units
-	CheckNMwave(df+"ADCscale", numADC, 1)				// ADC scale factors
-	CheckNMwave(df+"ADCboard", numADC, 0)				// ADC board number
-	CheckNMwave(df+"ADCchan", numADC, 0)				// ADC board chan
-	CheckNMwave(df+"ADCmode", numADC, 0)				// ADC input mode
-	CheckNMwave(df+"ADCgain", numADC, 1)				// ADC channel gains
-	
-	CheckNMwave(df+"DACon", numDAC, 0)				// DAC output selector
-	CheckNMtwave(df+"DACname", numDAC,"DAC")			// DAC channel name
-	CheckNMtwave(df+"DACunits", numDAC, "V")			// DAC channel units
-	CheckNMwave(df+"DACscale", numDAC, 1)				// DAC scale factors
-	CheckNMwave(df+"DACboard", numDAC, 0)				// DAC board number
-	CheckNMwave(df+"DACchan", numDAC, 0)				// DAC board chan
-	
-	CheckNMwave(df+"TTLon", numTTL, 0)					// TTL output selector
-	CheckNMtwave(df+"TTLname", numTTL,"TTL")			// TTL channel name
-	CheckNMtwave(df+"TTLunits", numTTL, "V")				// TTL channel units
-	CheckNMwave(df+"TTLscale", numTTL, 1)				// TTL scale factors
-	CheckNMwave(df+"TTLboard", numTTL, 0)				// TTL board number
-	CheckNMwave(df+"TTLchan", numTTL, 0)				// TTL board chan
-	
-End // CheckStim
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function StimInitWaves(dp, sname) // set initial values
-	String dp // path
-	String sname // stim name
-	
-	String df = dp + sname + ":"
-	
-	if (DataFolderExists(df) == 0)
-		return -1
-	endif
-	
-	Wave ADCchan = $(df+"ADCchan")
-	Wave DACchan = $(df+"DACchan")
-	Wave TTLchan = $(df+"TTLchan")
-	
-	Wave /T ADCname = $(df+"ADCname")
-	Wave /T DACname = $(df+"DACname")
-	Wave /T TTLname = $(df+"TTLname")
-	
-	ADCchan = x; DACchan = x; TTLchan = x
-	
-	ADCname = "ADC" + num2str(x)
-	DACname = "DAC" + num2str(x)
-	TTLname = "TTL" + num2str(x)
-
-End // StimInitWaves
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function StimRedimenWaves(sdf, io, npnts)
-	String sdf // stim data folder
-	String io // "ADC", "DAC" or "TTL"
-	Variable npnts
-	
-	if (DataFolderExists(sdf) == 0)
-		return -1
-	endif
-	
-	if (npnts < numpnts($(sdf+io+"on")))
-		return 0
-	endif
-	
-	Redimension /N=(npnts) $(sdf+io+"on")
-	Redimension /N=(npnts) $(sdf+io+"name")
-	Redimension /N=(npnts) $(sdf+io+"units")
-	Redimension /N=(npnts) $(sdf+io+"scale")
-	Redimension /N=(npnts) $(sdf+io+"board")
-	Redimension /N=(npnts) $(sdf+io+"chan")
-	
-	if (StringMatch(io, "ADC") == 1)
-		Redimension /N=(npnts) $(sdf+"ADCmode")
-		Redimension /N=(npnts) $(sdf+"ADCgain")
-	endif
-	
-End // StimRedimenWaves
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function StimWaveVar(sdf, io, select, config)
-	String sdf
-	String io
-	String select
-	Variable config
-	
-	String wName = sdf + io + select
-	
-	if ((WaveExists($wName) == 0) || (WaveType($wName) == 0))
-		return inf
-	endif
-	
-	Wave wTemp = $wName
-	
-	return wTemp[config]
-
-End // StimWaveVar
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S StimWaveStr(sdf, io, select, config)
-	String sdf
-	String io
-	String select
-	Variable config
-	
-	String wName = sdf + io + select
-	
-	if ((WaveExists($wName) == 0) || (WaveType($wName) != 0))
-		return "error"
-	endif
-	
-	Wave /T wTemp = $wName
-	
-	return wTemp[config]
-
-End // StimWaveStr
+End // StimAcqStr
 
 //****************************************************************
 //****************************************************************
@@ -247,194 +78,6 @@ End // StimIntervalCheck
 //****************************************************************
 //****************************************************************
 //****************************************************************
-
-Function StimOnCount(sdf, io)
-	String sdf // stim data folder
-	String io // "ADC", "DAC" or "TTL"
-	
-	return ItemsInList(StimOnList(sdf, io))
-	
-End // StimOnCount
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function StimNumChannels(sdf)
-	String sdf // stim data folder
-	
-	Variable config, ccnt
-	
-	Wave ADCon = $(sdf+"ADCon")
-	Wave ADCmode = $(sdf+"ADCmode")
-
-	for (config = 0; config < numpnts(ADCon); config += 1)
-		if ((ADCon[config] == 1) && (ADCmode[config] <= 0))
-			ccnt += 1
-		endif
-	endfor
-
-	return ccnt
-
-End // StimNumChannels
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S StimAcqStr(acqMode)
-	Variable acqMode
-	
-	switch(acqMode)
-		case 0:
-			return "episodic"
-		case 1:
-			return "continuous"
-		case 2:
-			return "epic precise"
-		case 3:
-			return "triggered"
-		default:
-			return ""
-	endswitch
-	
-End // StimAcqStr
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S StimOnList(sdf, io)
-	String sdf // stim data folder
-	String io // "ADC", "DAC" or "TTL"
-	
-	sdf = LastPathColon(sdf, 1)
-	
-	Variable config, count
-	String list = "", wname = sdf + io + "on"
-	
-	if (WaveExists($wname) == 0)
-		return ""
-	endif
-	
-	Wave on = $wname
-	
-	strswitch(io)
-	
-		case "ADC":
-		
-			Wave ADCmode = $(sdf+"ADCmode")
-	
-			for (config = 0; config < numpnts(on); config += 1)
-				if ((on[config] == 1) && (ADCmode[config] == 0))
-					list = AddListItem(num2str(config), list, ";", inf)
-				endif
-			endfor
-			
-			break
-	
-		case "DAC":
-		case "TTL":
-		
-			for (config = 0; config < numpnts(on); config += 1)
-				if (on[config] == 1)
-					list = AddListItem(num2str(config), list, ";", inf)
-				endif
-			endfor
-			
-	endswitch
-	
-	return list
-	
-End // StimOnList
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function StimConfigTable(sdf, io, hook)
-	String sdf // stim data folder path
-	String io // "ADC", "DAC" or "TTL"
-	Variable hook // (0) no update (1) updateNM
-	
-	Variable icnt
-	String wlist, wName, tName, title
-	
-	String stim = GetPathName(sdf,0)
-	
-	tName = io + "_" + stim
-	
-	if (WinType(tName) == 2)
-		DoWindow /F $tName
-		return 0
-	endif
-	
-	strswitch(io)
-	
-		case "ADC":
-			wlist = "ADCon;ADCname;ADCunits;ADCscale;ADCboard;ADCchan;ADCmode;ADCgain"
-			title = "ADC Input Configuration : " + stim
-			break
-			
-		case "DAC":
-			wlist = "DACon;DACname;DACunits;DACscale;DACboard;DACchan;"
-			title = "DAC Output Configuration : " + stim
-			break
-			
-		case "TTL":
-			wlist = "TTLon;TTLname;TTLunits;TTLscale;TTLboard;TTLchan;"
-			title = "TTL Output Configuration : " + stim
-			break
-			
-		default:
-			return -1
-			
-	endswitch
-	
-	DoWindow /K $tName
-	Edit /W=(0,0,0,0)/K=1
-	DoWindow /C $tName
-	SetCascadeXY(tName)
-	DoWindow /T $tName, title
-	Execute "ModifyTable title(Point)= \"Config\""
-	
-	if (hook == 1)
-		SetWindow $tName hook=StimConfigTableHook
-	endif
-	
-	for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
-	
-		wName = sdf + StringFromList(icnt,wlist)
-		
-		if (WaveExists($wName) == 1)
-			AppendToTable $wName
-		endif
-	
-	endfor
-
-End // StimConfigTable
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function StimConfigTableHook(infoStr)
-	string infoStr
-	
-	string event= StringByKey("EVENT",infoStr)
-	string win= StringByKey("WINDOW",infoStr)
-	
-	strswitch(event)
-		case "deactivate":
-		case "kill":
-			UpdateNM(0)
-	endswitch
-
-End // StimConfigTableHook
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
 //
 //	Stim Wave Functions
 //
@@ -442,44 +85,127 @@ End // StimConfigTableHook
 //****************************************************************
 //****************************************************************
 
-Function StimWavesMove(from, to)
-	String from, to // paths
+Function /S StimWavesCheck(sdf, forceUpdate)
+	String sdf // stim data folder
+	Variable forceUpdate
 
-	Variable icnt
-	String wname, wlist, wlist2
+	Variable icnt, config, ORflag
+	String outName, wPrefix, wlist = "", ulist = ""
+	String plist = StimPrefixListAll(sdf)
 	
-	String thisDF = GetDataFolder(1) // save current directory
+	Variable numWaves = NumVarOrDefault(sdf+"NumStimWaves", 0)
 	
-	SetDataFolder $from
+	for (icnt = 0; icnt < ItemsInList(plist); icnt += 1)
 	
-	wlist = WaveList("DAC_*", ";", "") + WaveList("TTL_*", ";", "")
-	wlist2 = WaveList("*_pulse*", ";", "") // pulse gen waves
-	
-	for (icnt = 0; icnt < ItemsInList(wlist2); icnt += 1)
-		wlist = RemoveFromList(StringFromList(icnt, wlist2), wlist)
-	endfor
-	
-	SetDataFolder $thisDF // back to original data folder
-	
-	if (ItemsInList(wlist) == 0)
-		return 0
-	endif
-	
-	if (DataFolderExists(to) == 0)
-		NewDataFolder $LastPathColon(to, 0)
-	endif
-	
-	for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
-	
-		wname = StringFromList(icnt, wlist)
-
-		if (WaveExists($(from+wname)) == 1)
-			MoveWave $(from+wname), $(to+wname)
+		wPrefix = StringFromList(icnt, plist)
+		outName = StimPrefix(wPrefix)
+		config = StimConfigNum(wPrefix)
+		
+		if (StringMatch(outName, "TTL") == 1)
+			ORflag = 1
+		else
+			ORflag = 0
+		endif
+		
+		wlist = WaveListFolder(sdf, wPrefix + "*", ";", "")
+		ulist = WaveListFolder(sdf, "u"+wPrefix + "*", ";", "") // unscaled waves for display
+		
+		wlist = RemoveFromList(wPrefix + "_pulse", wlist)
+		
+		if ((forceUpdate) || (ItemsInList(wlist) != numWaves) || (ItemsInList(ulist) != numWaves))
+			wlist += StimWavesMake(sdf, outName, config, ORflag)
 		endif
 		
 	endfor
+	
+	return wlist
 
-End // StimWavesMove
+End // StimWavesCheck
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S StimWavesMake(sdf, outName, config, ORflag)
+	String sdf // stim data folder
+	String outName // "DAC" or "TTL"
+	Variable config // config number
+	Variable ORflag // (0) add pulses (1) OR pulses
+	
+	Variable wcnt, dt, scale
+	String wPrefix, wname, wlist = ""
+	
+	Variable numWaves = NumVarOrDefault(sdf+"NumStimWaves", 0)
+	Variable wLength = NumVarOrDefault(sdf+"WaveLength", 0)
+	Variable pgOff = NumVarOrDefault(sdf+"PulseGenOff", 0)
+	
+	if (DataFolderExists(sdf) == 0)
+		return ""
+	endif
+	
+	if (WaveExists($(sdf+outName+"board")) == 0)
+		return ""
+	endif
+	
+	Wave OUTboard = $(sdf+outName+"board")
+	Wave OUTscale = $(sdf+outName+"scale")
+	
+	scale = 1/OUTscale[config]
+	
+	dt = StimInterval(sdf, OUTboard[config])
+	
+	wPrefix = StimWaveName(outName, config, -1)
+	
+	PulseWavesKill(sdf, wPrefix)
+	PulseWavesKill(sdf, "u"+wPrefix)
+	
+	if (pgOff == 1) // use "My" waves, such as MyDAC_0_0, MyDac_0_1, etc.
+	
+		for (wcnt = 0; wcnt < numWaves; wcnt += 1)
+		
+			wname = wPrefix + "_" + num2str(wcnt)
+			
+			if (WaveExists($(sdf+"My"+wname)) == 1)
+			
+				Duplicate /O $(sdf+"My"+wname) $(sdf+wname) // copy existing "My" wave
+				
+				wlist = AddListItem(wname, wlist, ";", inf)
+				
+				Wave wtemp = $(sdf+wname)
+				
+				wtemp *= scale
+				
+			endif
+			
+		endfor
+		
+	else // use NM_PulseGen.ipf
+	
+		wlist = PulseWavesMake(sdf, wPrefix, numWaves, floor(wLength/dt), dt, scale, ORflag) 
+		
+		for (wcnt = 0; wcnt < ItemsInList(wlist); wcnt += 1)
+		
+			wname = StringFromList(wcnt, wlist)
+			
+			if (WaveExists($(sdf+wname)) == 1) // create display wave
+			
+				Duplicate /O $(sdf+wname) $(sdf+"u"+wname)
+				
+				Wave wtemp = $(sdf+"u"+wname)
+				
+				wtemp /= scale // remove scaling
+			
+			endif
+		
+		endfor
+		
+	endif
+	
+	Execute /Z "ITCkillWaves()"
+	
+	return wlist
+
+End // StimWavesMake
 
 //****************************************************************
 //****************************************************************
@@ -500,102 +226,6 @@ End // StimWavesKill
 //****************************************************************
 //****************************************************************
 //****************************************************************
-
-Function /S StimWavesMakeAll(sdf, df, plist, scale)
-	String sdf // stim data folder
-	String df // where to make waves
-	String plist // stim prefix list
-	Variable scale // (-1) for user defined scale factor in stim folder
-
-	Variable icnt, config, ORflag
-	String outName, wPrefix, wlist = ""
-	
-	for (icnt = 0; icnt < ItemsInList(plist); icnt += 1)
-	
-		wPrefix = StringFromList(icnt, plist)
-		outName = StimPrefix(wPrefix)
-		config = StimConfigNum(wPrefix)
-		
-		if (StringMatch(outName, "TTL") == 1)
-			ORflag = 1
-		else
-			ORflag = 0
-		endif
-		
-		wlist += StimWavesMake(sdf, df, outName, config, scale, ORflag)
-		
-	endfor
-	
-	return wlist
-
-End // StimWavesMakeAll
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S StimWavesMake(sdf, df, outName, config, scale, ORflag)
-	String sdf // stim data folder
-	String df // where to make waves
-	String outName // "DAC" or "TTL"
-	Variable config // config number
-	Variable scale // (-1) for user defined scale factor in stim folder
-	Variable ORflag // (0) add pulses (1) OR pulses
-	
-	Variable wcnt, dt
-	String wPrefix, wname, wlist = ""
-	
-	Variable numWaves = NumVarOrDefault(sdf+"NumStimWaves", 0)
-	Variable wLength = NumVarOrDefault(sdf+"WaveLength", 0)
-	
-	if (WaveExists($(sdf+outName+"board")) == 0)
-		return ""
-	endif
-	
-	Wave OUTboard = $(sdf+outName+"board")
-	Wave OUTscale = $(sdf+outName+"scale")
-	
-	if (scale == -1)
-		scale = 1/OUTscale[config]
-	endif
-	
-	dt = StimInterval(sdf, OUTboard[config])
-	
-	wPrefix = StimWaveName(outName, config, -1)
-	
-	if (NumVarOrDefault(sdf+"PulseGenOff", 0) == 0)
-	
-		wlist = PulseWavesMake(df, wPrefix, numWaves, floor(wLength/dt), dt, scale, ORflag) // NM_PulseGen.ipf
-	
-	else
-	
-		for (wcnt = 0; wcnt < numWaves; wcnt += 1) // copy existing "My" waves
-		
-			wname = wPrefix + "_" + num2str(wcnt)
-			
-			if (WaveExists($(sdf+"My"+wname)) == 1)
-			
-				Duplicate /O $(sdf+"My"+wname) $(df+wname)
-				
-				wlist = AddListItem(wname, wlist, ";", inf)
-				
-				Wave wtemp = $(df+wname)
-				
-				wtemp *= scale
-				
-			endif
-			
-		endfor
-		
-	endif
-	
-	return wlist
-
-End // StimWavesMake
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
 //
 //	Stim Table Functions
 //
@@ -610,6 +240,13 @@ Function StimTableCall(sdf, pName)
 	Variable icnt
 	String plist = StimPulseList(sdf)
 	String prefix
+	
+	Variable pgOff = NumVarOrDefault(sdf+"PulseGenOff", 0)
+	
+	if (pgOff == 1)
+		DoAlert 0, "Pulse Generator was turned off for this stimulus."
+		return -1
+	endif
 	
 	if (strlen(pName) == 0)
 		
@@ -791,6 +428,90 @@ End // StimTableWavesUpdate
 //****************************************************************
 //****************************************************************
 //****************************************************************
+
+Function StimConfigTable(sdf, io, hook)
+	String sdf // stim data folder path
+	String io // "ADC", "DAC" or "TTL"
+	Variable hook // (0) no update (1) updateNM
+	
+	Variable icnt
+	String wlist, wName, tName, title
+	
+	String stim = GetPathName(sdf,0)
+	
+	tName = io + "_" + stim
+	
+	if (WinType(tName) == 2)
+		DoWindow /F $tName
+		return 0
+	endif
+	
+	strswitch(io)
+	
+		case "ADC":
+			wlist = "ADCon;ADCname;ADCunits;ADCscale;ADCboard;ADCchan;ADCmode;ADCgain"
+			title = "ADC Input Configuration : " + stim
+			break
+			
+		case "DAC":
+			wlist = "DACon;DACname;DACunits;DACscale;DACboard;DACchan;"
+			title = "DAC Output Configuration : " + stim
+			break
+			
+		case "TTL":
+			wlist = "TTLon;TTLname;TTLunits;TTLscale;TTLboard;TTLchan;"
+			title = "TTL Output Configuration : " + stim
+			break
+			
+		default:
+			return -1
+			
+	endswitch
+	
+	DoWindow /K $tName
+	Edit /W=(0,0,0,0)/K=1
+	DoWindow /C $tName
+	SetCascadeXY(tName)
+	DoWindow /T $tName, title
+	Execute "ModifyTable title(Point)= \"Config\""
+	
+	if (hook == 1)
+		SetWindow $tName hook=StimConfigTableHook
+	endif
+	
+	for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
+	
+		wName = sdf + StringFromList(icnt,wlist)
+		
+		if (WaveExists($wName) == 1)
+			AppendToTable $wName
+		endif
+	
+	endfor
+
+End // StimConfigTable
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimConfigTableHook(infoStr)
+	string infoStr
+	
+	string event= StringByKey("EVENT",infoStr)
+	string win= StringByKey("WINDOW",infoStr)
+	
+	strswitch(event)
+		case "deactivate":
+		case "kill":
+			UpdateNM(0)
+	endswitch
+
+End // StimConfigTableHook
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
 //
 //	Stim Utility Functions
 //
@@ -906,9 +627,8 @@ End // StimPulseList
 //****************************************************************
 //****************************************************************
 
-Function /S StimWaveList(sdf, df, prefixList, waveNum)
+Function /S StimWaveList(sdf, prefixList, waveNum)
 	String sdf // stim data folder
-	String df // data folder where waves are located
 	String prefixList // wave prefix name list
 	Variable waveNum // (-1) all
 	
@@ -930,7 +650,7 @@ Function /S StimWaveList(sdf, df, prefixList, waveNum)
 		
 			wname = StimWaveName(wPrefix, -1, wcnt)
 			
-			if (WaveExists($(df+wname)) == 1) 
+			if (WaveExists($(sdf+wname)) == 1) 
 				wlist = AddListItem(wname,wlist,";",inf)
 			endif
 			
@@ -1209,8 +929,8 @@ Function SubStimWavesRetrieve(plist, asChan) // retrieve sub folder stim waves
 	String plist // prefix list
 	Variable asChan // (0) no (1) yes
 	
-	Variable icnt
-	String prefix, pname, dpName, ioName, ioUnits, wList
+	Variable icnt, wcnt
+	String prefix, pname, dpName, ioName, ioUnits, wname, wList = ""
 	String gName, gTitle
 	
 	if (WaveExists(yLabel) == 0)
@@ -1223,6 +943,8 @@ Function SubStimWavesRetrieve(plist, asChan) // retrieve sub folder stim waves
 	
 	String wPrefix = StrVarOrDefault("WavePrefix", "Record")
 	
+	Variable pgOff = NumVarOrDefault(sdf+"PulseGenOff", 0)
+	
 	Wave /T yLabel
 	
 	for (icnt = 0; icnt < ItemsInList(plist); icnt += 1)
@@ -1231,13 +953,18 @@ Function SubStimWavesRetrieve(plist, asChan) // retrieve sub folder stim waves
 		pname = prefix + "_pulse"
 		dpname = df + pname
 		
-		if (WaveExists($(sdf + pname)) == 1)
-			Duplicate /O $(sdf + pname) $dpname // copy pulse waves to data folder
+		StimWavesCheck(sdf, 0)
+		
+		if (pgOff == 1)
+			wlist = WaveListFolder(sdf, "My"+prefix + "*", ";", "") // user "My" waves
+		else
+			wlist = WaveListFolder(sdf, "u"+prefix + "*", ";", "") // unscaled waves for display
 		endif
 		
-		wList = StimWavesMakeAll(sdf, df, pname, 1)
-		
-		KillWaves /Z $dpname // kill pulse wave
+		for (wcnt = 0; wcnt < ItemsInList(wlist); wcnt += 1)
+			wname = StringFromList(wcnt, wlist)
+			Duplicate /O $(sdf + wname) $wname
+		endfor
 		
 		ioName = StimConfigStr(sdf, pname, "name")
 		ioUnits = StimConfigStr(sdf, pname, "units")

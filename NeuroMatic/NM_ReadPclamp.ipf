@@ -1,19 +1,19 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Read PClamp Functions
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 16 Oct 2004
+//	Last modified 11 June 2007
 //
 //	PClamp file header details from Axon Instruments, Inc.
 //
@@ -21,42 +21,79 @@
 //****************************************************************
 //****************************************************************
 
-Function ReadPClampHeader() // read pClamp file header
+Function ReadPclampXOPExists(file)
+	String file
 
-	Variable ccnt, amode, icnt, ActualEpisodes, tempvar
-	Variable /G ADCResolution, ADCRange, DataPointer, AcqLength // create new globabl variables
-	String yl
+	Execute /Z "ReadPclamp \"" + ReadPClampFileC(file) + "\"" // check for ABF XOP
 	
-	NVAR FileFormat, NumChannels, TotalNumWaves, SamplesPerWave, SampleInterval
-	SVAR CurrentFile, AcqMode, xLabel
+	if (NumVarOrDefault("ABF_Version", 0) > 0)
+		return 1
+	endif
 	
-	Wave FileScaleFactors
-	Wave /T yLabel
+	return 0
+
+End // ReadPclampXOPExists
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ReadPClampHeader(file, df) // read pClamp file header
+	String file // file to read
+	String df // data folder where everything is saved
+
+	Variable ccnt, amode, ActualEpisodes, tempvar, XOPexists, importDebug = 0
+	Variable ADCResolution, ADCRange, DataPointer, DataFormat, AcqLength
+	Variable FileFormat, NumChannels, TotalNumWaves, SamplesPerWave, SampleInterval, SplitClock
+	String yl, dumstr, AcqMode, fileC
 	
-	Make /O DumWave0 // where GBLoadWave puts data
+	XOPexists = ReadPclampXOPExists(file)
 	
 	//
 	// file ID and size info
 	//
 	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={16,4} CurrentFile" // read short integers (16 bits)
+	dumstr = ReadPclampString(file, 0, 4) // file signature
 	
-	if (V_Flag != 0)
-		DoAlert 0, " Load File Aborted: error in reading pClamp file."
-		return 0
+	if (ImportDebug == 1)
+		Print "Pclamp Header Format String:", dumstr
 	endif
 	
-	FileFormat = DumWave0[18] // should be "1" for ABF filetype
+	strswitch(dumstr)
+		case "ABF ":
+			if (XOPexists == 1)
+				return ReadPClampHeaderXOP(file, df)
+			endif
+			break
+		case "ABF2":
+			if (XOPexists == 1)
+				return ReadPClampHeaderXOP(file, df)
+			else
+				DoAlert 0, "Encounted ABF file format 2: Please contact Jason@ThinkRandom.com for the new ReadPclamp XOP. "
+				return -1
+			endif
+		default:
+			Print "Import File Aborted: file not of Pclamp format: " + dumstr
+			return -1
+	endswitch
 	
-	if (FileFormat != 1)
-		DoAlert 0, "Abort: PClamp file format is not ABF (format = " + num2str(FileFormat) + ")"
-		return 0
+	CheckNMwave(df+"FileScaleFactors", 16, 1)  // increase size
+	CheckNMtwave(df+"yLabel", 16, "")
+	
+	Wave FileScaleFactors = $(df+"FileScaleFactors")
+	Wave /T yLabel = $(df+"yLabel")
+	
+	FileScaleFactors = 1
+	yLabel = ""
+	
+	FileFormat = ReadPclampVar(file, "short", 36)
+	//SetNMvar(df+"FileFormat", FileFormat)
+	
+	if (ImportDebug == 1)
+		Print "File format number:", FileFormat 
 	endif
 	
-	NMProgressStr("Reading Pclamp Header...")
-	CallProgress(-1)
-	
-	amode = DumWave0[4] // acquisition/operation mode
+	amode = ReadPclampVar(file, "short", 8) // acquisition/operation mode
 	
 	switch(amode)
 	case 1:
@@ -76,152 +113,113 @@ Function ReadPClampHeader() // read pClamp file header
 		break
 	endswitch
 	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={32,4}/S=10 CurrentFile" // read long integers (32 bits)
-	AcqLength = DumWave0[0] // actual number of ADC samples in data file
+	SetNMstr(df+"AcqMode", AcqMode)
 	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={32,4}/S=16 CurrentFile" // read long integers (32 bits)
-	ActualEpisodes = DumWave0[0]
+	AcqLength = ReadPclampVar(file, "long", 10) // actual number of ADC samples in data file
+	SetNMvar(df+"AcqLength", AcqLength)
+	ActualEpisodes = ReadPclampVar(file, "long", 16)
+	SetNMvar(df+"NumWaves", ActualEpisodes)
 	
 	//
 	// File Structure info
 	//
 	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={32,4}/S=40 CurrentFile" // read long integers (32 bits)
-	DataPointer = DumWave0[0] // block number of start of Data section
-	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={16,4}/S=100 CurrentFile" // read long integers (32 bits)
-	SetNMVar("DataFormat", DumWave0[0]) // data representation (0) 2-byte integer (1) IEEE 4-byte float
-	
-	if (CallProgress(-2) == 1)
-		return 0 // cancel
-	endif
+	DataPointer = ReadPclampVar(file, "long", 40) // block number of start of Data section
+	SetNMvar(df+"DataPointer", DataPointer)
+	DataFormat = ReadPclampVar(file, "long", 100)
+	SetNMvar(df+"DataFormat", DataFormat)
 		
 	//
 	// Trial Hierarchy info
 	//
 	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={16,4}/S=120 CurrentFile" // read short integers (16 bits)
-	NumChannels = DumWave0[0] // nADCNumChannels
-	TotalNumWaves = ActualEpisodes*NumChannels
+	NumChannels = ReadPclampVar(file, "short", 120) // nADCNumChannels
+	SetNMvar(df+"NumChannels", NumChannels)
+	TotalNumWaves = ActualEpisodes * NumChannels
+	SetNMvar(df+"TotalNumWaves", TotalNumWaves)
+	SampleInterval = ReadPclampVar(file, "float", 122)
+	SampleInterval = (SampleInterval * NumChannels) / 1000
+	SetNMvar(df+"SampleInterval", SampleInterval)
 	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={2,4}/S=122 CurrentFile" // single precision floating (32 bits)
-	SampleInterval = (DumWave0[0]*NumChannels)/1000 // fADC sample interval (convert to milliseconds here)
+	SplitClock = ReadPclampVar(file, "float", 126) // second clock interval
 	
-	if (DumWave0[1] != 0) // SecondSampleInterval
+	SetNMvar(df+"SplitClock", SplitClock)
+	
+	if (SplitClock != 0) // SecondSampleInterval
 		DoAlert 0, "Warning: data contains split-clock recording, which is not supported by this version of NeuroMatic."
 	endif
 	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={32,4}/S=138 CurrentFile" // read long integers (32 bits)
-	SamplesPerWave = DumWave0[0]/NumChannels // sample points per wave
-	//Variable /G PreTriggerSamples = DumWave0[1]
-	//Variable /G EpisodesPerRun = DumWave0[2]
-	//Variable /G RunsPerTrial = DumWave0[3]
-	//Variable /G NumberOfTrials = DumWave0[4]
-	
-	//Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={2,4}/S=178 CurrentFile" // single precision floating (32 bits)
-	//Variable /G EpisodeStartToStart = DumWave0[0]
-	//Variable /G RunStartToStart = DumWave0[1]
-	//Variable /G TrialStartToStart = DumWave0[2]
-	
-	//Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={32,4}/S=194 CurrentFile" // read long integers (32 bits)
-	//Variable /G ClockChange = DumWave0[0]
+	SamplesPerWave = ReadPclampVar(file, "long", 138) / NumChannels // sample points per wave
+	SetNMvar(df+"SamplesPerWave", SamplesPerWave)
+	//Variable /G PreTriggerSamples = ReadPclampVar(file, "long", 142)
+	//Variable /G EpisodesPerRun = ReadPclampVar(file, "long", 146)
+	//Variable /G RunsPerTrial = ReadPclampVar(file, "long", 150)
+	//Variable /G NumberOfTrials = ReadPclampVar(file, "long", 154)
+	//Variable /G EpisodeStartToStart = ReadPclampVar(file, "float", 178)
+	//Variable /G RunStartToStart = ReadPclampVar(file, "float", 182)
+	//Variable /G TrialStartToStart = ReadPclampVar(file, "float", 186)
+	//Variable /G ClockChange = ReadPclampVar(file, "long", 194)
 	
 	//
 	// Hardware Info
 	//
 	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={2,4}/S=244 CurrentFile" // single precision floating (32 bits)
-	ADCRange = DumWave0[0] // ADC positive full-scale input (volts)
-	//Variable /G DACRange = DumWave0[1]
-	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={32,4}/S=252 CurrentFile" // read long integers (32 bits)
-	ADCResolution =  DumWave0[0] // number of ADC counts in ADC range
-	//Variable /G DACResolution = DumWave0[1]
-	
-	if (CallProgress(-2) == 1)
-		return 0 // cancel
-	endif
+	ADCRange = ReadPclampVar(file, "float", 244) // ADC positive full-scale input (volts)
+	SetNMvar(df+"ADCRange", ADCRange)
+	//Variable /G DACRange = ReadPclampVar(file, "float", 248)
+	ADCResolution = ReadPclampVar(file, "long", 252) // number of ADC counts in ADC range
+	SetNMvar(df+"ADCResolution", ADCResolution)
+	//Variable /G DACResolution = ReadPclampVar(file, "long", 256)
 	
 	//
 	// Multi-channel Info
 	//
-	
-	if (strlen(yLabel[ccnt]) == 0)
-	
-		Execute /Z "GBLoadWave /O/Q/N=DumWave/T={8,8}/S=442 CurrentFile" // read characters (1 byte)
-	
-		for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
-			yl = ""
-			for (icnt = 0; icnt < 10; icnt += 1)
-				tempvar = DumWave0[icnt + ccnt*8]
-				if (tempvar != 32)
-					yl += num2char(tempvar)
-				endif
-			endfor
-			yLabel[ccnt] = yl + " ("
-		endfor
-		
-		Execute /Z "GBLoadWave /O/Q/N=DumWave/T={8,8}/S=602 CurrentFile" // read characters (1 byte)
-		
-		for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
-			yl = ""
-			for (icnt = 0; icnt < 8; icnt += 1)
-				tempvar = DumWave0[icnt + ccnt*8]
-				if (tempvar != 32)
-					yl += num2char(tempvar)
-				endif
-			endfor
-			yLabel[ccnt] += yl+ ")"
-		endfor
-	
-	endif
-	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={2,4}/S=922 CurrentFile" // single precision floating (32 bits)
-	
+
 	for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
-		FileScaleFactors[ccnt] = ADCRange/(ADCResolution*DumWave0[ccnt])
-		//print "chan" + num2str(ccnt) + " gain:", DumWave0[ccnt]
+		yl = ReadPclampString(file, 442 + ccnt * 10, 10)
+		yLabel[ccnt] = RemoveEndSpaces(yl)
 	endfor
 	
-	if (CallProgress(-2) == 1)
-		return 0 // cancel
-	endif
+	for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
+		yl = ReadPclampString(file, 602 + ccnt * 8, 8)
+		yLabel[ccnt] += " (" + RemoveEndSpaces(yl) + ")"
+	endfor
+	
+	for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
+		tempvar = ReadPclampVar(file, "float", 922 + ccnt * 4)
+		FileScaleFactors[ccnt] = ADCRange / (ADCResolution * tempvar)
+		//print "chan" + num2str(ccnt) + " gain:", tempvar
+	endfor
 	
 	//
 	// Extended Environmental Info
 	//
 	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={16,4}/S=4512 CurrentFile" // telegraph enable (short)
-	Variable TelegraphEnable = DumWave0[0]
-	//Print "Telegraph Enable:", TelegraphEnable
-	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={16,4}/S=4544 CurrentFile" // telegraph instrument (short)
-	//Variable /G TelegraphInstrument = DumWave0[0]
-	
-	Execute /Z "GBLoadWave/O/B/Q/N=DumWave/T={2,4}/S=4576 CurrentFile" // single precision floating (32 bits)
+	//Variable /G TelegraphEnable = ReadPclampVar(file, "short", 4512)
+	//Variable /G TelegraphInstrument = = ReadPclampVar(file, "short", 4544)
 	
 	for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
-		if ((numtype(DumWave0[ccnt]) == 0) && (DumWave0[ccnt] > 0))
-			FileScaleFactors[ccnt] /= DumWave0[ccnt]
+		tempvar = ReadPclampVar(file, "float", 4576 + ccnt * 4)
+		if ((numtype(tempvar) == 0) && (tempvar > 0))
+			FileScaleFactors[ccnt] /= tempvar
 			//print "chan" + num2str(ccnt) + " telegraph gain:", DumWave0[ccnt]
 		endif
 	endfor
 	
-	// finish up things here...
-	
 	if (amode == 3) // gap free
-		TotalNumWaves = ceil(AcqLength/SamplesPerWave)
+		TotalNumWaves = ceil(AcqLength / SamplesPerWave)
 	endif
 	
-	if (strlen(xLabel) == 0)
-		xLabel = "msec"
-	endif
+	//if (strlen(xLabel) == 0)
+	//	xLabel = "msec"
+	//endif
 	
 	KillWaves /Z DumWave0
 	
-	if (CallProgress(1) == 1)
-		return 0 // cancel
-	endif
+	SetNMstr(df+"ImportFileType", "Pclamp " + num2str(FileFormat))
+	
+	CheckNMwave(df+"FileScaleFactors", numChannels, 1)
+	CheckNMtwave(df+"yLabel", numChannels, "")
 	
 	return 1
 
@@ -231,26 +229,302 @@ End // ReadPClampHeader
 //****************************************************************
 //****************************************************************
 
-Function ReadPClampData() // read pClamp file
+Function /S ReadPClampFileC(file) // convert Igor file string to C/C++ file string
+	String file
+	String fileC
 
-	Variable strtnum, numwaves, amode, scale
-	Variable ccnt, wcnt, scnt, pcnt, pflag, smpcnt, npnts1, npnts2, lastwave
+	fileC = ReplaceString(":", file, "/")
+	fileC = file[0,0] + ":/" + fileC[2,inf]
+	
+	return fileC
+	
+End // ReadPClampFileC
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ReadPClampHeaderXOP(file, df)
+	String file, df
+	
+	Variable ccnt, chan, tempvar
+	Variable amode, FileFormat, AcqLength, ActualEpisodes, DataFormat, TotalNumWaves
+	Variable SampleInterval, NumChannels, SplitClock, SamplesPerWave
+	Variable ADCRange, ADCResolution
+	
+	String acqMode, yl, yu
+	String folder = GetPathName(file, 0) + "_Header"
+	String saveDF = GetDataFolder(1)
+	
+	folder = ReplaceString(".abf", folder, "")
+	
+	folder = CheckFolderNameChar(folder)
+	
+	NewDataFolder /O /S $LastPathColon(folder, 0) // create subfolder in current directory
+	
+	Execute /Z "ReadPclamp /H \"" + ReadPClampFileC(file) + "\"" // import header
+	
+	if (WaveExists(ABF_nADCSamplingSeq) == 0) // something went wrong
+		SetDataFolder $saveDF // back to original folder
+		return -1
+	endif
+	
+	CheckNMwave(df+"FileScaleFactors", 20, 1)  // increase size
+	CheckNMtwave(df+"yLabel", 20, "")
+	
+	Wave FileScaleFactors = $(df+"FileScaleFactors")
+	Wave /T yLabel = $(df+"yLabel")
+	
+	FileScaleFactors = 1
+	yLabel = ""
+	
+	FileFormat = NumVarOrDefault("ABF_nFileType", -1)
+	
+	amode = NumVarOrDefault("ABF_nOperationMode", -1)
+	
+	switch(amode)
+	case 1:
+		acqMode = "1 (Event-Driven)"
+		break
+	case 2:
+		acqMode = "2 (Oscilloscope, loss free)"
+		break
+	case 3:
+		acqMode = "3 (Gap-Free)"
+		break
+	case 4:
+		acqMode = "4 (Oscilloscope, high-speed)"
+		break
+	case 5:
+		acqMode = "5 (Episodic)"
+		break
+	default:
+		acqMode = "-1 (UNKNOWN)"
+	endswitch
+	
+	SetNMstr(df+"AcqMode", acqMode)
+	
+	AcqLength = NumVarOrDefault("ABF_lActualAcqLength", -1)
+	SetNMvar(df+"AcqLength", AcqLength)
+	ActualEpisodes = NumVarOrDefault("ABF_lActualEpisodes", -1)
+	SetNMvar(df+"NumWaves", ActualEpisodes)
+	
+	//
+	// File Structure info
+	//
+	
+	DataFormat = NumVarOrDefault("ABF_nDataFormat", -1)
+	SetNMvar(df+"DataFormat", DataFormat)
+		
+	//
+	// Trial Hierarchy info
+	//
+	
+	NumChannels = NumVarOrDefault("ABF_nADCNumChannels", -1)
+	SetNMvar(df+"NumChannels", NumChannels)
+	TotalNumWaves = ActualEpisodes * NumChannels
+	SetNMvar(df+"TotalNumWaves", TotalNumWaves)
+	SampleInterval = NumVarOrDefault("ABF_fADCSampleInterval", -1)
+	
+	if (SampleInterval <= 0)
+		SampleInterval = NumVarOrDefault("ABF_fADCSequenceInterval", -1)
+	endif
+	
+	SampleInterval = (SampleInterval * NumChannels) / 1000
+	SetNMvar(df+"SampleInterval", SampleInterval)
+	
+	SplitClock = NumVarOrDefault("ABF_fADCSecondSampleInterval", -1)
+	SetNMvar(df+"SplitClock", SplitClock)
+	
+	if (SplitClock > 0) // SecondSampleInterval
+		DoAlert 0, "Warning: data contains split-clock recording, which is not supported by this version of NeuroMatic."
+	endif
+	
+	SamplesPerWave = NumVarOrDefault("ABF_lNumSamplesPerEpisode", -1) / NumChannels // sample points per wave
+	SetNMvar(df+"SamplesPerWave", SamplesPerWave)
+	
+	//
+	// Hardware Info
+	//
+	
+	ADCRange = NumVarOrDefault("ABF_fADCRange", -1) // ADC positive full-scale input (volts)
+	SetNMvar(df+"ADCRange", ADCRange)
+	ADCResolution = NumVarOrDefault("ABF_lADCResolution", -1) // number of ADC counts in ADC range
+	SetNMvar(df+"ADCResolution", ADCResolution)
+	
+	//
+	// Multi-channel Info
+	//
+	
+	Wave ABF_nADCSamplingSeq, ABF_fInstrumentScaleFactor
+	Wave /T ABF_sADCChannelName, ABF_sADCUnits
+
+	for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
+		
+		chan = ABF_nADCSamplingSeq[ccnt]
+		
+		if ((chan >= 0) && (chan < numpnts(ABF_sADCChannelName)))
+			yl = RemoveEndSpaces(ABF_sADCChannelName[chan])
+			yu = RemoveEndSpaces(ABF_sADCUnits[chan])
+			yLabel[ccnt] =  yl + " (" + yu + ")"
+		endif
+		
+	endfor
+	
+	for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
+	
+		chan = ABF_nADCSamplingSeq[ccnt]
+		
+		if ((chan >= 0) && (chan < numpnts(ABF_fInstrumentScaleFactor)))
+			tempvar = ABF_fInstrumentScaleFactor[chan]
+		else
+			tempvar = Nan
+		endif
+		
+		if ((numtype(tempvar) == 0) && (tempvar > 0))
+			FileScaleFactors[ccnt] = ADCRange / (ADCResolution * tempvar)
+		else
+			FileScaleFactors[ccnt] = ADCRange / ADCResolution
+		endif
+		
+	endfor
+	
+	//
+	// Extended Environmental Info
+	//
+	
+	if (WaveExists(ABF_fTelegraphAdditGain) == 1)
+	
+		Wave ABF_fTelegraphAdditGain
+	
+		for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
+		
+			chan = ABF_nADCSamplingSeq[ccnt]
+		
+			if ((chan >= 0) && (chan < numpnts(ABF_fTelegraphAdditGain)))
+				tempvar = ABF_fTelegraphAdditGain[chan]
+			else
+				tempvar = NAN
+			endif
+			
+			if ((numtype(tempvar) == 0) && (tempvar > 0))
+				FileScaleFactors[ccnt] /= tempvar
+				//print "chan" + num2str(ccnt) + " telegraph gain:", DumWave0[ccnt]
+			endif
+			
+		endfor
+	
+	endif
+	
+	SetDataFolder $saveDF // back to original folder
+	
+	KillWaves /Z DumWave0
+	
+	SetNMstr(df+"ImportFileType", "Pclamp " + num2str(FileFormat))
+	
+	CheckNMwave(df+"FileScaleFactors", numChannels, 1)
+	CheckNMtwave(df+"yLabel", numChannels, "")
+	
+	return 1
+
+End // ReadPClampHeaderXOP
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ReadPClampDataXOP(file, df) // read pClamp file (need to read header before calling this function)
+	String file // file to read
+	String df // data folder where everything is saved
+	
+	Variable wcnt, ccnt, scnt, scale
 	String wName, wNote
 	
-	Variable /G column, NumSamps // these variables must be global for GBLoadWave to run properly
+	Variable version = NumVarOrDefault(df+"ABF_Version", 0)
 	
-	NVAR NumChannels, SamplesPerWave, SampleInterval, AcqLength, DataPointer
-	NVAR WaveBeg, WaveEnd, WaveInc, CurrentWave
-	SVAR CurrentFile, AcqMode, xLabel
+	if (version == 0)
+		return 0
+	endif
 	
-	Wave FileScaleFactors, MyScaleFactors
-	Wave /T yLabel
+	Variable NumWaves = NumVarOrDefault(df+"NumWaves", 0)
+	Variable WaveBgn = NumVarOrDefault(df+"WaveBgn", 0)
+	Variable WaveEnd = NumVarOrDefault(df+"WaveEnd", -1)
 	
-	Variable DataFormat = NumVarOrDefault("DataFormat", 0)
+	String wavePrefix = StrVarOrDefault(df+"WavePrefix", "Record")
 	
-	strtnum = CurrentWave
+	String saveDF = GetDataFolder(1)
 	
-	if ((WaveBeg > WaveEnd) || (WaveInc < 0) || (strtnum < 0) || (numtype(WaveBeg*WaveEnd*WaveInc*strtnum) != 0))
+	SetDataFolder $df
+	
+	Variable strtnum = NextWaveNum("", wavePrefix, 0, 0)
+	
+	WaveBgn += 1
+	WaveEnd += 1
+	
+	if ((WaveBgn > WaveEnd) || (strtnum < 0) || (numtype(WaveBgn*WaveEnd*strtnum) != 0))
+		return 0 // options not allowed
+	endif
+	
+	NMProgressStr("Reading Pclamp File...")
+	CallProgress(-1) // bring up progress window
+	
+	Execute /Z "ReadPclamp /D /N=(" + num2str(WaveBgn) + "," + num2str(WaveEnd) + ") /P=\"" + wavePrefix + "\" /S=" + num2str(strtnum) + " \"" + ReadPClampFileC(file) + "\""
+	
+	SetDataFolder $saveDF // back to original folder
+	
+	CallProgress(1) // bring up progress window
+	
+End // ReadPClampDataXOP
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ReadPClampData(file, df) // read pClamp file
+	String file // file to read
+	String df // data folder where everything is saved
+
+	Variable strtnum, nwaves, amode, scale, pointer, column, nsamples
+	Variable ccnt, wcnt, scnt, pcnt, pflag, smpcnt, npnts1, npnts2, lastwave
+	String wname, wNote
+	
+	String saveDF = GetDataFolder(1)
+	
+	Variable XOPexists = ReadPclampXOPExists(file)
+	
+	ReadPClampHeader(file, df)
+	
+	if (XOPexists == 1)
+		return ReadPClampDataXOP(file, df)
+	endif
+	
+	Variable NumChannels = NumVarOrDefault(df+"NumChannels", 0)
+	Variable NumWaves = NumVarOrDefault(df+"NumWaves", 0)
+	Variable SamplesPerWave = NumVarOrDefault(df+"SamplesPerWave", 0)
+	Variable SampleInterval = NumVarOrDefault(df+"SampleInterval", 1)
+	Variable AcqLength = NumVarOrDefault(df+"AcqLength", 0)
+	Variable DataPointer = NumVarOrDefault(df+"DataPointer", 0)
+	Variable WaveBgn = NumVarOrDefault(df+"WaveBgn", 0)
+	Variable WaveEnd = NumVarOrDefault(df+"WaveEnd", -1)
+	
+	String AcqMode = StrVarOrDefault(df+"AcqMode", "")
+	String xLabel = StrVarOrDefault(df+"xLabel", "")
+	String wavePrefix = StrVarOrDefault(df+"WavePrefix", "Record")
+	
+	Wave FileScaleFactors = $(df+"FileScaleFactors")
+	Wave /T yLabel  = $(df+"yLabel")
+	
+	Variable DataFormat = NumVarOrDefault(df+"DataFormat", 0)
+	
+	SetDataFolder $df
+	
+	strtnum = NextWaveNum("", wavePrefix, 0, 0)
+	
+	if (WaveEnd < 0)
+		WaveEnd = NumWaves
+	endif
+	
+	if ((WaveBgn > WaveEnd) || (strtnum < 0) || (numtype(WaveBgn*WaveEnd*strtnum) != 0))
 		return 0 // options not allowed
 	endif
 	
@@ -262,39 +536,42 @@ Function ReadPClampData() // read pClamp file
 		WaveEnd = lastwave
 	endif
 	
-	numwaves = floor((WaveEnd - WaveBeg + 1)/ WaveInc)
+	nwaves = floor(WaveEnd - WaveBgn + 1)
 	amode = str2num(AcqMode[0])
 	
-	NumSamps = SamplesPerWave*NumChannels
+	nsamples = SamplesPerWave * NumChannels
 	
 	if (amode == 3)
 		for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
 			Variable /G $("xbeg" + num2str(ccnt))
-			Variable /G $("xend" + num2str(ccnt))
-			Make /O/N=(AcqLength/NumChannels) $GetWaveName("default", ccnt, strtnum) = NAN
+			Variable /G $("xend" + num2str(ccnt)) 
+			Make /O/N=(AcqLength/NumChannels) $GetWaveName(wavePrefix, ccnt, strtnum) = NAN
 		endfor
 	endif
 	
+	NMProgressStr("Reading Pclamp File...")
 	CallProgress(0) // bring up progress window
 	
-	for (wcnt = WaveBeg; wcnt <= WaveEnd; wcnt += WaveInc) // loop thru waves
+	for (wcnt = WaveBgn; wcnt <= WaveEnd; wcnt += 1) // loop thru waves
 	
-		column = wcnt - 1 // compute column index to read
+		column = wcnt // compute column index to read
 
 		if (DataFormat == 0) // 2 bytes integer
-			Execute /Z "GBLoadWave/O/Q/B/N=DumWave/T={16,2}/S=(512*DataPointer+NumSamps*2*column)/W=1/U=(NumSamps) CurrentFile"
+			pointer = 512 * DataPointer + nsamples * 2 * column
+			GBLoadWave/O/Q/B/N=DumWave/T={16,2}/S=(pointer)/W=1/U=(nsamples) file
 		elseif (DataFormat == 1) // 4 bytes float
-			Execute /Z "GBLoadWave/O/Q/B/N=DumWave/T={2,2}/S=(512*DataPointer+NumSamps*4*column)/W=1/U=(NumSamps) CurrentFile"
+			pointer = 512 * DataPointer + nsamples * 4 * column
+			GBLoadWave/O/Q/B/N=DumWave/T={2,2}/S=(pointer)/W=1/U=(nsamples) file
 		endif
 			
-		if (V_Flag != 0)
-			DumWave0 = NAN
-			DoAlert 0, "WARNING: Unsuccessfull read on Wave #" + num2str(wcnt)
-		endif
+		//if (V_Flag != 0)
+		//	DumWave0 = NAN
+		//	DoAlert 0, "WARNING: Unsuccessfull read on Wave #" + num2str(wcnt)
+		//endif
 		
 		for (ccnt = 0; ccnt < NumChannels; ccnt += 1) // loop thru channels and extract channel waves
 		
-			Redimension /N=(NumSamps/NumChannels) DumWave1
+			Redimension /N=(nsamples/NumChannels) DumWave1
 			
 			if (NumChannels == 1)
 				Duplicate /O DumWave0 DumWave1
@@ -304,7 +581,7 @@ Function ReadPClampData() // read pClamp file
 				endfor
 			endif
 			
-			scale = FileScaleFactors[ccnt]*MyScaleFactors[ccnt]
+			scale = FileScaleFactors[ccnt]
 			
 			if (numtype(scale) == 0)
 				DumWave1 *= scale
@@ -312,7 +589,7 @@ Function ReadPClampData() // read pClamp file
 			
 			if (amode == 3) // Gap-Free acquisition mode
 			
-				Wave DumWave = $GetWaveName("default", ccnt, strtnum)
+				Wave DumWave = $GetWaveName(wavePrefix, ccnt, strtnum)
 				
 				NVAR xbeg = $("xbeg" + num2str(ccnt))
 				NVAR xend = $("xend" + num2str(ccnt))
@@ -323,15 +600,17 @@ Function ReadPClampData() // read pClamp file
 
 			else // all other acqusition modes
 			
-				wName = GetWaveName("default", ccnt, (scnt + strtnum))
+				wName = GetWaveName(wavePrefix, ccnt, (scnt + strtnum))
+				//wName = GetWaveName("default", ccnt, wcnt)
 				
 				Duplicate /O DumWave1, $wName
 				Setscale /P x 0, SampleInterval, $wName
 				
 				wNote = "Folder:" + GetDataFolder(0)
+				wNote += "\rFile:" + NMNoteCheck(file)
 				wNote += "\rChan:" + ChanNum2Char(ccnt)
+				wNote += "\rWave:" + num2str(wcnt)
 				wNote += "\rScale:" + num2str(scale)
-				wNote += "\rFile:" + NMNoteCheck(CurrentFile)
 
 				NMNoteType(wName, "Pclamp", xLabel, yLabel[ccnt], wNote)
 				
@@ -342,7 +621,7 @@ Function ReadPClampData() // read pClamp file
 		scnt += 1
 		pcnt += 1
 		
-		pflag = CallProgress(pcnt/numwaves)
+		pflag = CallProgress(pcnt/nwaves)
 		
 		if (pflag == 1) // cancel
 			break
@@ -368,7 +647,7 @@ Function ReadPClampData() // read pClamp file
 			wNote = "Folder:" + GetDataFolder(0)
 			wNote += "\rChan:" + ChanNum2Char(ccnt)
 			wNote += "\rScale:" + num2str(scale)
-			wNote += "\rFile:" + NMNoteCheck(CurrentFile)
+			wNote += "\rFile:" + NMNoteCheck(file)
 
 			NMNoteType(wName, "Pclamp", xLabel, yLabel[ccnt], wNote)
 			
@@ -376,8 +655,9 @@ Function ReadPClampData() // read pClamp file
 		
 	endif
 	
-	KillVariables /Z NumSamps, column, DataPointer
 	KillWaves /Z DumWave0, DumWave1
+	
+	SetDataFolder $saveDF // back to original folder
 	
 	return scnt // return count
 
@@ -386,3 +666,116 @@ End // ReadPClampData
 //****************************************************************
 //****************************************************************
 //****************************************************************
+
+Function ReadPclampVar(file, type, pointer)
+	String file
+	String type
+	Variable pointer
+	
+	pointer = ReadPclampFile(file, type, pointer, 1)
+	
+	if ((numtype(pointer) > 0) || (WaveExists(DumWave0) == 0))
+		return Nan
+	endif
+	
+	Wave DumWave0
+	
+	return DumWave0[0]
+
+End // ReadPclampVar
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /T ReadPclampString(file, pointer, nchar)
+	String file
+	Variable pointer, nchar
+	
+	Variable icnt
+	String str = ""
+	
+	pointer = ReadPclampFile(file, "char", pointer, nchar)
+	
+	if ((numtype(pointer) > 0) || (WaveExists(DumWave0) == 0))
+		return ""
+	endif
+	
+	Wave DumWave0
+	
+	for (icnt = 0; icnt < nchar; icnt += 1)
+		str += num2char(DumWave0[icnt])
+	endfor
+	
+	return str
+
+End // ReadPclampString
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /T RemoveEndSpaces(str)
+	String str
+	Variable icnt
+	
+	for (icnt = strlen(str) - 1; icnt >= 0; icnt -= 1)
+		if (stringmatch(str[icnt,icnt], " ") == 0)
+			return str[0,icnt]
+		endif
+	endfor
+	
+	return str
+	
+End // RemoveEndSpaces
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ReadPclampFile(file, type, pointer, nread)
+	String file
+	String type
+	Variable pointer
+	Variable nread
+	
+	Variable bytes = 0
+	
+	if (numtype(pointer) > 0)
+		return Nan
+	endif
+	
+	strswitch(type)
+		case "char":
+			bytes = 1
+			GBLoadWave /B/N=DumWave/O/S=(pointer)/T={8,2}/U=(nread)/W=1/Q file
+			break
+		case "unicode":
+		case "short":
+			bytes = 2
+			GBLoadWave /B/N=DumWave/O/S=(pointer)/T={16,2}/U=(nread)/W=1/Q file
+			break
+		case "long":
+			bytes = 4
+			GBLoadWave /B/N=DumWave/O/S=(pointer)/T={32,2}/U=(nread)/W=1/Q file
+			break
+		case "float":
+			bytes = 4
+			GBLoadWave /B/N=DumWave/O/S=(pointer)/T={2,2}/U=(nread)/W=1/Q file
+			break
+		case "double":
+			bytes = 8
+			GBLoadWave /B/N=DumWave/O/S=(pointer)/T={4,4}/U=(nread)/W=1/Q file
+			break
+		default:
+			return Nan
+	endswitch
+	
+	return (pointer + bytes * nread)
+	
+End // ReadPclampFile
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+

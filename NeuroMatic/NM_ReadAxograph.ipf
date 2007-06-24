@@ -1,19 +1,19 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Read Axograph Functions
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 05 Jan 2006
+//	Last modified 11 May 2007
 //
 //****************************************************************
 //****************************************************************
@@ -26,575 +26,928 @@
 //	Main Header (8 Bytes)
 //	Byte	Type		Details
 //	0		OSType		header = 'AxGr' (4 Byte char)
-//	4		Int			file format = 2
-//	6		Int			number of data columns, including x-column
+//	4		short		file format = 2
+//	6		short		number of data columns, including x-column
 //
 //	X-Column Header, or time (92 Bytes)
-//	0		LongInt		column points
-//	4		String[79]	column title
-//	84		Real*4		sample interval
+//	0		long			column points
+//    4		long			data type (?)
+//	8		char[80]		column title
+//	88		float			sample interval
 //
 //	Subsequent Y-Columns (88 + 2*ColumnPoints Bytes)
-//	0		LongInt		column points
-//	4		String[79]	column title
-//	84		Real*4		scale factor
-//	88		Int*2		1st data point
-//	90		Int*2		2nd data point, etc...
+//	0		long			column points
+//	4		char[80]		column title
+//	84		float			scale factor
+//	88		short		1st data point
+//	90		short		2nd data point, etc...
 //
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ReadAxoHeader()  // read Axograph file header, set global variables
+Function ReadAxograph(file, df, saveTheData)  // read Axograph file
+	String file // file to read
+	String df // data folder where everything is saved
+	Variable saveTheData // (0) no (1) yes
 
+	Variable icnt, success, format, numColumns, autoscale = 1, importDebug = 0
 	String dumstr
-	Variable ccnt, success, dbug = 0
 	
-	NVAR FileFormat, TotalNumWaves
+	SetNMvar(df+"AxoAutoScale", autoscale)
+	SetNMvar(df+"ImportDebug", importDebug)
+	SetNMvar("POINTER", 0)
 	
-	Make /O DumWave0 // where GBLoadWave puts data
+	icnt = strlen(df) - 1
+	
+	if (StringMatch(df[icnt,icnt], ":") == 0) // check df ends with colon
+		df += ":"
+	endif
 	
 	//
 	// read main file header
 	//
 	
-	Execute /Z "GBLoadWave /N=DumWave/T={8,8}/S=0/Q CurrentFile"
+	dumstr = ReadAxoString(file, 4)
 	
-	if (V_Flag != 0)
-		DoAlert 0, " Load File Aborted: error in reading Axograph file."
-		return 0
-	endif
-	
-	dumstr = num2char(DumWave0[0]) + num2char(DumWave0[1]) + num2char(DumWave0[2]) + num2char(DumWave0[3])
-	
-	if (dbug == 1)
-		Print "Header Format String:", dumstr
+	if (importDebug == 1)
+		Print "Axograph Header Format String:", dumstr
 	endif
 	
 	if (StringMatch(dumstr, "AxGr") == 1)
 	
-		Execute /Z "GBLoadWave /N=DumWave/T={16,16}/S=4/Q CurrentFile"
-									
-		FileFormat=DumWave0[0]	// this should be 2, for acquired data
+		format = ReadAxoVar(file, "short")
 		
-		if (dbug == 1)
-			Print "File Format:", FileFormat
+		if (importDebug == 1)
+			Print "File Format:", format
 		endif
 		
-		if (FileFormat != 2)
-			DoAlert 0, "Load File Aborted:  Axograph file format version " + num2str(FileFormat) + " not supported."
-			return 0
+		numColumns = ReadAxoVar(file, "short") - 1 // minus the x-column
+		
+		if (importDebug == 1)
+			Print "Total Num Waves:", numColumns
 		endif
 		
-		TotalNumWaves=DumWave0[1]-1 // minus the x-column
-		
-		if (dbug == 1)
-			Print "Total Num Waves:", TotalNumWaves
-		endif
-		
-		success = ReadAxoHeaderFormat2(dbug)
+		switch(format)
+			case 1:
+			case 2:
+				success = ReadAxoColumns(file, df, numColumns, saveTheData, format)
+				break
+			default:
+				Print "Import File Aborted:  Axograph file format version " + num2str(format) + " not supported."
+				return -1
+		endswitch
 	
 	elseif (StringMatch(dumstr, "AxGx") == 1)
 	
-		Execute /Z "GBLoadWave /N=DumWave/T={32,32}/S=4/Q CurrentFile"
-									
-		FileFormat=DumWave0[0]
+		format = ReadAxoVar(file, "long")
 		
-		Print "AxographX File Format:", FileFormat
-		
-		//if (FileFormat != 3)
-			// can be several values
-			//DoAlert 0, "Load File Aborted:  Axograph file format version " + num2str(FileFormat) + " not supported."
-			//return 0
-		//endif
-		
-		TotalNumWaves=DumWave0[1]-1 // minus the x-column
-		
-		if (dbug == 1)
-			Print "Total Num Waves:", TotalNumWaves
+		if (importDebug == 1)
+			Print "File Format:", format
 		endif
 		
-		success = ReadAxoHeaderFormatX(dbug)
+		if (format >= 3)
+			
+			numColumns = ReadAxoVar(file, "long") - 1 // minus the x-column
+			
+			if (importDebug == 1)
+				Print "Total Num Waves:", numColumns
+			endif
+			
+			success = ReadAxoColumns(file, df, numColumns, saveTheData, format)
+		
+		else
+			Print "Import File Aborted:  Axograph file format version " + num2str(format) + " not supported."
+			return -1
+		endif
 	
 	else
 	
-		DoAlert 0, "Load File Aborted: file not of Axograph format."
-		return 0
+		//Print "Import File Aborted: file not of Axograph format."
+		KillVariables /Z POINTER
+		return -1
 		
 	endif
+	
+	SetNMvar(df+"FileFormat", format)
+	SetNMvar(df+"TotalNumWaves", numColumns)
+	SetNMstr(df+"AcqMode", "5 (Episodic)")
 	
 	if (CallProgress(1) == 1)
 		return 0
 	endif
 	
+	KillWaves /Z DumWave0
+	KillVariables /Z POINTER
+	KillVariables /Z $(df+"AxoAutoScale")
+	KillVariables /Z $(df+"AxoUnitsScale")
+	KillVariables /Z $(df+"ImportDebug")
+	
 	return success
 
-End // ReadAxoHeader
-
+End // ReadAxograph
+	
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ReadAxoHeaderFormat2(dbug)  // read Axograph file header, set global variables
-	Variable dbug
-
-	String dumstr
-	Variable ccnt
-	Variable /G column // needs to be global for GBLoadWave to work
+Function ReadAxoColumns(file, df, numColumns, saveTheData, format)  // read Axograph data columns
+	String file // file to read
+	String df // data folder where everything is saved
+	Variable numColumns
+	Variable saveTheData // (0) no (1) yes
+	Variable format
 	
-	NVAR FileFormat, NumChannels, TotalNumWaves, SamplesPerWave, SampleInterval
-	SVAR CurrentFile, AcqMode, xLabel
-	Wave FileScaleFactors
-	Wave /T yLabel
+	Variable icnt, scnt, wcnt, ncnt, scale, sampleInterval
+	Variable ccnt, numChannels, nomorechannels
+	String dumstr, wprefix, wname, wnote, tLabel, xLabel
 	
-	Make /O DumWave0 // where GBLoadWave puts data
+	Variable dbug = NumVarOrDefault(df+"ImportDebug", 0)
+	Variable autoscale = NumVarOrDefault(df+"AxoAutoScale", 1)
 	
-	NMProgressStr("Reading Axograph Header...")
+	Variable waveBgn = NumVarOrDefault(df+"WaveBgn", 0)
+	Variable waveEnd = NumVarOrDefault(df+"WaveEnd", -1)
+	
+	CheckNMwave(df+"FileScaleFactors", 20, 1)  // increase size
+	CheckNMwave(df+"MyScaleFactors", 20, 1)
+	CheckNMtwave(df+"yLabel", 20, "")
+	
+	Wave FileScaleFactors = $(df+"FileScaleFactors")
+	Wave MyScaleFactors = $(df+"MyScaleFactors")
+	Wave /T yLabel = $(df+"yLabel")
+	
+	FileScaleFactors = 1
+	MyScaleFactors = 1
+	yLabel = ""
+	
+	Make /O DumWave0 // where ReadAxoFile puts data
+	
+	NMProgressStr("Reading Axograph File...")
 	CallProgress(-1)
 	
-	//
-	// read x-column header (time)
-	//
-	
-	Execute /Z "GBLoadWave /N=DumWave/T={32,32}/S=8/Q CurrentFile"
-	
-	SamplesPerWave = DumWave0[0]
-	
-	if (dbug == 1)
-		Print "Samples Per Wave:", SamplesPerWave
-	endif
-	
-	Execute /Z "GBLoadWave/N=DumWave/T={8,8}/S=(8+4)/Q CurrentFile"
+	xLabel = ReadAxoColumnX(file, df, saveTheData, format)
 	
 	if (strlen(xLabel) == 0)
-		xLabel = GetAxoLabel(DumWave0, 80, 1)
+		return 0 // error
 	endif
 	
-	if (dbug == 1)
-		Print "X-wave Label:", xLabel
-	endif	
+	SetNMstr(df+"xLabel", xLabel)
 	
-	Execute /Z "GBLoadWave/N=DumWave/T={2,2}/S=(8+84)/Q CurrentFile"
+	wprefix = StrVarOrDefault(df+"WavePrefix", "Record")
 	
-	SampleInterval = DumWave0[0]*1000 // (msec)
+	ccnt = -1
+	numChannels = 0
+	wcnt = 0
+	ncnt = NextWaveNum("", wprefix, 0, 0)
 	
-	if (dbug == 1)
-		Print "Sample Interval:", SampleInterval
+	sampleInterval = NumVarOrDefault(df+"SampleInterval", 1)
+	
+	if (WaveEnd < 0)
+		WaveEnd = numColumns
 	endif
 	
-	//
-	// read y-column headers (the data), determine the number of channels
-	//
-	
-	for (ccnt = 0; ccnt < TotalNumWaves; ccnt += 1)
+	for (icnt = 0; icnt < numColumns; icnt += 1) // read y-columns
 	
 		if (CallProgress(-2) == 1)
 			return 0 // cancel
 		endif
+		
+		tLabel = ReadAxoColumnY(file, df, saveTheData, format)
+		
+		if (strlen(tLabel) == 0)
+			return 0 // error
+		endif
+		
+		tLabel = CheckAxoUnits(df, tLabel)
+		
+		if (strlen(tLabel) > 0)
+			scale = NumVarOrDefault(df+"AxoUnitsScale", 1)
+		else
+			scale = 1
+		endif
+		
+		if (nomorechannels == 0)
 	
-		column = ccnt
+			if ((StringMatch(tLabel[0,5], "Column") == 1) || (AxoLabelExists(tLabel, yLabel) == 1))
+			
+				nomorechannels = 1
+				ccnt = 0 // return to first channel
+				wcnt += 1 // next wave
+				
+				if (saveTheData == 0)
+					scnt = 1
+					break
+				endif
+				
+			else
+				
+				numChannels += 1 // found a new channel
+				ccnt += 1
+				
+				yLabel[ccnt] = tLabel
+				MyScaleFactors[ccnt] = scale
+				
+				if (dbug == 1)
+					Print "Channel " + num2str(icnt) + " Y-label:", yLabel[ccnt]
+				endif
+			
+			endif
 		
-		Execute /Z "GBLoadWave/N=DumWave/T={8,8}/S=(8+92+4+(88*column)+(SamplesPerWave*2*column))/Q CurrentFile"
-		
-		dumstr = GetAxoLabel(DumWave0, 80, 1)
-		
-		if (StringMatch(dumstr[0,5], "Column") == 1)
-			break // no more new channel titles
 		endif
 		
-		if (strlen(yLabel[ccnt]) == 0)
-			yLabel[ccnt] = dumstr
+		if ((saveTheData == 1) && (wcnt >= WaveBgn) && (wcnt <= WaveEnd))
+		
+			DumWave0 *= MyScaleFactors[ccnt]
+			
+			wName = GetWaveName(wprefix, ccnt, ncnt)
+			
+			Duplicate /O DumWave0 $wName
+			Setscale /P x 0, sampleInterval, $wName
+			
+			wNote = "Folder:" + GetDataFolder(0)
+			wNote += "\rFile:" + NMNoteCheck(file)
+			wNote += "\rChan:" + ChanNum2Char(ccnt)
+			wNote += "\rWave:" + num2str(wcnt)
+			wNote += "\rScale:" + num2str(scale)
+	
+			NMNoteType(wName, "Axograph", xLabel, yLabel[ccnt], wNote)
+			
+			scnt += 1
+			ncnt += 1
+		
 		endif
 		
-		Execute /Z "GBLoadWave/N=DumWave/T={2,2}/S=(8+92+84+(88*column)+(SamplesPerWave*2*column))/Q CurrentFile"
+		if (nomorechannels == 1)
 		
-		FileScaleFactors[ccnt] = DumWave0[0]
+			ccnt += 1
+			
+			if (ccnt == numChannels)
+				ccnt = 0
+				wcnt += 1
+			endif
 		
-		if (dbug == 1)
-			Print "Channel " + num2str(ccnt) + " Y-label:", dumstr
-			Print "Channel " + num2str(ccnt) + " Scale Factor:", FileScaleFactors[ccnt]
 		endif
 		
 	endfor
 	
-	NumChannels = ccnt
+	CheckNMwave(df+"FileScaleFactors", numChannels, 1)
+	CheckNMwave(df+"MyScaleFactors", numChannels, 1)
+	CheckNMtwave(df+"yLabel", numChannels, "")
 	
-	AcqMode = "5 (Episodic)"
+	SetNMvar(df+"NumChannels", numChannels)
 	
-	KillVariables /Z column
-	KillWaves /Z DumWave0
-	
-	return 1
+	return scnt
 
-End // ReadAxoHeaderFormat2
+End // ReadAxoColumns
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ReadAxoHeaderFormatX(dbug)  // read Axograph file header, set global variables
-	Variable dbug
-
-	String dumstr
-	Variable ccnt, dataFormat, nchar, scale, skip = 12
+Function /S ReadAxoColumnX(file, df, saveTheData, format) // read Axograph x-columns
+	String file // file to read
+	String df // data folder where everything is saved
+	Variable saveTheData // (0) no (1) yes
+	Variable format
 	
-	NVAR FileFormat, NumChannels, TotalNumWaves, SamplesPerWave, SampleInterval
-	SVAR CurrentFile, AcqMode, xLabel
-	Wave FileScaleFactors
-	Wave /T yLabel
-	
-	Make /O DumWave0 // where GBLoadWave puts data
-	
-	NMProgressStr("Reading Axograph Header...")
-	CallProgress(-1)
-	
-	//
-	// read x-column header (time)
-	//
-	
-	Execute /Z "GBLoadWave /N=DumWave/T={32,32}/S=" + num2istr(skip) + "/Q CurrentFile"
-	
-	SamplesPerWave = DumWave0[0]
-	
-	if (dbug == 1)
-		Print "Samples Per Wave:", SamplesPerWave
+	if (format == 1)
+		return ReadAxoColumnX_1(file, df, saveTheData)
+	elseif (format == 2)
+		return ReadAxoColumnX_2(file, df, saveTheData)
+	elseif (format >= 3)
+		return ReadAxoColumnX_3(file, df, saveTheData)
 	endif
 	
-	dataFormat = DumWave0[1]
+	return ""
+
+End // ReadAxoColumnX
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ReadAxoColumnY(file, df, saveTheData, format) // read Axograph y-columns
+	String file // file to read
+	String df // data folder where everything is saved
+	Variable saveTheData // (0) no (1) yes
+	Variable format
 	
-	if (dbug == 1)
-		Print "Data Format Type:", dataFormat
+	if (format == 1)
+		return ReadAxoColumnY_1(file, df, saveTheData)
+	elseif (format == 2)
+		return ReadAxoColumnY_2(file, df, saveTheData)
+	elseif (format >= 3)
+		return ReadAxoColumnY_3(file, df, saveTheData)
 	endif
 	
-	nchar = DumWave0[2]
+	return ""
+
+End // ReadAxoColumnY
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ReadAxoColumnX_1(file, df, saveTheData)  // read x-column, format = 1
+	String file // file to read
+	String df // data folder where everything is saved
+	Variable saveTheData // (0) no (1) yes
+	
+	Variable scale, samples, intvl
+	String wNote, tLabel
+	
+	Variable /G StartX
+	
+	Variable dbug = NumVarOrDefault(df+"ImportDebug", 0)
+	
+	Make /O/N=1 DumWave0 // where ReadAxoFile puts data
+	
+	samples = ReadAxoVar(file, "long")
+	
+	ReadAxoString(file, 1) // first char seems to be garbage
+	
+	tLabel = ReadAxoString(file, 79)
+	tLabel = CheckAxoUnits(df, tLabel)
+		
+	if (strlen(tLabel) > 0)
+		scale = NumVarOrDefault(df+"AxoUnitsScale", 1)
+	else
+		scale = 1
+	endif
+	
+	ReadAxoFile(file, "float", samples)
+	
+	DumWave0 *= scale
+	
+	intvl = DumWave0[1] - DumWave0[0]
+	StartX = DumWave0[0]
+	
+	if (saveTheData == 1)
+	
+		Duplicate /O DumWave0 ImportTimeWave
+	
+		if (WaveExists(ImportTimeWave) == 1)
+			wNote = "Folder:" + GetDataFolder(0)
+			wNote += "\rScale:" + num2str(scale)
+			wNote += "\rFile:" + NMNoteCheck(file)
+			NMNoteType("ImportTimeWave", "Axograph", tLabel, tLabel, wNote)
+		endif
+	
+	endif
+	
+	if (dbug == 1)
+		Print "Samples Per Wave:", samples
+		Print "X-wave Label:", tLabel
+		Print "Sample Interval:", intvl
+	endif
+	
+	SetNMvar(df+"SamplesPerWave", samples)
+	SetNMvar(df+"SampleInterval", intvl)
+	
+	return tLabel
+	
+End // ReadAxoColumnX_1
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ReadAxoColumnY_1(file, df, saveTheData)  // read y-column, format = 1
+	String file // file to read
+	String df // data folder where everything is saved
+	Variable saveTheData // (0) no (1) yes
+	
+	Variable samples
+	String tLabel
+	
+	samples = ReadAxoVar(file, "long")
+	
+	ReadAxoString(file, 1) // skip first character
+	
+	tLabel = ReadAxoString(file, 79)
+	
+	ReadAxoFile(file, "float", samples)
+	
+	return tLabel
+	
+End // ReadAxoColumnY_1
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ReadAxoColumnX_2(file, df, saveTheData)  // read x-column, format = 2
+	String file // file to read
+	String df // data folder where everything is saved
+	Variable saveTheData // (0) no (1) yes
+	
+	Variable scale, samples, intvl
+	String wNote, tLabel
+	
+	Variable dbug = NumVarOrDefault(df+"ImportDebug", 0)
+	
+	samples = ReadAxoVar(file, "long")
+	
+	ReadAxoVar(file, "long") // Data Type (????)
+	
+	ReadAxoString(file, 1) // skip first character
+	
+	tLabel = ReadAxoString(file, 79)
+	tLabel = CheckAxoUnits(df, tLabel)
+		
+	if (strlen(tLabel) > 0)
+		scale = NumVarOrDefault(df+"AxoUnitsScale", 1)
+	else
+		scale = 1
+	endif
+	
+	intvl = ReadAxoVar(file, "float")
+	intvl *= scale
+	
+	if (dbug == 1)
+		Print "Samples Per Wave:", samples
+		Print "X-wave Label:", tLabel
+		Print "Sample Interval:", intvl
+	endif
+	
+	SetNMvar(df+"SamplesPerWave", samples)
+	SetNMvar(df+"SampleInterval", intvl)
+	
+	return tLabel
+	
+End // ReadAxoColumnX_2
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ReadAxoColumnY_2(file, df, saveTheData)  // read y-column, format = 2
+	String file // file to read
+	String df // data folder where everything is saved
+	Variable saveTheData // (0) no (1) yes
+	
+	Variable scale, samples
+	String tLabel
+	
+	Variable dbug = NumVarOrDefault(df+"ImportDebug", 0)
+	
+	Make /O/N=1 DumWave0 // where ReadAxoFile puts data
+	
+	samples = ReadAxoVar(file, "long")
+		
+	ReadAxoString(file, 1) // skip first character
+	
+	tLabel = ReadAxoString(file, 79)
+	
+	scale = ReadAxoVar(file, "float")
+	
+	ReadAxoFile(file, "short", samples)
+	
+	DumWave0 *= scale
+	
+	return tLabel
+	
+End // ReadAxoColumnY_2
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ReadAxoColumnX_3(file, df, saveTheData)  // read x-column, format >= 3
+	String file // file to read
+	String df // data folder where everything is saved
+	Variable saveTheData // (0) no (1) yes
+	
+	Variable charbytes, nchar, dataformat, scale, offset, samples, intvl
+	Variable /G Startx
+	String wNote, tLabel
+	
+	Variable dbug = NumVarOrDefault(df+"ImportDebug", 0)
+	
+	Make /O DumWave0 // where ReadAxoFile puts data
+	
+	samples = ReadAxoVar(file, "long")
+	
+	if (dbug == 1)
+		Print "Samples Per Wave:", samples
+	endif
+	
+	dataformat = ReadAxoVar(file, "long")
+	
+	if (dbug == 1)
+		Print "Data Format Type:", dataformat
+	endif
+	
+	charbytes = ReadAxoVar(file, "long")
+	nchar = charbytes / 2
 	
 	if (dbug == 1)
 		Print "Num Label Chars:", nchar
 	endif
 	
-	skip += 3 * 4
+	tLabel = ReadAxoUnicode(file, nchar)
+	tLabel = CheckAxoUnits(df, tLabel)
+		
+	if (strlen(tLabel) > 0)
+		scale = NumVarOrDefault(df+"AxoUnitsScale", 1)
+	else
+		scale = 1
+	endif
 	
-	Execute /Z "GBLoadWave/N=DumWave/T={16,8}/S=" + num2istr(skip) + "/Q CurrentFile"
+	switch(dataformat)
+		
+		case 4:
+		case 5:
+		case 6:
+		case 7:
+			ReadAxoColumnType(file, dataformat, samples)
+			if (saveTheData == 1)
+				Duplicate /O DumWave0 ImportTimeWave
+			endif
+			break
+			
+		case 9: // should be the case for x-column
+		
+			Startx = ReadAxoVar(file, "double")
+			intvl = ReadAxoVar(file, "double")
+			
+			break
+			
+		case 10:
+			
+			scale = ReadAxoVar(file, "double")
+			offset = ReadAxoVar(file, "double")
+			
+			ReadAxoFile(file, "short", samples)
+			
+			Duplicate /O DumWave0 ImportTimeWave
+			
+			if (saveTheData == 1)
+				ImportTimeWave = (ImportTimeWave * scale) + offset
+			endif
+			
+			break
+			
+		default:
+			return ""
+			
+	endswitch
 	
-	skip += nchar * 2
+	Startx *= scale
+	intvl *= scale
+		
+	if (WaveExists(ImportTimeWave) == 1)
 	
-	xLabel = GetAxoLabel(DumWave0, nchar, 0)
+		ImportTimeWave *= scale
+
+		wNote = "Folder:" + GetDataFolder(0)
+		wNote += "\rScale:" + num2str(scale)
+		wNote += "\rFile:" + NMNoteCheck(file)
+		NMNoteType("ImportTimeWave", "Axograph", tLabel, tLabel, wNote)
+		
+	endif
 	
 	if (dbug == 1)
-		Print "X Label:", xLabel
+		Print "X Label:", tLabel
+		Print "Start Time:", Startx
+		Print "Sample Interval:", intvl
 	endif
 	
-	//
-	// read y-column headers (the data), determine the number of channels
-	//
+	SetNMvar(df+"SamplesPerWave", samples)
+	SetNMvar(df+"SampleInterval", intvl)
 	
-	for (ccnt = 0; ccnt < TotalNumWaves; ccnt += 1)
+	return tLabel
 	
-		if (CallProgress(-2) == 1)
-			return 0 // cancel
-		endif
-	
-		Execute /Z "GBLoadWave /N=DumWave/T={32,32}/S=" + num2istr(skip) + "/Q CurrentFile"
-	
-		SamplesPerWave = DumWave0[0]
-		
-		if (dbug == 1)
-			Print "Samples Per Wave:", SamplesPerWave
-		endif
-		
-		dataFormat = DumWave0[1]
-		
-		if (dbug == 1)
-			Print "Data Format Type:", dataFormat
-		endif
-		
-		nchar = DumWave0[2]
-		
-		if (dbug == 1)
-			Print "Num Label Chars:", nchar
-		endif
-		
-		if (nchar == 0)
-			break // no more new channel titles
-		endif
-		
-		skip += 3 * 4
-		
-		Execute /Z "GBLoadWave/N=DumWave/T={16,8}/S=" + num2istr(skip) + "/Q CurrentFile"
-		
-		skip += nchar
-		
-		dumstr = GetAxoLabel(DumWave0, nchar, 0)
-		
-		if (dbug == 1)
-			Print "Y Label:", dumstr
-		endif
-		
-		if (strlen(yLabel[ccnt]) == 0)
-			yLabel[ccnt] = dumstr
-		endif
-		
-		Execute /Z "GBLoadWave /N=DumWave/T={4,2}/S=" + num2istr(skip) + "/Q CurrentFile"
-		
-		FileScaleFactors[ccnt] = DumWave0[0]
-		
-		if (dbug == 1)
-			Print "Channel Scale Factor:", DumWave0[0]
-		endif
-		
-		skip += 16 // not sure what this is, but need to skip 16 bytes
-		
-		Execute /Z "GBLoadWave /N=DumWave/T={16,2}/S=" + num2istr(skip) + "/Q CurrentFile"
-		
-		skip += SamplesPerWave * 2
-		
-	endfor
-	
-	NumChannels = ccnt
-	
-	AcqMode = "5 (Episodic)"
-	
-	KillWaves /Z DumWave0
-	
-	return 1
-
-End // ReadAxoHeaderFormatX
+End // ReadAxoColumnX_3
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-function /S GetAxoLabel(labelWave, nchar, skipfirst) // compute channel label, which always ends with "(units)"
-	Wave labelWave // channel label, read from Axograph header
-	Variable nchar
-	Variable skipfirst
+Function /S ReadAxoColumnY_3(file, df, saveTheData)  // read y-column, format >= 3
+	String file // file to read
+	String df // data folder where everything is saved
+	Variable saveTheData // (0) no (1) yes
 	
-	String chr, finalLabel = ""
-	Variable foundOpen, foundClose, icount, ifirst = 0
+	Variable ccnt, charbytes, nchar, dataformat, scale, offset, samples
+	String tLabel
 	
-	if (skipfirst == 1)
-		ifirst = 1 // first char seems to be garbage in original format
-	endif	
+	Variable dbug = NumVarOrDefault(df+"ImportDebug", 0)
 	
-	for (icount = ifirst; icount < nchar; icount += 1) 
-		chr = num2char(labelWave[icount])
-		finalLabel += chr
-		if (StringMatch(chr, "(") == 1)
-			foundopen = 1
-		endif
-		if (StringMatch(chr, ")") == 1)
-			foundclose = 1
-		endif
-		if ((foundopen == 1) &&(foundclose == 1))
+	Make /O/N=1 DumWave0 // where ReadAxoFile puts data
+	
+	samples = ReadAxoVar(file, "long")
+	
+	if (dbug == 1)
+		//Print "Samples Per Wave:", samples
+	endif
+	
+	dataFormat = ReadAxoVar(file, "long")
+	
+	if (dbug == 1)
+		//Print "Data Format Type:", dataFormat
+	endif
+	
+	charbytes = ReadAxoVar(file, "long")
+	nchar = charbytes / 2
+	
+	if (dbug == 1)
+		//Print "Num Label Chars:", nchar
+	endif
+	
+	tLabel = ReadAxoUnicode(file, nchar)
+	
+	switch(dataformat)
+		
+		case 4:
+		case 5:
+		case 6:
+		case 7:
+			ReadAxoColumnType(file, dataformat, samples)
 			break
+			
+		case 9:
+			ReadAxoVar(file, "double")
+			ReadAxoVar(file, "double")
+			break
+			
+		case 10: // should be the case
+			
+			scale = ReadAxoVar(file, "double")
+			offset = ReadAxoVar(file, "double")
+			
+			ReadAxoFile(file, "short", samples) // NOW READ THE DATA
+			DumWave0 = (DumWave0 * scale) + offset
+			
+			break
+			
+		default:
+			return ""
+				
+	endswitch
+	
+	return tLabel
+	
+End // ReadAxoColumnY_3
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+function /S SearchAxoLabel(strLabel, what) // get title or units from label
+	String strLabel
+	Variable what // (0) title (1) units
+	
+	Variable ifirst, ilast
+	
+	ifirst = strsearch(strLabel, "(", 0)
+	
+	if (ifirst < 0) // no units
+		if (what == 0)
+			return strLabel
+		else
+			return ""
+		endif
+	elseif (what == 0)
+		return strLabel[0, ifirst - 1]
+	endif
+	
+	ilast = strsearch(strLabel, ")", ifirst)
+	
+	if (ilast < 0)
+		return ""
+	endif
+	
+	return strLabel[ifirst, ilast]
+
+End // SearchAxoLabel
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function AxoLabelExists(checkLabel, yLabel)
+	String checkLabel
+	Wave /T yLabel
+	
+	Variable icnt
+	
+	for (icnt = 0; icnt < numpnts(yLabel); icnt += 1)
+		if (StringMatch(yLabel[icnt], checkLabel) == 1)
+			return 1
 		endif
 	endfor
-	
-	return finalLabel
-
-End // GetAxoLabel
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ReadAxoData() // read Axograph y-data columns
-
-	NVAR FileFormat
-	
-	if (FileFormat == 2)
-		return ReadAxoDataFormat2()
-	elseif (FileFormat >= 3)
-		return ReadAxoDataFormat3()
-	endif
 	
 	return 0
-
-End // ReadAxoData
+	
+End // AxoLabelExists
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ReadAxoDataFormat2() // read Axograph y-data columns
-
-	Variable strtnum, numwaves, ccnt, wcnt, scnt, pcnt, pflag, scale
-	Variable /G column // must be global for GBLoadWave to work properly
-	String wName, wNote
+Function /S CheckAxoUnits(df, strlabel) // autoscale of units
+	String df
+	String strlabel
 	
-	NVAR NumChannels, SamplesPerWave, SampleInterval
-	NVAR WaveBeg, WaveEnd, WaveInc, CurrentWave
-	SVAR CurrentFile, xLabel
+	Variable scale = 1
+	String title, units, tLabel
 	
-	Wave FileScaleFactors, MyScaleFactors
-	Wave /T yLabel
+	Variable autoscale = NumVarOrDefault(df+"AxoAutoScale", 1)
 	
-	strtnum = CurrentWave
+	tLabel = strlabel
+		
+	title = SearchAxoLabel(strlabel, 0)
+	units = SearchAxoLabel(strlabel, 1)
 	
-	if ((WaveBeg > WaveEnd) || (WaveInc < 1) || (strtnum < 0) || (numtype(WaveBeg*WaveEnd*WaveInc*strtnum) != 0))
-		return 0 // options not allowed
+	if (strlen(units) < 0)
+		return ""
 	endif
 	
-	Make /O DumWave0 // where GBLoadWave puts data
+	tLabel = title + units
 	
-	CallProgress(0) // bring up progress window
+	if (autoscale == 0)
+		return ""
+	endif
 	
-	numwaves = floor((WaveEnd - WaveBeg + 1) / WaveInc)
-	
-	for (wcnt = WaveBeg; wcnt <= WaveEnd; wcnt += WaveInc) // loop thru waves
-	
-	for (ccnt = 0; ccnt < NumChannels; ccnt += 1) // loop thru channels
-	
-		column = (wcnt-1)*NumChannels + ccnt // compute column index to read
-		
-		wName = GetWaveName("default", ccnt, (scnt + strtnum)) // compute wave name
-		
-		Execute /Z "GBLoadWave /O/Q/N=DumWave/T={16,2}/S=(8+92+88 +(88*column)+(SamplesPerWave*2*column))/W=1/U=(SamplesPerWave) CurrentFile"
-		
-		if (V_Flag != 0)
-			DumWave0 = NAN
-			DoAlert 0, "WARNING: Unsuccessfull read on data column: " + wName
-		endif
-	
-		scale = FileScaleFactors[ccnt] * MyScaleFactors[ccnt]
-		DumWave0 *= scale
-		
-		Duplicate /O  DumWave0,  $wName
-		Setscale /P x 0, SampleInterval, $wName
-		
-		wNote = "Folder:" + GetDataFolder(0)
-		wNote += "\rChan:" + ChanNum2Char(ccnt)
-		wNote += "\rScale:" + num2str(scale)
-		wNote += "\rFile:" + NMNoteCheck(CurrentFile)
-
-		NMNoteType(wName, "Axograph", xLabel, yLabel[ccnt], wNote)
-		
-		pcnt += 1
-		pflag = CallProgress(pcnt/(numwaves*NumChannels))
-		
-		if (pflag == 1) // cancel
+	strswitch(units)
+		case "(s)":
+		case "(S)":
+		case "(sec)":
+		case "(seconds)":
+			tLabel = title + "(msec)"
+			scale = 1000
 			break
-		endif
-		
-	endfor
-	
-	scnt += 1
-	
-	if (pflag == 1)
-		scnt = -1
-		break
-	endif
-	
-	endfor
-	
-	CallProgress(1) // close progress window
-	
-	KillVariables /Z column
-	KillWaves /Z DumWave0
-	
-	return scnt
-
-End // ReadAxoDataFormat2
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ReadAxoDataFormat3() // read Axograph y-data columns
-
-	Variable strtnum, numwaves, ccnt, wcnt, scnt, pcnt, pflag, scale
-	Variable dataFormat, nchar, skip = 56
-	Variable /G column // must be global for GBLoadWave to work properly
-	String wName, wNote
-	
-	NVAR NumChannels, SamplesPerWave, SampleInterval
-	NVAR WaveBeg, WaveEnd, WaveInc, CurrentWave
-	SVAR CurrentFile, xLabel
-	
-	Wave FileScaleFactors, MyScaleFactors
-	Wave /T yLabel
-	
-	strtnum = CurrentWave
-	
-	if ((WaveBeg > WaveEnd) || (WaveInc < 1) || (strtnum < 0) || (numtype(WaveBeg*WaveEnd*WaveInc*strtnum) != 0))
-		return 0 // options not allowed
-	endif
-	
-	Make /O DumWave0 // where GBLoadWave puts data
-	
-	CallProgress(0) // bring up progress window
-	
-	numwaves = floor((WaveEnd - WaveBeg + 1) / WaveInc)
-	
-	for (wcnt = WaveBeg; wcnt <= WaveEnd; wcnt += WaveInc) // loop thru waves
-	
-	for (ccnt = 0; ccnt < NumChannels; ccnt += 1) // loop thru channels
-		
-		wName = GetWaveName("default", ccnt, (scnt + strtnum)) // compute wave name
-		
-		Execute /Z "GBLoadWave /N=DumWave/T={32,32}/S=" + num2istr(skip) + "/Q CurrentFile"
-	
-		SamplesPerWave = DumWave0[0]
-		dataFormat = DumWave0[1]
-		nchar = DumWave0[2]
-		
-		skip += 3 * 4
-		skip += nchar
-		skip += 16 // not sure what this is, but need to skip 16 bytes
-		
-		Execute /Z "GBLoadWave /N=DumWave/T={16,2}/S=" + num2istr(skip) + "/Q CurrentFile"
-		
-		skip += SamplesPerWave * 2
-		
-		if (V_Flag != 0)
-			DumWave0 = NAN
-			DoAlert 0, "WARNING: Unsuccessfull read on data column: " + wName
-		endif
-	
-		scale = FileScaleFactors[ccnt] * MyScaleFactors[ccnt]
-		
-		Make /N=(SamplesPerWave) $wName
-		
-		Wave wtemp = $wName
-		
-		wtemp = DumWave0 * scale
-		
-		//Duplicate /O  DumWave0,  $wName
-		Setscale /P x 0, SampleInterval, wtemp
-		
-		wNote = "Folder:" + GetDataFolder(0)
-		wNote += "\rChan:" + ChanNum2Char(ccnt)
-		wNote += "\rScale:" + num2str(scale)
-		wNote += "\rFile:" + NMNoteCheck(CurrentFile)
-
-		NMNoteType(wName, "Axograph", xLabel, yLabel[ccnt], wNote)
-		
-		pcnt += 1
-		pflag = CallProgress(pcnt/(numwaves*NumChannels))
-		
-		if (pflag == 1) // cancel
+		case "(v)":
+		case "(V)": // volts
+			tLabel = title + "(mV)"
+			scale = 1e3;
 			break
-		endif
-		
-	endfor
+		case "(a)":
+		case "(A)": // amps
+			tLabel = title + "(pA)"
+			scale = 1e12
+			break
+		case "(s)":
+		case "(S)": // siemens
+			tLabel = title + "(nS)"
+			scale = 1e9
+			break
+	endswitch
 	
-	scnt += 1
+	SetNMvar(df+"AxoUnitsScale", scale)
 	
-	if (pflag == 1)
-		scnt = -1
-		break
+	return tLabel
+
+End // CheckAxoUnits
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ReadAxoColumnType(file, type, nread)
+	String file
+	Variable type
+	Variable nread
+	
+	switch(type)
+		case 4:
+			return ReadAxoFile(file, "short", nread)
+		case 5:
+			return ReadAxoFile(file, "long", nread)
+		case 6:
+			return ReadAxoFile(file, "float", nread)
+		case 7:
+			return ReadAxoFile(file, "double", nread)
+		case 9:
+		case 10:
+			return ReadAxoFile(file, "double", 2)
+	endswitch
+	
+	return Nan
+	
+End // ReadAxoColumnType
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ReadAxoVar(file, type)
+	String file
+	String type
+	
+	ReadAxoFile(file, type, 1)
+	
+	if (WaveExists(DumWave0) == 0)
+		return Nan
 	endif
 	
+	Wave DumWave0
+	
+	return DumWave0[0]
+
+End // ReadAxoVar
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /T ReadAxoString(file, nchar)
+	String file
+	Variable nchar
+	
+	Variable icnt
+	String str = ""
+	
+	ReadAxoFile(file, "char", nchar)
+	
+	if (WaveExists(DumWave0) == 0)
+		return ""
+	endif
+	
+	Wave DumWave0
+	
+	for (icnt = 0; icnt < nchar; icnt += 1)
+		str += num2char(DumWave0[icnt])
 	endfor
 	
-	CallProgress(1) // close progress window
-	
-	KillVariables /Z column
-	KillWaves /Z DumWave0
-	
-	return scnt
+	return str
 
-End // ReadAxoDataFormat3
+End // ReadAxoString
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /T ReadAxoUnicode(file, nchar)
+	String file
+	Variable nchar
+	
+	Variable icnt
+	String str = ""
+	
+	ReadAxoFile(file, "unicode", nchar)
+	
+	if (WaveExists(DumWave0) == 0)
+		return ""
+	endif
+	
+	Wave DumWave0
+	
+	for (icnt = 0; icnt < nchar; icnt += 1)
+		str += num2char(DumWave0[icnt])
+	endfor
+	
+	return str
+
+End // ReadAxoUnicode
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ReadAxoFile(file, type, nread)
+	String file
+	String type
+	Variable nread
+	
+	Variable POINTER = NumVarOrDefault("POINTER", 0)
+	
+	if (numtype(POINTER * nread) > 0)
+		return Nan
+	endif
+	
+	strswitch(type)
+		case "char":
+			GBLoadWave /O/N=DumWave/T={8,2}/S=(POINTER)/U=(nread)/W=1/Q file
+			POINTER += 1 * nread
+			break
+		case "unicode":
+		case "short":
+			GBLoadWave /O/N=DumWave/T={16,2}/S=(POINTER)/U=(nread)/W=1/Q file
+			POINTER += 2 * nread
+			break
+		case "long":
+			GBLoadWave /O/N=DumWave/T={32,2}/S=(POINTER)/U=(nread)/W=1/Q file
+			POINTER += 4 * nread
+			break
+		case "float":
+			GBLoadWave /O/N=DumWave/T={2,2}/S=(POINTER)/U=(nread)/W=1/Q file
+			POINTER += 4 * nread
+			break
+		case "double":
+			GBLoadWave /O/N=DumWave/T={4,4}/S=(POINTER)/U=(nread)/W=1/Q file
+			POINTER += 8 * nread
+			break
+		default:
+			return Nan
+	endswitch
+	
+	SetNMvar("POINTER", POINTER)
+	
+	return Nan
+	
+End // ReadAxoFile
 
 //****************************************************************
 //****************************************************************

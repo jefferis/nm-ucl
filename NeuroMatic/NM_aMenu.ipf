@@ -1,13 +1,13 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Main Menu Functions
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
@@ -25,17 +25,17 @@ Menu "NeuroMatic", dynamic // define main NeuroMatic drop-down menu
 	Submenu "Data Folder"
 		"New", NMFolderCall("New")
 		"Open", NMFolderCall("Open")
-		"Open | Append", NMFolderCall("Append")
+		//"Open | Append", NMFolderCall("Append")
 		"Save", NMFolderCall("Save")
 		"Close", NMFolderCall("Close")
 		"Duplicate", NMFolderCall("Duplicate")
 		"Rename", NMFolderCall("Rename")
 		"Change", NMFolderCall("Change")
-		"Merge", NMFolderCall("Merge")
+		//"Merge", NMFolderCall("Merge")
 		"Convert", NMFileCall("Convert")
 		"-"
 		"Open All", NMFolderCall("Open All")
-		"Append All", NMFolderCall("Append All")
+		//"Append All", NMFolderCall("Append All")
 		"Save All", NMFolderCall("Save All")
 		"Close All", NMFolderCall("Close All")
 	End
@@ -50,11 +50,12 @@ Menu "NeuroMatic", dynamic // define main NeuroMatic drop-down menu
 		"Stim Waves", SubStimCall("Stim Waves")
 	End
 	
-	Submenu "Import Waves"
-		"Axograph", NMFileCall("Axograph")
-		"Pclamp", NMFileCall("Pclamp")
-	End
+	//Submenu "Import Waves"
+	//	"Axograph", NMFileCall("Axograph")
+	//	"Pclamp", NMFileCall("Pclamp")
+	//End
 
+	"Import Waves", NMFileCall("Import")
 	"Reload Waves", NMFileCall("Reload Waves")
 	"Rename Waves", NMFolderCall("Rename Waves")
 	"Set Open Path", NMFolderCall("Open Path")
@@ -89,7 +90,7 @@ Menu "NeuroMatic", dynamic // define main NeuroMatic drop-down menu
 	"Chan Graphs On", NMCall("Graphs On")
 	"Update NeuroMatic", NMCall("Update")
 	NMOnMenu(), NMCall("Off")
-	AboutNM()
+	//AboutNM()
 	
 	"-"
 	
@@ -265,9 +266,6 @@ Function NMCall(fxn)
 		case "KSTest":
 			Execute "KSTestCall()" // NM_Kolmogorov.ipf
 			return 0
-	
-		case "Name Format":
-			return NMNameFormatToggle()
 	
 		case "Update":
 			return ResetNMCall()

@@ -1,13 +1,13 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Clamp Acquisition Stim Protocol Functions
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
@@ -20,8 +20,339 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 11 April 2004
+//	Last modified 25 Feb 2007
 //
+//****************************************************************
+//****************************************************************
+//****************************************************************
+//
+//	Stim Directory Functions
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S StimParent() // directory of stim folders
+
+	return "root:Stims:"
+	
+End // StimParent
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S StimDF() // return full-path name of current stim folder
+
+	return StimParent() + StimCurrent() + ":"
+	
+End // StimDF
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S StimList()
+
+	return NMFolderList(StimParent(),"NMStim")
+
+End // StimList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimParentCheck()
+
+	if (DataFolderExists("root:Stims:") == 0)
+		NewDataFolder root:Stims
+	endif
+
+End // StimParentCheck
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+//
+//	Stim Global Functions
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function CheckStim(dp, sname, numADC, numDAC, numTTL) // declare stim global variables
+	String dp // path
+	String sname // stim name
+	Variable numADC, numDAC, numTTL
+	
+	String df = dp + sname + ":"
+	
+	Variable numStimWaves = 1
+	Variable waveLength = 100
+	Variable sampleInterval = 0.2
+	Variable interStimTime = 900
+	Variable interRepTime = 0
+	Variable stimRate = 1000 / (waveLength + interStimTime)
+	Variable repRate = 1000 / (interRepTime + numStimWaves * (waveLength + interStimTime))
+	Variable samplesPerWave = floor(waveLength/sampleInterval)
+	
+	if (DataFolderExists(df) == 0)
+		NewDataFolder $LastPathColon(df, 0) 				// make new stim folder
+	endif
+	
+	CheckNMstr(df+"FileType", "NMStim")					// type of data file
+	
+	CheckNMvar(df+"Version", NumVarOrDefault(NMDF()+"NMversion",-1))
+	
+	CheckNMstr(df+"WavePrefix", "Record")					// wave prefix name
+	
+	CheckNMvar(df+"AcqMode", 0)							// acquisition mode (0) epic precise (1) continuous (2) episodic (3) triggered
+	
+	CheckNMvar(df+"CurrentChan", 0)						// channel select
+	
+	CheckNMvar(df+"WaveLength", waveLength)				// wave length (ms)
+	CheckNMvar(df+"SampleInterval", sampleInterval)			// time sample interval (ms)
+	CheckNMvar(df+"SamplesPerWave", samplesPerWave)
+	
+	CheckNMvar(df+"NumStimWaves", numStimWaves)		// stim waves per channel
+	CheckNMvar(df+"InterStimTime", interStimTime)			// time between stim waves (ms)
+	CheckNMvar(df+"NumStimReps", 1)					// repitions of stimulus
+	CheckNMvar(df+"InterRepTime", interRepTime)			// time between stimulus repititions (ms)
+	CheckNMvar(df+"StimRate", stimRate)
+	CheckNMvar(df+"RepRate", repRate)
+	CheckNMvar(df+"TotalTime", 1/repRate)
+	
+	CheckNMvar(df+"NumPulseVar", 12)					// number of variables in pulse waves
+	
+	CheckNMstr(df+"InterStimFxnList", "")					// during acquisition run function list
+	CheckNMstr(df+"PreStimFxnList", "")					// pre-acquisition run function list
+	CheckNMstr(df+"PostStimFxnList", "")					// post-acquisition run function list
+	
+	// IO Channels
+	
+	CheckNMwave(df+"ADCon", numADC, 0)				// ADC input selector
+	CheckNMtwave(df+"ADCname", numADC,"ADC")			// ADC channel name
+	CheckNMtwave(df+"ADCunits", numADC, "V")			// ADC channel units
+	CheckNMwave(df+"ADCscale", numADC, 1)				// ADC scale factors
+	CheckNMwave(df+"ADCboard", numADC, 0)				// ADC board number
+	CheckNMwave(df+"ADCchan", numADC, 0)				// ADC board chan
+	CheckNMwave(df+"ADCmode", numADC, 0)				// ADC input mode
+	CheckNMwave(df+"ADCgain", numADC, 1)				// ADC channel gains
+	
+	CheckNMwave(df+"DACon", numDAC, 0)				// DAC output selector
+	CheckNMtwave(df+"DACname", numDAC,"DAC")			// DAC channel name
+	CheckNMtwave(df+"DACunits", numDAC, "V")			// DAC channel units
+	CheckNMwave(df+"DACscale", numDAC, 1)				// DAC scale factors
+	CheckNMwave(df+"DACboard", numDAC, 0)				// DAC board number
+	CheckNMwave(df+"DACchan", numDAC, 0)				// DAC board chan
+	
+	CheckNMwave(df+"TTLon", numTTL, 0)					// TTL output selector
+	CheckNMtwave(df+"TTLname", numTTL,"TTL")			// TTL channel name
+	CheckNMtwave(df+"TTLunits", numTTL, "V")				// TTL channel units
+	CheckNMwave(df+"TTLscale", numTTL, 1)				// TTL scale factors
+	CheckNMwave(df+"TTLboard", numTTL, 0)				// TTL board number
+	CheckNMwave(df+"TTLchan", numTTL, 0)				// TTL board chan
+	
+End // CheckStim
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimInitWaves(dp, sname) // set initial values
+	String dp // path
+	String sname // stim name
+	
+	String df = dp + sname + ":"
+	
+	if (DataFolderExists(df) == 0)
+		return -1
+	endif
+	
+	Wave ADCchan = $(df+"ADCchan")
+	Wave DACchan = $(df+"DACchan")
+	Wave TTLchan = $(df+"TTLchan")
+	
+	Wave /T ADCname = $(df+"ADCname")
+	Wave /T DACname = $(df+"DACname")
+	Wave /T TTLname = $(df+"TTLname")
+	
+	ADCchan = x; DACchan = x; TTLchan = x
+	
+	ADCname = "ADC" + num2str(x)
+	DACname = "DAC" + num2str(x)
+	TTLname = "TTL" + num2str(x)
+
+End // StimInitWaves
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimRedimenWaves(sdf, io, npnts)
+	String sdf // stim data folder
+	String io // "ADC", "DAC" or "TTL"
+	Variable npnts
+	
+	if (DataFolderExists(sdf) == 0)
+		return -1
+	endif
+	
+	if (npnts < numpnts($(sdf+io+"on")))
+		return 0
+	endif
+	
+	Redimension /N=(npnts) $(sdf+io+"on")
+	Redimension /N=(npnts) $(sdf+io+"name")
+	Redimension /N=(npnts) $(sdf+io+"units")
+	Redimension /N=(npnts) $(sdf+io+"scale")
+	Redimension /N=(npnts) $(sdf+io+"board")
+	Redimension /N=(npnts) $(sdf+io+"chan")
+	
+	if (StringMatch(io, "ADC") == 1)
+		Redimension /N=(npnts) $(sdf+"ADCmode")
+		Redimension /N=(npnts) $(sdf+"ADCgain")
+	endif
+	
+End // StimRedimenWaves
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimWaveVar(sdf, io, select, config)
+	String sdf
+	String io
+	String select
+	Variable config
+	
+	String wName = sdf + io + select
+	
+	if ((WaveExists($wName) == 0) || (WaveType($wName) == 0))
+		return inf
+	endif
+	
+	Wave wTemp = $wName
+	
+	return wTemp[config]
+
+End // StimWaveVar
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S StimWaveStr(sdf, io, select, config)
+	String sdf
+	String io
+	String select
+	Variable config
+	
+	String wName = sdf + io + select
+	
+	if ((WaveExists($wName) == 0) || (WaveType($wName) != 0))
+		return "error"
+	endif
+	
+	Wave /T wTemp = $wName
+	
+	return wTemp[config]
+
+End // StimWaveStr
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimOnCount(sdf, io)
+	String sdf // stim data folder
+	String io // "ADC", "DAC" or "TTL"
+	
+	return ItemsInList(StimOnList(sdf, io))
+	
+End // StimOnCount
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimNumChannels(sdf)
+	String sdf // stim data folder
+	
+	Variable config, ccnt
+	
+	Wave ADCon = $(sdf+"ADCon")
+	Wave ADCmode = $(sdf+"ADCmode")
+
+	for (config = 0; config < numpnts(ADCon); config += 1)
+		if ((ADCon[config] == 1) && (ADCmode[config] <= 0))
+			ccnt += 1
+		endif
+	endfor
+
+	return ccnt
+
+End // StimNumChannels
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimNumWaves(sdf)
+	String sdf
+
+	return NumVarOrDefault(sdf+"NumStimWaves", 0) * NumVarOrDefault(sdf+"NumStimReps", 0)
+
+End // StimNumWaves
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S StimOnList(sdf, io)
+	String sdf // stim data folder
+	String io // "ADC", "DAC" or "TTL"
+	
+	sdf = LastPathColon(sdf, 1)
+	
+	Variable config, count
+	String list = "", wname = sdf + io + "on"
+	
+	if (WaveExists($wname) == 0)
+		return ""
+	endif
+	
+	Wave on = $wname
+	
+	strswitch(io)
+	
+		case "ADC":
+		
+			Wave ADCmode = $(sdf+"ADCmode")
+	
+			for (config = 0; config < numpnts(on); config += 1)
+				if ((on[config] == 1) && (ADCmode[config] == 0))
+					list = AddListItem(num2str(config), list, ";", inf)
+				endif
+			endfor
+			
+			break
+	
+		case "DAC":
+		case "TTL":
+		
+			for (config = 0; config < numpnts(on); config += 1)
+				if (on[config] == 1)
+					list = AddListItem(num2str(config), list, ";", inf)
+				endif
+			endfor
+			
+	endswitch
+	
+	return list
+	
+End // StimOnList
+
 //****************************************************************
 //****************************************************************
 //****************************************************************
@@ -216,7 +547,7 @@ Function /S StimOpen(dialogue, df, file)
 	
 	if (strlen(sname) > 0)
 		StimCurrentSet(sname)
-		StimWavesUpdate(1) // create stim waves
+		StimWavesCheck(StimDF(), 0)
 	endif
 	
 	return sname
@@ -273,7 +604,7 @@ Function StimOpenList(slist)
 	String slist
 	
 	Variable icnt, bintype = FileBinType()
-	String file, sname, dp = ClampDF()
+	String file, sname, df = StimParent()
 	
 	if (ItemsInList(slist) == 0)
 		return -1
@@ -301,7 +632,7 @@ Function StimOpenList(slist)
 		endif
 		
 		if (FileExists(file) == 1)
-			sname = StimOpen(0, dp, file)
+			sname = StimOpen(0, df, file)
 		endif
 		
 	endfor
@@ -341,15 +672,8 @@ Function /S StimSave(dialogue, new, dp, sname)
 		file = sname
 		//path = "StimPath"
 	endif
-	
-	StimWavesMove(folder, temp) // move stim waves before saving
 
 	file = FileBinSave(dialogue, new, dp+sname, path, file, 1, -1) // NM_FileManager
-	
-	if (DataFolderExists(temp) == 1)
-		StimWavesMove(temp, folder) // replace stim waves
-		KillDataFolder $(temp)
-	endif
 
 	if (strlen(file) > 0)
 	
@@ -393,20 +717,9 @@ End // StimSaveList
 //****************************************************************
 //****************************************************************
 //
-//	Current Stim functions defined below
+//	Current Stim Functions
 //
 //
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S StimDF() // return full-path name of current stim folder
-	String cdf = ClampDF()
-	
-	return cdf + StrVarOrDefault(cdf+"CurrentStim", "") + ":"
-	
-End // StimDF
-
 //****************************************************************
 //****************************************************************
 //****************************************************************
@@ -423,14 +736,15 @@ End // StimCurrent
 
 Function StimCurrentCheck() // check current stim is OK
 	
+	String df = StimParent()
 	String cdf = ClampDF()
 	String CurrentStim = StimCurrent()
-	String sList = NMFolderList(cdf,"NMStim")
+	String sList = StimList()
 	
 	if (strlen(CurrentStim+sList) == 0) // nothing is open
 	
 		CurrentStim = "Stim0"
-		StimNew(cdf, CurrentStim) // begin with blank stim
+		StimNew(df, CurrentStim) // begin with blank stim
 		StimCurrentSet(CurrentStim)
 		
 	elseif (WhichListItem(UpperStr(CurrentStim), UpperStr(sList)) == -1)
@@ -448,7 +762,7 @@ End // StimCurrentCheck
 Function StimCurrentSet(fname) // set current stim
 	String fname // stimulus name
 	
-	String sdf, cdf = ClampDF()
+	String sdf, df = StimParent(), cdf = ClampDF()
 	
 	if (strlen(fname) == 0)
 		SetNMstr(cdf+"CurrentStim", "")
@@ -459,16 +773,18 @@ Function StimCurrentSet(fname) // set current stim
 		//return 0 // already current stim
 	endif
 	
-	if (DataFolderExists(cdf+fname) == 0)
+	if (DataFolderExists(df+fname) == 0)
 		return -1
 	endif
 	
-	if (IsStimFolder(cdf, fname) == 0)
+	if (IsStimFolder(df, fname) == 0)
 		ClampError("\"" + fname + "\" is not a NeuroMatic stimulus folder.")
 		return -1
 	endif
 	
-	sdf = cdf + fname + ":"
+	ClampStatsDisplaySavePosition()
+	
+	sdf = df + fname + ":"
 	
 	SetNMstr(cdf+"CurrentStim", fname)
 	SetNMstr(cdf+"StimTag", StrVarOrDefault(sdf+"StimTag", ""))
@@ -484,39 +800,22 @@ Function StimCurrentSet(fname) // set current stim
 		SetNMvar("NumChannels", StimNumChannels(sdf))
 	endif
 	
-	ClampStatsRetrieve(sdf) // get Stats from new stim
+	ClampStatsRetrieveFromStim() // get Stats from new stim
+	ClampStats(StimStatsOn())
 	ClampGraphsCopy(-1, -1) // get Chan display variables
 	ChanGraphsReset()
+	ClampStatsDisplaySetPosition("amp")
+	ClampStatsDisplaySetPosition("tau")
 	
 	UpdateNMPanel(0)
 	ClampTabUpdate()
-	ChanGraphsUpdate(1)
+	ChanGraphsUpdate()
 	
 	StatsDisplayClear()
 	
 	return 0
 	
 End // StimCurrentSet
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function StimWavesUpdate(force) // update stim waves
-	Variable force
-	
-	Variable icnt, outNum, ORflag
-	String out, wprefix, plist, sdf = StimDF()
-	
-	Variable update = NumVarOrDefault(sdf+"UpdateStim", 1)
-
-	if ((force == 1) || (update == 1))
-		plist = StimPrefixListAll(sdf)
-		StimWavesMakeAll(sdf, sdf, plist, -1)
-		SetNMvar(sdf+"UpdateStim", 0)
-	endif
-
-End // StimWavesUpdate
 
 //****************************************************************
 //****************************************************************
@@ -610,15 +909,39 @@ End // StimChainEdit
 //****************************************************************
 
 Function StimStatsOn()
-	return NumVarOrDefault(StimDF()+"StatsOn", 0)
+	String sdf = StimStatsDF()
+
+	if (DataFolderExists(sdf) == 0)
+		return 0
+	endif
+
+	return NumVarOrDefault(sdf+"StatsOn", 0)
+	
 End // StimStatsOn
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
+Function StimSpikeOn()
+	String sdf = StimSpikeDF()
+
+	if (DataFolderExists(sdf) == 0)
+		return 0
+	endif
+
+	return NumVarOrDefault(sdf+"SpikeOn", 0)
+	
+End // StimSpikeOn
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function StimChainOn()
+
 	return NumVarOrDefault(StimDF()+"AcqStimChain", 0)
+	
 End // StimChainOn
 
 //****************************************************************

@@ -1,13 +1,13 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic File I/O Functions
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
@@ -16,10 +16,6 @@
 //	Last modified 28 Feb 2006
 //
 //	Functions for opening/saving binary files
-//
-//	Import data file types currently supported:
-//		1) Axograph
-//		2) Pclamp
 //
 //****************************************************************
 //****************************************************************
@@ -39,15 +35,9 @@ Function NMFileCall(select)
 		case "Import":
 		case "Import Data":
 		case "Import Waves":
-			NMImportFileCall("")
-			break
-			
 		case "Axograph":
-			NMImportFileCall("axograph")
-			break
-			
 		case "Pclamp":
-			NMImportFileCall("Pclamp")
+			NMImportFileCall()
 			break
 			
 		case "Convert":
@@ -57,688 +47,6 @@ Function NMFileCall(select)
 	endswitch
 	
 End // NMFileCall
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-//
-//	Import Data Functions
-//
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ImportConfigEdit()
-
-	Variable wcnt
-	String wname, tname = "Config_Import2"
-
-	String df = PackDF("Import")
-	
-	String wlist = NMConfigVarList("Import", 6) + NMConfigVarList("Import", 5)
-	
-	DoWindow /K $tname
-	Edit /K=1/W=(0,0,0,0)
-	DoWindow /C $tName
-	DoWindow /T $tName, "File Import Channel Configuration"
-	Execute "ModifyTable title(Point)= \"Chan\""
-	
-	SetCascadeXY(tName)
-	
-	for (wcnt = 0; wcnt < ItemsInList(wlist); wcnt += 1)
-		wname = StringFromList(wcnt, wlist)
-		AppendToTable $(df+wname)
-	endfor
-
-End // ImportConfigEdit
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ImportConfigGet() // get import config waves
-
-	Variable wcnt
-	String wname, df = PackDF("Import")
-	
-	String xl = StrVarOrDefault(df+"xLabel", "")
-	
-	if (strlen(xl) > 0)
-		SetNMstr("xLabel", xl)
-	endif
-	
-	String wlist = NMConfigVarList("Import", 6) + NMConfigVarList("Import", 5)
-	
-	for (wcnt = 0; wcnt < ItemsInList(wlist); wcnt += 1)
-		wname = StringFromList(wcnt, wlist)
-		Duplicate /O $(df+wname), $wname // copy to current data folder
-	endfor
-
-End // ImportConfigGet
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function NMImportFileManager(filetype, option) // call appropriate import data function
-	String filetype // data file type (ie. "axograph" or "Pclamp")
-	String option // "header" to read data header
-				// "data" to read data
-				// "test" to test whether this file manager supports file type
-	
-	Variable /G success // success flag (1) yes (0) no; or the number of data waves read
-	
-	strswitch(filetype)
-	
-		case "Axograph": // (see ReadAxograph.ipf)
-		
-			strswitch(option)
-				case "header":
-					Execute "success = ReadAxoHeader()"
-					break
-					
-				case "data":
-					Execute "success = ReadAxoData()"
-					break
-					
-				case "test":
-					success = 1
-					break
-					
-			endswitch
-			
-			break
-		
-		case "Pclamp": // (see ReadPclamp.ipf)
-		
-			strswitch(option)
-			
-				case "header":
-					Execute "success = ReadPclampHeader()"
-					break
-					
-				case "data":
-					Execute "success = ReadPclampData()"
-					break
-					
-				case "test":
-					success = 1
-					break
-					
-			endswitch
-			
-			break
-			
-	endswitch
-	
-	Variable ss = success
-	
-	KillVariables /Z success
-	
-	return ss
-
-End // NMImportFileManager
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function NMImportFileCall(ftype) // open a data file
-	String ftype // file type ("axograph" or "Pclamp")
-	
-	Variable refnum, newfolder, sets
-	String vlist = "", file = "", folder = "", df = NMDF()
-	
-	if (CheckCurrentFolder() == 0)
-		NMFolderNew("")
-	endif
-	
-	if (NMImportFileManager(ftype, "test") == 0)
-	
-		ftype = StrVarOrDefault(df+"ImportType", "Pclamp")
-		
-		Prompt ftype, "choose file type:", popup "Axograph;Pclamp;"
-		DoPrompt "Import Data", ftype
-		
-		if (V_flag == 1)
-			return 0 // cancel
-		endif
-		
-		SetNMstr(df+"ImportType", ftype)
-		
-	endif
-	
-	if (IsNMDataFolder("") == 0)
-	
-		newfolder = 1
-	
-	elseif (NumVarOrDefault("NumWaves", 0) > 0)
-	
-		newfolder = 1 + NumVarOrDefault(df+"ImportNewFolder", 0)
-		
-		Prompt newfolder "import data where?", popup "this data folder;new data folder;"
-		DoPrompt "Import Data", newfolder
-		
-		if (V_flag == 1)
-			return 0 // cancel
-		endif
-		
-		newfolder -= 1
-		
-		SetNMvar(df+"ImportNewFolder", newfolder)
-		
-		if (newfolder == 0)
-			sets = 1
-		endif
-		
-	endif
-	
-	file = FileDialogue(0, "OpenDataPath", "", "?")
-	
-	if (strlen(file) == 0)
-		return 0 // cancel
-	endif
-	
-	if (newfolder == 1)
-		folder = FolderNameCreate(file) // create folder name
-	else
-		folder = GetDataFolder(1)
-	endif
-	
-	vlist = NMCmdStr(folder, vlist)
-	vlist = NMCmdStr(file, vlist)
-	vlist = NMCmdStr(ftype, vlist)
-	NMCmdHistory("NMImportFile", vlist)
-	
-	NMImportFile(folder, file, ftype)
-
-End // NMImportFileCall
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S NMImportFile(folder, file, ftype) // import a data file
-	String folder // folder name ("") dont care
-	String file // external file name
-	String ftype // file type, such as "Axograph" or "Pclamp"
-	
-	Variable success, refnum, newfolder, newname, cancel
-	String setList, df = NMDF()
-	
-	CheckPackage("Import", 0)
-	
-	if ((strlen(file) == 0) || (FileExists(file) == 0))
-		return "" 
-	endif
-	
-	if (strlen(folder) == 0)
-		folder = FolderNameCreate(file) // create folder name
-	endif
-		
-	if (DataFolderExists(folder) == 0)
-	
-		folder = NMFolderNew(folder) // create NM folder
-	
-		if (strlen(folder) == 0)
-			return ""
-		endif
-		
-	elseif ((NumVarOrDefault("NumWaves", 0) == 0) && (strlen(StrVarOrDefault("CurrentFile","")) == 0))
-	
-		newname = 1
-		
-	endif
-	
-	SetNMstr("CurrentFile", file)
-	SetNMstr("FileName", GetPathName(file, 0))
-	SetNMstr("DataFileType", ftype)
-
-	CheckNMwave("FileScaleFactors", 10, 1)
-	CheckNMwave("MyScaleFactors", 10, 1)
-	CheckNMtwave("yLabel", 10, "") // increase size
-	
-	ImportConfigGet()
-	
-	if (NMImportData(1) < 0)
-		return "" // cancel
-	endif
-	
-	if (newname == 1)
-		folder = FolderNameCreate(file)
-		NMFolderRename(GetDataFolder(0), folder)
-	endif
-	
-	UpdateNM(0)
-	
-	return folder
-
-End // NMImportFile
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function NMImportData(appnd) // the main load data function
-	Variable appnd // (0) do not append (1) append
-	
-	if (CheckCurrentFolder() == 0)
-		return 0
-	endif
-	
-	Variable iSeqBgn, iSeqEnd, newPrefix
-	String df = NMDF(), idf = PackDF("Import")
-	
-	String CurrentFile = StrVarOrDefault("CurrentFile", "")
-	
-	NVAR TotalNumWaves, NumWaves, NumChannels, CurrentWave
-	SVAR WavePrefix, CurrentPrefix
-	
-	if (FileExists(CurrentFile) == 0) // check to see if CurrentFile points to an existing file
-		DoAlert 0, "Error: external data file has not been selected."
-		return -1
-	endif
-	
-	String setList = NMSetsList(1) // save list of Sets before appending
-
-	Variable /G WaveBeg, WaveEnd, WaveInc // temporary variables for loading waves
-	Variable /G FileBeg, FileEnd, FileInc = -1 // temporary variables for loading file sequence
-	
-	Variable prmpt = NumVarOrDefault(idf+"ImportPrompt", 1)
-	
-	String fileType = StrVarOrDefault("DataFileType", "")
-	
-	String oldPrefix = WavePrefix
-	
-	Variable success = NMImportFileManager(fileType, "header") // read data header and store variables
-
-	if (success == 0)
-		if ((appnd == 0) && (NumWaves == 0))
-			NMFolderClose(GetDataFolder(1))
-		endif
-		return -1
-	endif
-	
-	WaveInc = 1; WaveBeg = 1; WaveEnd = floor(TotalNumWaves/NumChannels)
-	
-	CheckNMDataFolderWaves() // redimension file waves
-	
-	CheckNMwave("FileScaleFactors", NumChannels, 1)
-	CheckNMwave("MyScaleFactors", NumChannels, 1)
-	
-	if (prmpt == 1)
-		NMImportPanel() // open panel to display header info, and request user input
-	endif
-	
-	if (WaveInc == -1) // user aborted
-		if ((appnd == 0) && (NumWaves == 0))
-			NMFolderClose(GetDataFolder(1))
-		endif
-		return -1
-	endif
-	
-	NMPrefixAdd(WavePrefix)
-	
-	if (StringMatch(WavePrefix, oldPrefix) == 0)
-		newPrefix = 1
-	endif
-	
-	if ((newPrefix == 0) && (appnd == 1))
-		CurrentWave = NumWaves
-	else
-		CurrentWave = 0
-	endif
-	
-	NMProgressStr("Importing Data...")
-	
-	success = NMImportFileManager(fileType, "Data") // now read the data
-	
-	if (success < 0) // user aborted
-		if (appnd == 0)
-			NMFolderClose(GetDataFolder(1))
-		endif
-		return -1
-	endif
-	
-	if (newPrefix == 1)
-		NMPrefixSelectSilent(WavePrefix)
-		KillWaves /Z Set_Data0
-		setList = RemoveFromList("Set_Data0", setList)
-	else
-		CurrentPrefix = WavePrefix
-	endif
-	
-	if ((newPrefix == 0) && (appnd == 1))
-		NumWaves += success // save number of waves read
-	else
-		NumWaves = success
-	endif
-	
-	TotalNumWaves = NumChannels * NumWaves
-	
-	PrintFileDetails(success)
-	
-	CheckNMwave(setList, NumVarOrDefault("NumWaves", 0), 0)  // redimension old Sets
-	
-	NMSetsDataNew() // create Set_Data wave
-	
-	if ((FileEnd > FileBeg) && (FileInc >= 1)) // file sequence to read
-		iSeqBgn = NumVarOrDefault("iSeqBgn",0) // from SeqNumFind
-		iSeqEnd = NumVarOrDefault("iSeqEnd",0)
-		NMImportFileAuto(FileBeg+FileInc, FileEnd, FileInc, iSeqBgn, iSeqEnd) // append the remaining files
-	endif
-	
-	KillVariables /Z WaveBeg, WaveEnd, WaveInc, FileBeg, FileEnd, FileInc, FilePromptFlag, iSeqBgn, iSeqEnd, V_Flag
-	KillStrings /Z S_path, S_filename, S_wavenames
-	
-	CheckNMDataFolderWaves() // update waves
-	ChanWaveListSet(1) // set channel wave names
-	
-	return 0
-
-End // NMImportData
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function NMImportFileAuto(fbeg, fend, finc, iSeqBgn, iseqend) // append a sequence of files
-	Variable fbeg // file sequence begin number
-	Variable fend // file sequence end number
-	Variable finc // file sequence increment number
-	Variable iSeqBgn // begin index of sequence number in filename string
-	Variable iseqend // end index of sequence number in filename string
-	
-	if (CheckCurrentFolder() == 0)
-		return 0
-	endif
-	
-	Variable fcnt, success
-	String setList
-	
-	NVAR WaveBeg, WaveEnd, WaveInc
-	NVAR NumWaves, CurrentWave, TotalNumWaves, NumChannels
-	SVAR CurrentFile
-	
-	String fileType = StrVarOrDefault("DataFileType", "")
-	
-	if ((fbeg > fend) || (finc < 1) || (iSeqBgn > iseqend) || (numtype(fbeg*fend*finc*iSeqBgn*iseqend) != 0))
-		return -1 // not allowed
-	endif
-	
-	Variable FilePromptFlag = NumVarOrDefault("FilePromptFlag", 1)
-	
-	Duplicate /O yLabel saveYLabel
-	
-	for (fcnt = fbeg; fcnt <= fend; fcnt += finc) // loop thru file sequence numbers
-		
-		CurrentFile = SeqNumSet(CurrentFile, iSeqBgn, iseqend, fcnt)
-		
-		setList = NMSetsList(1) // save list of Sets before appending
-
-		if (StringMatch(CurrentFile, "overflow") == 1)
-			DoAlert 0, "Error: overflow of file sequence number: " + num2str(fcnt)
-			continue
-		endif
-		
-		if (FileExists(CurrentFile) == 0)
-			DoAlert 0, CurrentFile + " does not exist."
-			continue
-		endif
-		
-		CurrentWave = NumWaves
-		
-		success = NMImportFileManager(FileType, "header") // read data header
-		
-		WaveInc = 1; WaveBeg = 1; WaveEnd = TotalNumWaves/NumChannels
-		
-		if (FilePromptFlag == 1)
-			NMImportPanel()
-		endif
-		
-		if (success == 0)
-			continue
-		endif
-		
-		NumWaves += NMImportFileManager(fileType, "data") // read data
-		
-		PrintFileDetails(NumWaves)
-		
-		CheckNMwave(setList, NumVarOrDefault("NumWaves", 0), 0) // redimension old Sets
-		NMSetsDataNew() // create Set_Data wave
-		
-	endfor
-	
-	CurrentWave = 0
-	
-	Duplicate /O saveYLabel yLabel
-	
-	KillWaves /Z saveYLabel
-
-End // NMImportFileAuto
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function PrintFileDetails(nwaves)
-	Variable nwaves // number of waves read; (-1) to use NumWaves
-	
-	String txt
-	Variable chncnt, scale
-	
-	Variable NumWaves = NumVarOrDefault("NumWaves", Nan)
-	Variable NumChannels = NumVarOrDefault("NumChannels", Nan)
-	
-	if (nwaves == -1)
-		nwaves = NumWaves
-	endif
-	
-	NMHistory("Data File: " + StrVarOrDefault("CurrentFile", "Unknown Data File"))
-	NMHistory("File Type: " + StrVarOrDefault("DataFileType", "Unknown"))
-	NMHistory("Acquisition Mode: " + StrVarOrDefault("AcqMode", "Unknown"))
-	NMHistory("Number of Channels: " + num2str(NumVarOrDefault("NumChannels", Nan)))
-	NMHistory("Waves per Channel: " + num2str(nwaves))
-	NMHistory("Samples per Wave: " + num2str(NumVarOrDefault("SamplesPerWave", Nan)))
-	NMHistory("Sample Interval (ms): " + num2str(NumVarOrDefault("SampleInterval", Nan)))
-	
-	if (WavesExist("FileScaleFactors;MyScaleFactors") == 0)
-		return 0
-	endif
-	
-	Wave FileScaleFactors, MyScaleFactors
-	
-	for (chncnt = 0; chncnt < NumChannels; chncnt += 1)
-		txt = "Chan " + ChanNum2Char(chncnt) + " Scale Factor: " + num2str(FileScaleFactors[chncnt])
-		scale = MyScaleFactors[chncnt]
-		if (scale != 1)
-			txt += " * " + num2str(scale)
-		endif
-		NMHistory(txt)
-	endfor
-
-End // PrintFileDetails
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-//
-//		Import File Panel
-//		(panel called to request user input)
-//
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function NMImportPanel() // Bring up "Load File Panel" to request user information
-
-	if (CheckCurrentFolder() == 0)
-		return 0
-	endif
-
-	Variable x1, x2, y1, y2, amode
-	Variable tablewidth = 300, panelwidth = 390
-	Variable xPixels = NumVarOrDefault(NMDF() + "xPixels", 1000)
-	
-	String Computer = StrVarOrDefault(NMDF() + "Computer", "mac")
-	
-	NVAR NumChannels, TotalNumWaves, SamplesPerWave, SampleInterval
-	NVAR WaveBeg, WaveEnd, WaveInc, FileBeg, FileEnd, FileInc
-	
-	SVAR FileName, AcqMode
-	
-	x1 = (xPixels/2)+(panelwidth/2)+16
-	y1 = 142
-	
-	if (StringMatch(Computer, "pc") == 1)
-		x1 = 630
-		y1 = 115
-	endif
-	
-	x2 = x1 + tablewidth
-	y2 = y1 + 345
-	
-	DoWindow /K ImportTable
-	Edit /K=1/W=(x1,y1,x2,y2) YLabel, MyScaleFactors
-	DoWindow /C ImportTable
-	DoWindow /T ImportTable, "Check Channel Details"
-	Execute /Z "ModifyTable title(Point)= \"Channel\""
-	
-	x1 = (xPixels/2)-(panelwidth/2)
-	y1 = 142
-	x2 = x1 + panelwidth
-	y2 = 487
-	
-	DoWindow /K ImportPanel
-	NewPanel /W=(x1,y1,x2,y2) as "Check File Details"
-	DoWindow /C ImportPanel
-	
-	amode = str2num(AcqMode[0])
-	
-	SetDrawEnv fsize= 18
-	DrawText 20,30, "File:  " + FileName
-	
-	SetVariable NumChannelSet, title="Number of Channels: ", limits={1,10,0}, pos={20,50}, size={180,50}, frame=0, value=NumChannels, win=ImportPanel, proc=NMImportSetVariable
-	SetVariable SampIntSet, title="Sample Interval (ms):  ", limits={0,10,0}, pos={20,75}, size={250,50}, frame=0, value=SampleInterval, win=ImportPanel
-	
-	SetVariable SPSSet, title="Samples/Wave:  ", limits={0,inf,0}, pos={20,100}, size={250,50}, frame=0, value=SamplesPerWave, win=ImportPanel
-	
-	//SetDrawEnv fsize= 14
-	DrawText 20,145, "Acquisition mode: " + AcqMode
-	
-	SetVariable WaveBegSet, title="wave beg: ", limits={1,TotalNumWaves,0}, pos={20,185}, size={160,60}, frame=1, value=WaveBeg, win=ImportPanel
-	SetVariable WaveEndSet, title="wave end: ", limits={1,TotalNumWaves,0}, pos={20,215}, size={160,60}, frame=1, value=WaveEnd, win=ImportPanel
-	SetVariable WaveIncSet, title="wave inc:  ", limits={1,TotalNumWaves,0}, pos={20,245}, size={160,60}, frame=1, value=WaveInc, win=ImportPanel
-	SetVariable WaveIncSet, title="wave prefix:  ", pos={20,245}, size={160,60}, frame=1, value=WavePrefix, win=ImportPanel
-	
-	if ((amode != 3) && (FileInc == -1))
-		SetVariable FileBegSet, title="file beg: ", limits={FileBeg,FileBeg,0}, pos={210,185}, size={140,70}, frame=1, value=FileBeg, disable=1, win=ImportPanel
-		SetVariable FileEndSet, title="file end: ", limits={FileBeg,inf,0}, pos={210,215}, size={140,70}, frame=1, value=FileEnd, disable=1, win=ImportPanel, proc=NMImportSetVariable
-		SetVariable FileIncSet, title="file Inc: ", limits={1,inf,0}, pos={210,245}, size={140,70}, frame=1, value=FileInc, disable = 1, win=ImportPanel
-		CheckBox FileSeqCheck, title="open file sequence", value=0, pos={190,155}, size={16,18}, win=ImportPanel, proc=NMImportSeqCheck
-		CheckBox FilePromptCheck, title="file details prompt on", value=1, pos={190,275}, size={16,18}, disable=1, win=ImportPanel, proc=NMImportSeqCheck
-	endif
-	
-	Button AbortButton, title="Abort", pos={110,305}, size={50,20}, win=ImportPanel, proc=NMImportFinish
-	Button ContinueButton, title="Open File", pos={210,305}, size={80,20}, win=ImportPanel, proc=NMImportFinish
-	
-	PauseForUser ImportPanel, ImportTable
-
-End // NMImportPanel
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function NMImportFinish(ctrlName) : ButtonControl
-	String ctrlName
-	
-	if (StringMatch(ctrlName, "AbortButton") == 1)
-		SetNMvar("WaveInc", -1)
-	endif
-	
-	DoWindow /K ImportPanel
-	DoWindow /K ImportTable
-
-End // NMImportFinish
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function NMImportSetVariable(ctrlName, varNum, varStr, varName) : SetVariableControl
-	String ctrlName; Variable varNum; String varStr, varName
-	
-	Variable chncnt
-	
-	strswitch(ctrlName)
-	
-		case "NumChannelSet":
-			NVAR NumChannels, TotalNumWaves, WaveEnd
-			Wave FileScaleFactors, MyScaleFactors
-			Wave /T YLabel
-			WaveEnd = TotalNumWaves / NumChannels
-			Redimension /N=(NumChannels) MyScaleFactors
-			Redimension /N=(NumChannels) YLabel
-			for (chncnt = 1; chncnt < NumChannels; chncnt += 1)
-				if (MyScaleFactors[chncnt] == 0)
-					MyScaleFactors[chncnt] = 1
-				endif
-				YLabel[chncnt] = "mV"
-			endfor
-			break
-			
-		case "FileEndSet":
-			NVAR FileEnd
-			SetVariable FileIncSet, limits={1,FileEnd,0}
-			break
-		
-	endswitch
-
-End // NMImportSetVariable
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function NMImportSeqCheck(ctrlName, checked) : CheckBoxControl
-	String ctrlName
-	Variable checked
-	
-	NVAR FileBeg, FileEnd, FileInc
-	SVAR CurrentFile
-	
-	Variable FilePromptFlag = NumVarOrDefault("FilePromptFlag", 1)
-	
-	strswitch(ctrlName)
-		case "FileSeqCheck":
-			
-			if (checked == 1)
-				FileBeg = SeqNumFind(CurrentFile)
-				FileEnd = FileBeg
-				FileInc = 1 // load a sequence of files
-				if (numtype(FileBeg) > 0)
-					FileInc = -1 // probably no seq num
-				endif
-				FilePromptFlag = 1
-			else
-				FileInc = -1 // dont load a sequence of files
-			endif
-			
-			SetVariable FileBegSet, disable = (!checked)
-			SetVariable FileEndSet, disable = (!checked)
-			SetVariable FileIncSet, disable = (!checked)
-			CheckBox FilePromptCheck, disable = (!checked), value=FilePromptFlag
-			
-			break
-			
-		case "FilePromptCheck":
-			SetNMvar("FilePromptFlag", checked)
-			break
-	
-	endswitch
-	
-End // NMImportSeqCheck
 
 //****************************************************************
 //****************************************************************
@@ -1051,6 +359,51 @@ End // SeqNumSet
 //****************************************************************
 //****************************************************************
 //****************************************************************
+
+Function /S Seq2List(seqStr)
+	String seqStr
+	
+	Variable icnt, jcnt, dash, from, to
+	String item, seqList = ""
+	
+	if (strlen(seqStr) == 0)
+		return ""
+	endif
+	
+	seqStr = ReplaceString(",", seqStr, ";")
+	
+	for (icnt = 0; icnt < ItemsInList(seqStr); icnt += 1)
+	
+		item = StringFromList(icnt, seqStr)
+		
+		dash = strsearch(item, "-", 0)
+		
+		if (dash < 0)
+			seqList = AddListItem(item, seqList, ";", inf)
+		else
+		
+			from = str2num(item[0,dash-1])
+			to = str2num(item[dash+1,inf])
+			
+			if (numtype(from * to) > 0)
+				continue
+			endif
+			
+			for (jcnt = from; jcnt <= to; jcnt += 1)
+				seqList = AddListItem(num2str(jcnt), seqList, ";", inf)
+			endfor
+			
+		endif
+		
+	endfor
+	
+	return seqList
+	
+End // NMImportFileSeq
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
 //
 //	Binary object file functions defined below...
 // 	Igor 4 : NeuroMatic binary files
@@ -1105,23 +458,6 @@ Function FileBinLoadCurrent()
 	endif
 
 End // FileBinLoadCurrent
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function FileBinOpenHook(refNum, fileName, path, type, creator, kind)
-	
-	Variable refNum,kind
-	String fileName,path,type,creator
-	
-	if (StringMatch(type,"IGsU") == 1) // Igor Experiment, packed
-		CheckFileOpen(fileName)
-	endif
-	
-	return 0					// 1 tells Igor not to open the file
-	
-End // FileBinOpenHook
 
 //****************************************************************
 //****************************************************************
@@ -1682,7 +1018,7 @@ Function /S IgorBinOpen(folder, file, changeFolder) // open Igor packed binary f
 		NMFolderChange(folder)
 		CheckNMDataFolder()
 		NMSetsDataNew()
-		PrintFileDetails(-1)
+		PrintFileDetails()
 		
 		if (NumVarOrDefault(NMDF()+"AutoPlot", 0) == 1)
 			NMPlot( "" )
@@ -1816,7 +1152,7 @@ Function /S NMBinOpen(folder, file, makeflag, changeFolder)
 		CheckNMDataFolder()
 		NMSetsDataNew()
 		UpdateNM(1)
-		PrintFileDetails(-1)
+		PrintFileDetails()
 		
 		if (NumVarOrDefault(NMDF()+"AutoPlot", 0) == 1)
 			NMPlot( "" )

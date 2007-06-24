@@ -1,19 +1,20 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Folder Functions
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 30 Jan 2006
+//	Began 5 May 2002
+//	Last modified 02 April 2007
 //
 //****************************************************************
 //****************************************************************
@@ -87,7 +88,7 @@ Function NMFolderCall(select)
 		case "Import":
 		case "Import Data":
 		case "Import Waves":
-			NMImportFileCall("")
+			NMImportFileCall()
 			break
 			
 		case "Reload":
@@ -300,7 +301,6 @@ Function CheckNMDataFolderWaves() // check data folder waves
 	
 	CheckNMwave("Set1;Set2;SetX;", nwaves, 0)
 	
-	
 	NMSetsTagDefaults() // check Set tags
 	
 	//CheckNMwave("FileScaleFactors",  nchans, 1)		// file scale factors, read from data file header
@@ -436,15 +436,55 @@ End // CheckNMFolderType
 //****************************************************************
 //****************************************************************
 
+Function NMNumChannels()
+
+	return NumVarOrDefault("NumChannels", 0)
+
+End // NMNumChannels
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMCurrentChan()
+
+	return NumVarOrDefault("CurrentChan", 0)
+
+End // NMCurrentChan
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMNumWaves()
+
+	return NumVarOrDefault("NumWaves", 0)
+
+End // NMNumWaves
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMCurrentWave()
+
+	return NumVarOrDefault("CurrentWave", 0)
+
+End // NMCurrentWave
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function NMFolderGlobalsReset()
 
-	if (WavesExist("Set1;Set2;SetX;Group;") == 0)
-		return 0
+	if (WavesExist("Set1;Set2;SetX;Group;") == 1)
+		Wave Group, Set1, Set2, SetX
+		Set1 = 0
+		Set2 = 0
+		SetX = 0
+		Group = Nan
 	endif
-
-	Wave Group, Set1, Set2, SetX
-
-	Set1 = 0; Set2 = 0; SetX = 0; Group = Nan;
 	
 	SetNMvar("CurrentChan", 0)
 	SetNMvar("CurrentWave", 0)
@@ -500,9 +540,10 @@ End // NMFolderGlobalsSave
 //****************************************************************
 //****************************************************************
 
-Function NMFolderGlobalsGet(wPrefix, killFolder) // get saved globals from folder
+Function NMFolderGlobalsGet(wPrefix) // get saved globals from folder
 	String wPrefix // wave prefix name
-	Variable killFolder // kill folder when finished
+	
+	//Variable killFolder = 0 // kill folder when finished
 	
 	Variable ocnt
 	String objName, oList
@@ -537,9 +578,9 @@ Function NMFolderGlobalsGet(wPrefix, killFolder) // get saved globals from folde
 		SetNMstr(objName, StrVarOrDefault(subFolder+objName, ""))
 	endfor
 	
-	if (killFolder == 1)
-		KillDataFolder $(df + wPrefix)
-	endif
+	//if (killFolder == 1)
+	//	KillDataFolder $(df + wPrefix)
+	//endif
 	
 	return 0
 
@@ -578,6 +619,12 @@ Function /S NMFolderNew(folder) // create a new NM data folder
 	endif
 	
 	folder =NMFolderPath(folder)
+	
+	folder = CheckFolderName(folder)
+	
+	if (strlen(folder) == 0)
+		return ""
+	endif
 
 	if (DataFolderExists(folder) == 1)
 		return "" // already exists
@@ -666,13 +713,14 @@ Function /S NMFolderChange(folder) // change the active folder
 		NMFolderListAdd(folder)
 	endif
 	
+	ChanScaleSave(-1)
+	
 	SetDataFolder folder
 	
 	SetNMstr(df+"CurrentFolder", GetDataFolder(1))
 	ChanGraphsReset()
 	ChanWaveListSet(0) // check channel wave names
 	UpdateNM(1)
-	ChanGraphsUpdate(1)
 	
 	return folder
 
@@ -714,7 +762,9 @@ Function NMFolderCloseAll()
 	
 	SetNMstr(NMDF()+"CurrentFolder", "")
 	
-	UpdateNMPanelTitle()
+	NMFolderChangeToFirst()
+	
+	//UpdateNMPanelTitle()
 
 End // NMFolderCloseAll
 
@@ -883,10 +933,10 @@ Function NMFolderDuplicateCall()
 		return -1 // not allowed
 	endif
 	
-	if (DataFolderExists(NMFolderPath(newName)) == 1)
-		DoAlert 0, "Abort NMFolderDuplicate: folder name already in use."
-		return -1
-	endif
+	//if (DataFolderExists(NMFolderPath(newName)) == 1)
+	//	DoAlert 0, "Abort NMFolderDuplicate: folder name already in use."
+	//	return -1
+	//endif
 	
 	vlist = NMCmdStr(folder, vlist)
 	vlist = NMCmdStr(newName, vlist)
@@ -906,19 +956,12 @@ Function /S NMFolderDuplicate(folder, newName) // duplicate NeuroMatic data fold
 	String folder // folder to copy
 	String newname
 	
-	
 	String df = LastPathColon(NMFolderPath(newname), 0)
 	
-	if (DataFolderExists(df) == 1)
+	df = CheckFolderName(df)
 	
-		DoAlert 1, "Data folder \"" + newName + "\" already exists. Do you want to over-write it?"
-		
-		if (V_flag != 1)
-			return "" // cancel
-		endif
-		
-		KillDataFolder $df
-		
+	if (strlen(df) == 0)
+		return ""
 	endif
 	
 	folder = LastPathColon(NMFolderPath(folder), 0)
@@ -952,10 +995,10 @@ Function NMFolderRenameCall()
 		return -1 // nothing new
 	endif
 	
-	if (DataFolderExists(NMFolderPath(newName)) == 1)
-		DoAlert 0, "Abort NMFolderRename: folder name already in use."
-		return -1
-	endif
+	//if (DataFolderExists(NMFolderPath(newName)) == 1)
+	//	DoAlert 0, "Abort NMFolderRename: folder name already in use."
+	//	return -1
+	//endif
 	
 	vlist = NMCmdStr(oldName, vlist)
 	vlist = NMCmdStr(newName, vlist)
@@ -975,10 +1018,18 @@ Function /S NMFolderRename(oldName, newName) // rename NeuroMatic data folder
 	String oldname
 	String newname
 	
+	String df = NMFolderPath(newName)
+	
 	// note, this function does NOT change graph or table names
 	// associated with the old folder name
 	
-	if (DataFolderExists(NMFolderPath(newName)) == 1)
+	df = CheckFolderName(df)
+	
+	if (strlen(df) == 0)
+		return ""
+	endif
+	
+	if (DataFolderExists(df) == 1)
 		//DoAlert 0, "Abort NMFolderRename: folder name already in use."
 		return ""
 	endif
@@ -1040,35 +1091,11 @@ End // NMFolderOpenAll
 //****************************************************************
 
 Function /S NMFolderAppendAll()
-	Variable icnt
-	String firstFolder, fname, flist, wprefix
-
-	flist = FileBinOpenAll(1, "root:", "OpenDataPath")
 	
-	if (ItemsInList(flist) == 0)
-		return ""
-	else
-		
-		firstFolder = StringFromList(0, flist)
-		NMFolderChange(firstFolder)
-		wprefix = StrVarOrDefault("WavePrefix", "")
-		
-		if (strlen(wPrefix) > 0)
-			for (icnt = 1; icnt < ItemsInList(flist); icnt += 1)
-				fname = StringFromList(icnt, flist)
-				if (isNMDataFolder(fname) == 1)
-					NMFolderAppendWaves(fname, firstFolder, wprefix)
-					NMFolderClose(fname) // close folder
-				endif
-			endfor
-		endif
 	
-	endif
+	DoAlert 0, "Alert: NMFolderAppendAll has been deprecated."
 	
-	NMTab("Main") // force back to Main tab
-	UpdateNM(1)
-
-	return flist
+	return ""
 
 End // NMFolderAppendAll
 
@@ -1112,7 +1139,7 @@ Function NMDataReload()
 	strswitch(StrVarOrDefault("DataFileType",""))
 		case "Pclamp":
 		case "Axograph":
-			NMImportData(0)
+			//NMImportFile(temp, file)
 			return 0
 		case "NMBin":
 			folder = NMBinOpen(temp, file, "1111", 1)
@@ -1152,27 +1179,7 @@ End // NMDataReload
 
 Function NMFolderAppend()
 
-	String vlist = ""
-	String thisFolder = GetDataFolder(1)
-	String wavePrefix = StrVarOrDefault("WavePrefix", "")
-
-	String newfolder = NMFolderOpen()
-	
-	if (strlen(newfolder) == 0)
-		return -1 // cancel
-	endif
-	
-	vlist = NMCmdStr(newfolder, vlist)
-	vlist = NMCmdStr(thisfolder, vlist)
-	vlist = NMCmdStr(wavePrefix, vlist)
-	NMCmdHistory("NMFolderAppendWaves", vlist)
-	
-	NMFolderAppendWaves(newfolder, thisFolder, wavePrefix)
-	
-	NMCmdHistory("NMFolderClose", NMCmdStr(newfolder, ""))
-	NMFolderClose(newFolder) // close opened folder
-	
-	return 0
+	DoAlert 0, "Alert: NMFolderAppend has been deprecated."
 
 End // NMFolderAppend
 
@@ -1182,44 +1189,7 @@ End // NMFolderAppend
 
 Function NMFolderMerge()
 
-	String vlist = ""
-	String thisFolder = GetDataFolder(1)
-	String wavePrefix = StrVarOrDefault("WavePrefix", "")
-
-	String fromFolder
-	
-	String wlist = NMDataFolderList()
-	
-	wlist = RemoveFromList(GetDataFolder(0), wlist)
-	
-	if (ItemsInList(wlist) == 0)
-		DoAlert 0, "No folders to merge."
-		return 0
-	endif
-	
-	Prompt fromFolder, "choose folder from which waves are to be moved:", popup wlist
-	Prompt wavePrefix, "choose prefix of waves to move:"
-	DoPrompt "Merge NeuroMatic Folder Waves", fromFolder, wavePrefix
-	
-	if (V_flag == 1)
-		return 0 // cancel
-	endif
-	
-	vlist = NMCmdStr(fromFolder, vlist)
-	vlist = NMCmdStr(thisfolder, vlist)
-	vlist = NMCmdStr(wavePrefix, vlist)
-	NMCmdHistory("NMFolderAppendWaves", vlist)
-	
-	NMFolderAppendWaves(fromFolder, thisFolder, wavePrefix)
-	
-	DoAlert 1, "Do you want to close folder \"" + fromFolder + "\"?"
-	
-	if (V_Flag == 1)
-		NMCmdHistory("NMFolderClose", NMCmdStr(fromFolder, ""))
-		NMFolderClose(fromFolder) // close opened folder
-	endif
-	
-	return 0
+	DoAlert 0, "Alert: NMFolderMerge has been deprecated."
 
 End // NMFolderMerge
 
@@ -1232,64 +1202,7 @@ Function NMFolderAppendWaves(fromFolder, toFolder, wavePrefix)
 	String toFolder // to this folder
 	String wavePrefix // wave prefix of BOTH folders (i.e. "Record")
 	
-	Variable icnt, nwavesTo, nwavesFrom
-	String nlist, setList, df = NMDF()
-	String saveFolder = GetDataFolder(1)
-	
-	fromFolder =NMFolderPath(fromFolder)
-	toFolder =NMFolderPath(toFolder)
-	
-	if ((DataFolderExists(fromFolder) == 0) || (DataFolderExists(toFolder) == 0))
-		return -1
-	endif
-	
-	if (StringMatch(fromFolder, toFolder) == 1)
-		return -1
-	endif
-	
-	if (StringMatch(GetDataFolder(1), toFolder) == 0)
-		NMFolderChange(toFolder)
-	endif
-	
-	if (StringMatch(StrVarOrDefault("CurrentPrefix", ""), wavePrefix) == 0)
-		NMPrefixSelectSilent(wavePrefix)
-	endif
-	
-	nWavesTo = NumVarOrDefault("NumWaves", 0)
-	
-	setList = NMSetsList(1) // save list of Sets before appending
-	
-	NMFolderChange(fromFolder)
-	
-	if (StringMatch(StrVarOrDefault("CurrentPrefix", ""), wavePrefix) == 0)
-		NMPrefixSelectSilent(wavePrefix)
-	endif
-	
-	nWavesFrom = NumVarOrDefault("NumWaves", 0)
-	
-	NMChanSelect( "All" )
-	
-	nlist = NMRenumWaves(nWavesTo, 0) // NM_MainTab.ipf
-	
-	NMPrefixSelectSilent(wavePrefix) // reselect waves after renaming
-	
-	NMChanSelect( "All" )
-	
-	NMCopyWavesTo(toFolder, "", -inf, inf, 0, 0)
-	
-	NMFolderChange(toFolder)
-	
-	NMPrefixSelectSilent(wavePrefix)
-	
-	CheckNMwave("Group;" + setList, nwavesFrom + nwavesTo, 0)
-	
-	CopyWaveValues(fromFolder, toFolder, "Group;" + setList, 0, nwavesTo)
-	
-	NMSetsDataNew() // create next Set_Data wave
-	
-	UpdateNM(0)
-	
-	return 0
+	DoAlert 0, "Alert: NMFolderAppendWaves has been deprecated."
 
 End // NMFolderAppendWaves
 
@@ -1671,19 +1584,10 @@ Function /S FolderNameCreate(file) // create a folder name based on a given file
 	file = FileExtCheck(file, ".*", 0) // remove extension if it exists
 	
 	if (numtype(str2num(file[0,0])) == 0)
-		file = "f" + file // begin file name with "f", if name begins with number
+		file = "nm_" + file // begin file name with "nm_" if name begins with number
 	endif
 	
-	for (icnt = 0; icnt < strlen(file); icnt += 1)
-		strswitch(file[icnt,icnt])
-			case " ":
-			case ".":
-			case "#":
-			case "-":
-				file[icnt,icnt] = "_" // replace with underline
-				break
-		endswitch
-	endfor
+	file = CheckFolderNameChar(file)
 	
 	return file
 
@@ -1699,7 +1603,7 @@ Function /S FolderNameNext(folder) // return next unused folder name
 	Variable fcnt
 	
 	if (strlen(folder) == 0)
-		folder = "folder"
+		folder = StrVarOrDefault(NMDF()+"FolderPrefix", "nm") + "_folder"
 	endif
 	
 	Variable seqnum = SeqNumFind(folder)
@@ -1741,13 +1645,15 @@ Function /S CheckFolderName(df) // if folder exists, request new folder name
 	String folder = GetPathName(df, 0)
 	String lastname, savename = folder
 	
+	folder = CheckFolderNameChar(folder)
+	
 	do // test whether data folder already exists
 	
 		if (DataFolderExists(path+folder) == 1)
 			
 			lastname = folder
 			folder = savename + "_" + num2str(icnt)
-			Prompt folder, "folder \"" + lastname + "\" already exists, please enter new folder name:"
+			Prompt folder, "Folder \"" + lastname + "\" already exists! Please enter a different folder name:"
 			DoPrompt "Folder Name Conflict", folder
 			
 			if (V_flag == 1)
@@ -1763,6 +1669,39 @@ Function /S CheckFolderName(df) // if folder exists, request new folder name
 	return path+folder
 
 End // CheckFolderName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S CheckFolderNameChar(name)
+	String name
+	
+	Variable icnt, ascii
+	
+	for (icnt = 0; icnt < strlen(name); icnt += 1)
+	
+		ascii = char2num(name[icnt,icnt])
+		
+		if ((ascii < 48) || ((ascii > 57) && (ascii < 65)) || ((ascii > 90) && (ascii < 97)) || (ascii > 127))
+			name[icnt,icnt] = "_" // replace with underline
+		endif
+		
+	endfor
+	
+	name = ReplaceString("__", name, "_")
+	name = ReplaceString("__", name, "_")
+	name = ReplaceString("__", name, "_")
+	
+	icnt = strlen(name) - 1
+	
+	if (StringMatch(name[icnt, icnt], "_") == 1)
+		name = name[0, icnt - 1]
+	endif
+	
+	return name
+
+End // CheckFolderNameChar
 
 //****************************************************************
 //****************************************************************
@@ -1803,7 +1742,7 @@ End // LastPathColon
 
 Function /S GetPathName(fullpath, option)
 	String fullpath // full-path name (i.e. "root:folder0")
-	Variable option // (0) return string containing folder or variable name (i.e. "folder0") (1) returns string containing path (i.e. "root:")
+	Variable option // (0) return string containing folder or variable name (i.e. "Folder0") (1) returns string containing path (i.e. "root:")
 	
 	Variable icnt
 	

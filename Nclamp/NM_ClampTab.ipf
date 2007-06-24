@@ -1,13 +1,13 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Clamp Tab Control // Stim Pulse Gen Functions
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
@@ -20,7 +20,7 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 03 March 2006
+//	Last modified 9 April 2007
 //
 //****************************************************************
 //****************************************************************
@@ -51,7 +51,9 @@ End // ClampTabEnable
 //****************************************************************
 
 Function /S ClampTabDF() // full-path name of TabObjects folder
+
 	return ClampDF() + "TabObjects:"
+	
 End // ClampTabDF
 
 //****************************************************************
@@ -85,6 +87,7 @@ Function CheckClampTab() // declare Clamp Tab global variables
 	
 	CheckNMvar(tdf+"CurrentTab", 0)
 	CheckNMvar(tdf+"StatsOn", 0)
+	CheckNMvar(tdf+"SpikeOn", 0)
 	
 	// tau tab
 	
@@ -155,6 +158,10 @@ Function ClampTabMake()
 		return 0 // tab controls exist, return here
 	endif
 	
+	if (WinType("NMPanel") != 7)
+		return -1
+	endif
+	
 	DoWindow /F NMPanel
 	
 	x0 = 20; y0 = 190; yinc = 40
@@ -164,11 +171,14 @@ Function ClampTabMake()
 	
 	PopupMenu CT_StimList, pos={x0+215,y0}, size={0,0}, bodyWidth=170, mode=1, value=" ", proc=StimListPopup
 	
-	Checkbox CT_StimCheck, pos={x0+225,y0+4}, title="chain", size={10,20}
-	Checkbox CT_StimCheck, value=0, proc=ClampCheckBox
+	Checkbox CT_ChainCheck, pos={x0+225,y0+4}, title="chain", size={10,20}
+	Checkbox CT_ChainCheck, value=0, proc=ClampCheckBox
 	
-	Checkbox CT_StatsCheck, pos={x0+225,y0+yinc}, title="stats", size={10,20}
+	Checkbox CT_StatsCheck, pos={x0+225,y0+30}, title="stats", size={10,20}
 	Checkbox CT_StatsCheck, value=0, proc=ClampCheckBox
+	
+	Checkbox CT_SpikeCheck, pos={x0+225,y0+56}, title="spike", size={10,20}
+	Checkbox CT_SpikeCheck, value=0, proc=ClampCheckBox
 	
 	Button CT_Note, title="Note", pos={x0,y0+yinc}, size={45,20}, proc=ClampButton
 	Button CT_StartPreview, title="Preview", pos={x0+60,y0+yinc}, size={65,20}, proc=ClampButton
@@ -199,7 +209,7 @@ Function ClampTabMake()
 	
 	Button CT0_NewCell, title="+", pos={x0+225,y0+1*yinc-2}, size={20,20}, proc=ClampButton
 	
-	SetVariable CT0_StimNameSet, title= "stim tag", pos={x0+xinc,y0+2*yinc}, size={125,50}
+	SetVariable CT0_StimNameSet, title= "suffix", pos={x0+xinc,y0+2*yinc}, size={125,50}
 	SetVariable CT0_StimNameSet, value=$(cdf+"StimTag"), proc=ClampSetVariable
 	
 	SetVariable CT0_FileSeqSet, title= "seq", pos={x0+150,y0+2*yinc}, size={65,50}
@@ -358,7 +368,7 @@ Function ClampTabMake()
 	
 	x0 = 30; y0 = 460; yinc = 40
 	
-	Checkbox CT5_Display, pos={x0+80,y0+yinc}, title="auto graph", size={10,20}
+	Checkbox CT5_Display, pos={x0+80,y0+yinc}, title="auto plot", size={10,20}
 	Checkbox CT5_Display, value=1, proc=PulseCheckBox, disable=1
 	
 	Checkbox CT5_PulseOff, pos={x0+80,y0+2*yinc}, title="use \"my\" waves", size={10,20}, proc=PulseCheckBox
@@ -384,15 +394,16 @@ Function ClampTabUpdate()
 	
 	StimCurrentCheck()
 	
-	String flist = NMFolderList(cdf,"NMStim")
+	String flist = StimList()
 	String CurrentStim = StimCurrent()
 	
 	Variable slct = WhichListItemLax(CurrentStim, flist, ";") + 1
 	
-	PopupMenu CT_StimList, win=NMPanel, mode=slct, value=NMFolderList(ClampDF(),"NMStim")
+	PopupMenu CT_StimList, win=NMPanel, mode=slct, value=StimList()
 	
-	Checkbox CT_StimCheck, win=NMPanel, value=StimChainOn()
+	Checkbox CT_ChainCheck, win=NMPanel, value=StimChainOn()
 	Checkbox CT_StatsCheck, win=NMPanel, value=StimStatsOn()
+	Checkbox CT_SpikeCheck, win=NMPanel, value=StimSpikeOn()
 	
 	Variable CurrentTab = NumVarOrDefault(tdf+"CurrentTab", 0)
 	
@@ -432,8 +443,9 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 	
 	Variable new, ask, stimexists
 	
-	String slist, sname = "", newname = ""
-	String gdf, cdf = ClampDF(), sdf = StimDF()
+	String sname = "", newname = ""
+	String gdf, df = StimParent(), sdf = StimDF()
+	String slist = StimList()
 	
 	String currentStim = StimCurrent()
 	String currentFile = StrVarOrDefault(sdf+"CurrentFile", "")
@@ -446,7 +458,7 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 		
 		case "New":
 		
-			sname = StimNew(cdf, "")
+			sname = StimNew(df, "")
 			
 			if (strlen(sname) == 0)
 				return 0
@@ -458,7 +470,7 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 			
 		case "Open":
 		
-			sname = StimOpen(1, cdf, "") // open with dialogue
+			sname = StimOpen(1, df, "") // open with dialogue
 			
 			if (strlen(sname) == 0)
 				return 0
@@ -468,8 +480,8 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 			
 		case "Reload":
 			
-			StimClose(cdf, currentStim)
-			sname = StimOpen(0, cdf, currentFile) // open without dialogue
+			StimClose(df, currentStim)
+			sname = StimOpen(0, df, currentFile) // open without dialogue
 			
 			if (strlen(sname) == 0)
 				return 0
@@ -478,7 +490,7 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 			break
 			
 		case "Open All":
-			StimOpenAll(1, cdf, "StimPath")
+			StimOpenAll(1, df, "StimPath")
 			break
 			
 		case "Save As":
@@ -491,12 +503,13 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 			endif
 			
 			if (StimStatsOn() == 1)
-				ClampStatsSave(sdf)
+				ClampStatsSaveToStim()
+				ClampStatsDisplaySavePosition()
 			endif
 			
 			ClampGraphsCopy(-1, 1)
 			
-			sname = StimSave(ask, new, cdf, currentStim)
+			sname = StimSave(ask, new, df, currentStim)
 			
 			if (strlen(sname) == 0)
 				return 0 // cancel
@@ -511,8 +524,6 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 			break
 			
 		case "Save All":
-		
-			slist = NMFolderList(cdf,"NMStim")
 			
 			if (ItemsInList(slist) == 0)
 				return 0
@@ -525,26 +536,25 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 			endif
 			
 			if (StimStatsOn() == 1)
-				ClampStatsSave(StimDF())
+				ClampStatsSaveToStim()
 			endif
 			
 			ClampGraphsCopy(-1, 1)
 			
-			StimSaveList(ask, new, cdf, slist)
+			StimSaveList(ask, new, df, slist)
 		
 			break
 			
 		case "Close":
 		case "Kill":
 			
-			slist = NMFolderList(cdf,"NMStim")
 			slist = RemoveFromList(currentStim, slist)
 			
 			if (strlen(CurrentStim) == 0)
 				return 0
 			endif
 			
-			if (StimClose(cdf, currentStim) == -1)
+			if (StimClose(df, currentStim) == -1)
 				break
 			endif
 				
@@ -559,13 +569,11 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 		case "Close All":
 		case "Kill All":
 			
-			slist = NMFolderList(cdf,"NMStim")
-			
 			if (ItemsInList(slist) == 0)
 				return 0
 			endif
 			
-			StimClose(cdf, slist)
+			StimClose(df, slist)
 			
 			ClampTabUpdate()
 			
@@ -586,7 +594,7 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 				return 0 // cancel
 			endif
 			
-			StimCopy(cdf, currentStim, sname)
+			StimCopy(df, currentStim, sname)
 			StimSetCurrent(sname)
 			
 			break
@@ -608,7 +616,7 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 			
 			sname = FolderNameCreate(sname)
 			
-			if (StimRename(cdf, currentStim, sname) == 0)
+			if (StimRename(df, currentStim, sname) == 0)
 				StimSetCurrent(sname)
 			endif
 			
@@ -617,7 +625,6 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 		case "Retrieve":
 		
 			gdf = GetDataFolder(1)
-			slist = NMFolderList(gdf,"NMStim")
 			
 			if (ItemsInList(slist) == 0)
 				DoAlert 0, "No Stim folder located in current data folder \"" + GetDataFolder(0) + "\""
@@ -631,12 +638,12 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 				return 0 // cancel
 			endif
 			
-			newname = CheckFolderName(cdf+sname)
+			newname = CheckFolderName(df+sname)
 			
 			DuplicateDataFolder $(gdf + sname), $newname
 			SetNMvar(newname+":StatsOn", 0) // make sure stats is OFF when retrieving
 			StimSetCurrent(GetPathName(newname, 0))
-			StimWavesUpdate(1)
+			StimWavesCheck(StimDF(), 0)
 			
 			break
 			
@@ -650,7 +657,7 @@ Function StimMenu(ctrlName, popNum, popStr) : PopupMenuControl
 		
 	endswitch
 	
-	PulseWavesUpdate(-1, 0)
+	PulseWavesUpdate()
 	PulseGraph(0)
 	PulseTableManager(0)
 	
@@ -665,13 +672,13 @@ Function StimListPopup(ctrlName, popNum, popStr) : PopupMenuControl
 	
 	ClampError("")
 	
-	String cdf = ClampDF(), tdf = ClampTabDF()
+	String tdf = ClampTabDF()
 	
 	Variable tab = NumVarOrDefault(tdf+"CurrentTab", 0)
 	
 	ClampGraphsCopy(-1, 1) // save Chan graphs configs before changing
 	StimSetCurrent(popStr)
-	PulseWavesUpdate(-1, 0)
+	PulseWavesUpdate()
 	PulseGraph(0)
 	PulseTableManager(0)
 	
@@ -705,7 +712,7 @@ Function OpenStimListSet()
 	String openList = StrVarOrDefault(cdf+"OpenStimList", "")
 	
 	//if (strlen(openList) == 0)
-		openList = NMFolderList(ClampDF(),"NMStim")
+		openList = StimList()
 	//endif
 	
 	Prompt openList, "list of stim files to open when starting Nclamp:"
@@ -745,7 +752,7 @@ Function ClampCheckBox(ctrlName, checked) : CheckBoxControl
 	
 	strswitch(ctrlName)
 	
-		case "CT_StimCheck":
+		case "CT_ChainCheck":
 			SetNMvar(sdf+"AcqStimChain", checked)
 			if (checked == 1)
 				StimChainEdit()
@@ -755,7 +762,10 @@ Function ClampCheckBox(ctrlName, checked) : CheckBoxControl
 			break
 			
 		case "CT_StatsCheck":
-			return ClampStats(checked)
+			return ClampStatsOn(checked)
+			
+		case "CT_SpikeCheck":
+			return ClampSpikeOn(checked)
 			
 	endswitch
 	
@@ -831,7 +841,7 @@ Function ClampTabControl(name, tab)
 	
 	String CurrentStim = StimCurrent()
 	
-	if ((IsStimFolder(cdf, CurrentStim) == 0) && (tab > 0))
+	if ((IsStimFolder(StimParent(), CurrentStim) == 0) && (tab > 0))
 		DoWindow /K PG_PulseGraph
 		tab = 0
 	endif
@@ -1069,7 +1079,7 @@ Function ClampSetVariable(ctrlName, varNum, varStr, varName) : SetVariableContro
 			if (strlen(varStr) == 0)
 				SetNMStr(cdf+"FolderPrefix", ClampDateName())
 			else
-				SetNMStr(cdf+"UserFolderPrefix", varStr)
+				SetNMStr(cdf+"FolderPrefix", varStr)
 				SetNMvar(cdf+"DataFileCell", 0)
 				ClampDataFolderSeqReset()
 			endif
@@ -1308,7 +1318,7 @@ Function StimSetTau(ctrlName, varNum, varStr, varName) : SetVariableControl
 	
 	ClampError("")
 	
-	Variable inter, updatestim = 1, updateNM
+	Variable inter, update = 1, updateNM
 	String sdf = StimDF(), tdf = ClampTabDF()
 	
 	Variable NumStimWaves = NumVarOrDefault(tdf+"NumStimWaves", 0)
@@ -1330,7 +1340,7 @@ Function StimSetTau(ctrlName, varNum, varStr, varName) : SetVariableControl
 			break
 		
 		case "StimRate":
-			updatestim = 0
+			update = 0
 			inter =  (1000 / varNum) - WaveLength
 			if (inter > 0)
 				SetNMvar(tdf+"InterStimTime", inter)
@@ -1340,7 +1350,7 @@ Function StimSetTau(ctrlName, varNum, varStr, varName) : SetVariableControl
 			break
 			
 		case "RepRate":
-			updatestim = 0
+			update = 0
 			inter = (1000 / varNum) - NumStimWaves * (WaveLength + InterStimTime)
 			if (inter > 0)
 				SetNMVar(tdf+"InterRepTime", inter)
@@ -1352,16 +1362,15 @@ Function StimSetTau(ctrlName, varNum, varStr, varName) : SetVariableControl
 		case "InterStimTime":
 		case "InterRepTime":
 		case "NumStimReps":
-			updatestim = 0
+			update = 0
 			break
 			
 	endswitch
 	
 	StimCheckTau()
 	
-	if (updatestim == 1)
-		SetNMvar(sdf+"UpdateStim", 1)
-		PulseWavesUpdate(-1, 0)
+	if (update == 1)
+		PulseWavesUpdate()
 		PulseGraph(0)
 	endif
 	
@@ -1457,7 +1466,7 @@ Function ADC(enable) // stim ADC input configure tab
 	
 	String CurrentStim = StimCurrent()
 	
-	if ((enable == 1) && (IsStimFolder(cdf, CurrentStim) == 1))
+	if ((enable == 1) && (IsStimFolder(StimParent(), CurrentStim) == 1))
 	
 		Variable config = NumVarOrDefault(tdf+"IOnum", 0)
 	
@@ -1757,7 +1766,7 @@ Function OutEnable(io, enable) // stim DAC output configure tab
 			return -1
 	endswitch
 	
-	if ((enable == 1) && (IsStimFolder(cdf, CurrentStim) == 1))
+	if ((enable == 1) && (IsStimFolder(StimParent(), CurrentStim) == 1))
 	
 		Variable config = NumVarOrDefault(tdf+"IOnum", 0)
 	
@@ -1918,11 +1927,9 @@ Function StimActivate(io, config, activate)
 		
 		if (activate == 0)
 			StimWavesKill(sdf, wPrefix)
-			StimWavesKill(tdf, wPrefix)
 		else//if (ioWave[config] == 0)
 			PulseWaveCheck(io, config)
-			PulseWavesUpdate(0, 0) // this creates waves
-			SetNMvar(sdf+"UpdateStim", 1)
+			PulseWavesUpdate() // this creates waves
 		endif
 		
 	endif
@@ -1951,6 +1958,8 @@ End // PulseTableButton
 Function StimBoardPopup(ctrlName, popNum, popStr) : PopupMenuControl
 	String ctrlName; Variable popNum; String popStr
 	
+	Variable update = 0
+	
 	ClampError("")
 	
 	String tdf = ClampTabDF(), sdf = StimDF()
@@ -1966,13 +1975,17 @@ Function StimBoardPopup(ctrlName, popNum, popStr) : PopupMenuControl
 		
 		Case "DAC":
 		Case "TTL":
-			SetNMvar(sdf+"UpdateStim", 1)
+			update = 1
 		Case "ADC":
 			Wave board = $(sdf+io+"board")
 			board[config] = ClampBoardNum(popStr)
 			StimCheckChannels()
 			break
 	endswitch
+	
+	if (update == 1)
+		PulseWavesUpdate()
+	endif
 	
 	Execute /Z io + "(1)" // update tab
 
@@ -2054,10 +2067,6 @@ Function StimSetVar(ctrlName, varNum, varStr, varName) : SetVariableControl
 			break
 			
 		case "IOscale":
-		
-			if (StringMatch(io, "ADC") == 0)
-				SetNMvar(sdf+"UpdateStim", 1)
-			endif
 			
 			if ((numtype(varNum) > 0) || (varNum <= 0))
 				varNum = 1
@@ -2069,6 +2078,8 @@ Function StimSetVar(ctrlName, varNum, varStr, varName) : SetVariableControl
 				Wave scale = $wname
 				scale[config] = varNum
 			endif
+			
+			PulseWavesUpdate()
 			
 			break
 			
@@ -2208,7 +2219,7 @@ Function PG(enable) // stim pulse generator tab
 	
 	String CurrentStim = StimCurrent()
 	
-	if ((enable == 1) && (IsStimFolder(cdf, CurrentStim) == 1))
+	if ((enable == 1) && (IsStimFolder(StimParent(), CurrentStim) == 1))
 		
 		wPrefix = StrVarOrDefault(tdf+"PulsePrefix", "")
 		wlist = StimPrefixListAll(sdf)
@@ -2340,8 +2351,7 @@ Function PulseButton(ctrlName) : ButtonControl
 			
 	endswitch
 	
-	PulseWavesUpdate(0, 0)
-	SetNMvar(StimDF()+"UpdateStim", 1)
+	PulseWavesUpdate()
 	
 	PG(1)
 
@@ -2376,9 +2386,14 @@ Function PulseCheckBox(ctrlName, checked) : CheckBoxControl
 			SetNMvar(tdf+"PulseAllWaves", checked)
 			break
 			
+		case "CT5_AutoScale":
+			SetNMvar(tdf+"PulseAutoScale", checked)
+			PulseGraphAxesSave()
+			break
+			
 	endswitch
 	
-	PulseGraph(1)
+	//PulseGraph(1)
 	PG(1)
 	
 End // PulseCheckBox
@@ -3071,6 +3086,16 @@ End // PulseConfigCheck
 //****************************************************************
 //****************************************************************
 
+Function /S PulseGraphName()
+
+	return "PG_PulseGraph"
+
+End // PulseGraphName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function PulseGraph(force)
 	Variable force
 	
@@ -3084,7 +3109,7 @@ Function PulseGraph(force)
 
 	String tdf = ClampTabDF()
 	
-	String gName = "PG_PulseGraph"
+	String gName = PulseGraphName()
 	String gTitle = StimCurrent()
 	String Computer = StrVarOrDefault(NMDF()+"Computer", "mac")
 	
@@ -3093,9 +3118,10 @@ Function PulseGraph(force)
 	Variable tabnum = NumVarOrDefault(tdf+"CurrentTab", 0)
 	
 	Variable allout = NumVarOrDefault(tdf+"PulseAllOutputs", 0)
-	Variable allwaves = NumVarOrDefault(tdf+"PulseAllWaves",0)
-	Variable wNum = NumVarOrDefault(tdf+"PulseWaveNum",0)
-	Variable dsply = NumVarOrDefault(tdf+"PulseDisplay",1)
+	Variable allwaves = NumVarOrDefault(tdf+"PulseAllWaves", 1)
+	Variable autoscale = NumVarOrDefault(tdf+"PulseAutoScale", 1)
+	Variable wNum = NumVarOrDefault(tdf+"PulseWaveNum", 0)
+	Variable dsply = NumVarOrDefault(tdf+"PulseDisplay", 1)
 	
 	if (dsply == 0)
 		DoWindow /K $gName
@@ -3105,6 +3131,8 @@ Function PulseGraph(force)
 	if (StimChainOn() == 1)
 		return 0
 	endif
+	
+	PulseGraphAxesSave() // save axes values
 	
 	switch(tabnum) // get available DAC/TTL waves to display
 	
@@ -3122,9 +3150,7 @@ Function PulseGraph(force)
 		io = "ALL"
 	endif
 	
-	if ((force == 1) && (WinType("PG_PulseGraph") == 0))
-		PulseWavesUpdate(-1, 1) // update all display waves
-	endif
+	StimWavesCheck(sdf, 0)
 	
 	if ((force == 1) || (WinType("PG_PulseGraph") == 1))
 	
@@ -3132,63 +3158,54 @@ Function PulseGraph(force)
 			wNum = -1
 		endif
 		
-		if (StringMatch(io, "All") == 1)
-			wPrefixList = StimPrefixListAll(sdf)
-		else
-			wPrefixList = StimPrefixList(sdf, io)
-		endif
-		
 		wPrefixList = StimPrefixListAll(sdf)
 		
 		wPrefix = StrVarOrDefault(tdf+"PulsePrefix", "")
 		
-		if (WhichListItemLax(wPrefix, wPrefixList, ";") == -1) // prefix not in list, try another
-			if (ItemsInlist(wPrefixList) > 0)
-				wPrefix = StringFromList(0,wPrefixList) 
-			else
-				wPrefix = "" 
-			endif
-		endif
-		
 		if (allout == 1)
 			wPrefixList = RemoveFromList(wPrefix, wPrefixList)
 			wPrefixList = AddListItem(wPrefix, wPrefixList) // this puts current prefix first
-			wlist = StimWaveList(sdf, tdf, wPrefixList, wNum)
+			wlist = StimWaveList(sdf, wPrefixList, wNum)
 		else
-			wlist = StimWaveList(sdf, tdf, wPrefix, wNum)
+			wlist = StimWaveList(sdf, wPrefix, wNum)
 		endif
 	
 		if ((ItemsInlist(wlist) == 0) && (ItemsInlist(wPrefixList) > 0))
 			wPrefix = StringFromList(0,wPrefixList) // no waves, try another prefix
-			wlist = StimWaveList(sdf, tdf, wPrefix, wNum)
+			wlist = StimWaveList(sdf, wPrefix, wNum)
+			SetNMstr(tdf+"PulsePrefix", wPrefix)
 		endif
 		
-		SetNMstr(tdf+"PulsePrefix", wPrefix)
-
-		madeGraph = PulseGraphUpdate(tdf, wlist) // NM_PulseGen.ipf
+		wlist = PulseGraphWaveList(sdf, wlist) // convert wlist do display waves
+		
+		madeGraph = PulseGraphUpdate(sdf, wlist) // NM_PulseGen.ipf
 		
 		if (madeGraph == 1)
 		
-			ModifyGraph margin(left)=60, margin(right)=0, margin(top)=19, margin(bottom)=0
+			ModifyGraph /W=PG_PulseGraph margin(left)=60, margin(right)=0, margin(top)=19, margin(bottom)=0
 			
 			if (StringMatch(computer, "mac") == 1)
 				y0 = 3
 			endif
 			
-			Checkbox CT5_AllOutputs, pos={150,y0}, title="all outputs", size={16,18}, proc=PulseCheckBox
-			Checkbox CT5_AllOutputs, value=0
+			Checkbox CT5_AllOutputs, pos={100,y0}, title="All Outputs", size={16,18}, proc=PulseCheckBox, win=PG_PulseGraph
+			Checkbox CT5_AllOutputs, value=allout, win=PG_PulseGraph
 	
-			Checkbox CT5_AllWaves, pos={300,y0}, title="all waves", size={16,18}, proc=PulseCheckBox
-			Checkbox CT5_AllWaves, value=1
+			Checkbox CT5_AllWaves, pos={250,y0}, title="All Waves", size={16,18}, proc=PulseCheckBox, win=PG_PulseGraph
+			Checkbox CT5_AllWaves, value=1, win=PG_PulseGraph
 	
-			SetVariable CT5_WaveNum, title="wave", pos={450,y0-1}, size={80,50}, limits={0,inf,1}
-			SetVariable CT5_WaveNum, value=$(tdf+"PulseWaveNum"), proc=PulseSetVar
+			SetVariable CT5_WaveNum, title="Wave", pos={400,y0-1}, size={80,50}, limits={0,inf,1}, win=PG_PulseGraph
+			SetVariable CT5_WaveNum, value=$(tdf+"PulseWaveNum"), proc=PulseSetVar, win=PG_PulseGraph
+			
+			Checkbox CT5_AutoScale, pos={550,y0}, title="AutoScale", size={16,18}, proc=PulseCheckBox, win=PG_PulseGraph
+			Checkbox CT5_AutoScale, value=autoscale, win=PG_PulseGraph
 			
 		else
 		
-			Checkbox CT5_AllOutputs, win=PG_PulseGraph, value=NumVarOrDefault(tdf+"PulseAllOutputs", 0)
+			Checkbox CT5_AllOutputs, win=PG_PulseGraph, value=allout
 			Checkbox CT5_AllWaves, win=PG_PulseGraph, value=allwaves
 			SetVariable CT5_WaveNum, win=PG_PulseGraph, limits={0,numStimWaves-1,1}
+			Checkbox CT5_AutoScale, win=PG_PulseGraph, value=autoscale
 		
 			if (allwaves == 1)
 				SetNMvar(tdf+"PulseWaveNum", 0)
@@ -3252,6 +3269,8 @@ Function PulseGraph(force)
 			//DoWindow /F PG_PulseGraph
 		endif
 		
+		PulseGraphAxesSet()
+		
 	endif
 
 End // PulseGraph
@@ -3260,48 +3279,90 @@ End // PulseGraph
 //****************************************************************
 //****************************************************************
 
-Function PulseWavesUpdate(what, force)
-	Variable what // (0) update current output (-1) update all output waves
-	Variable force
+Function PulseGraphAxesSave()
 
-	Variable icnt, outNum, ORflag
-	String out, wprefix
+	String tdf = ClampTabDF()
+	String gName = PulseGraphName()
+		
+	if (WinType(gName) == 1)
 	
-	String sdf = StimDF(), tdf = ClampTabDF()
+		GetAxis /Q/W=$gName bottom
 	
-	String plist = StrVarOrDefault(tdf+"PulsePrefix", "")
+		SetNMvar(tdf+"Xmin", V_min)
+		SetNMvar(tdf+"Xmax", V_max)
+		
+		GetAxis /Q/W=$gName left
+		
+		SetNMvar(tdf+"Ymin", V_min)
+		SetNMvar(tdf+"Ymax", V_max)
+		
+	endif
+
+End // PulseGraphAxesSave
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function PulseGraphAxesSet()
+	
+	String tdf = ClampTabDF()
+	String gName = PulseGraphName()
+	
+	Variable autoscale = NumVarOrDefault(tdf+"PulseAutoScale", 1)
+	
+	Variable xmin = NumVarOrDefault(tdf+"Xmin", 0)
+	Variable xmax = NumVarOrDefault(tdf+"Xmax", 1)
+	Variable ymin = NumVarOrDefault(tdf+"Ymin", 0)
+	Variable ymax = NumVarOrDefault(tdf+"Ymax", 1)
+	
+	if (autoscale == 1)
+		SetAxis /W=$gName/A
+		return 0
+	endif
+	
+	SetAxis /W=$gName bottom xmin, xmax
+	SetAxis /W=$gName left ymin, ymax
+		
+End // PulseGraphAxesSet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S PulseGraphWaveList(sdf, wlist)
+	String sdf
+	String wlist
+	
+	Variable wcnt
+	String wname, dlist = ""
 	
 	Variable off = NumVarOrDefault(sdf+"PulseGenOff", 0)
 	
-	if ((WinType("PG_PulseGraph") == 0) && (force == 0))
-		return -1 // nothing to update
-	endif
+	for (wcnt = 0; wcnt < ItemsInList(wlist); wcnt += 1)
 	
-	if (what == -1)
-		plist = StimPrefixListAll(sdf)
-		StimWavesKill(tdf, plist) // kill all waves first
-	endif
-	
-	for (icnt = 0; icnt < ItemsInList(plist); icnt += 1)
-	
-		wprefix = StringFromList(icnt, plist)
-		out = wprefix[0,2]
-		outNum = str2num(wprefix[4,inf])
+		wname = StringFromList(wcnt, wlist)
 		
-		if (StringMatch(out, "TTL") == 1)
-			ORflag = 1
+		if (off == 1)
+			dlist = AddListItem("My"+wname, dlist) // display "My" waves (MyDAC, MyTTL)
 		else
-			ORflag = 0
+			dlist = AddListItem("u"+wname, dlist) // display unscaled waves (uDAC, uTTL)
 		endif
-		
-		if (off == 0)
-			PulseCloneUpdate(wPrefix)
-		endif
-		
-		StimWavesMake(sdf, tdf, out, outNum, 1, ORflag)
 		
 	endfor
+	
+	return dlist
+	
+End // PulseGraphWaveList
 
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function PulseWavesUpdate()
+
+	StimWavesCheck(StimDF(), 1) // create new waves
+	
 End // PulseWavesUpdate
 
 //****************************************************************
@@ -3345,33 +3406,6 @@ Function PulseWaveCheck(io, config)
 	return 0
 	
 End // PulseWaveCheck
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function PulseCloneUpdate(wPrefix)
-	String wPrefix
-	
-	String cdf = ClampDF(), sdf = StimDF(), tdf = ClampTabDF()
-	
-	String wname1 = PulseWaveName(sdf, wPrefix)
-	String wname2 = PulseWaveName(tdf, wPrefix)
-	
-	if (WaveExists($wname1) == 1)
-		Duplicate /O $wname1, $wname2
-	elseif (WaveExists($wname2) == 1)
-		Redimension /N=0 $wname2
-	endif
-	
-	String userpulse = StrVarOrDefault(sdf+"UserPulseName", "")
-	
-	if ((strlen(userpulse) > 0) && (WaveExists($(sdf+userpulse)) == 1))
-		SetNMstr(tdf+"UserPulseName", userpulse)
-		Duplicate /O $(sdf+userpulse), $(tdf+userpulse)
-	endif
-
-End // PulseCloneUpdate
 
 //****************************************************************
 //****************************************************************
@@ -3474,8 +3508,7 @@ Function PulseTableHook(infoStr)
 		case "deactivate":
 		case "kill":
 			PulseTableManager(2)
-			PulseWavesUpdate(0, 0)
-			SetNMvar(StimDF()+"UpdateStim", 1)
+			PulseWavesUpdate()
 	endswitch
 
 End // PulseTableHook

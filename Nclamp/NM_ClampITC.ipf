@@ -1,13 +1,13 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Clamp ITC Acquisition Functions (ITC16/ITC18)
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
@@ -20,7 +20,7 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 26 April 2005
+//	Last modified 25 Feb 2007
 //
 //****************************************************************
 //****************************************************************
@@ -258,9 +258,9 @@ Function ITCAcqPrecise(mode, savewhen)
 	
 	// now do normal acquisition
 	
-	outName = cdf + "ITCoutWave0"
-	inName = cdf + "ITCinWave0"
-	saveName = cdf + "ITCinWave0"
+	outName = sdf + "ITCoutWave0"
+	inName = sdf + "ITCinWave0"
+	saveName = sdf + "ITCinWave0"
 	
 	alist = ADClist[0]
 	
@@ -274,7 +274,7 @@ Function ITCAcqPrecise(mode, savewhen)
 	if ((NumStimWaves == 1) && (NumStimReps > 1))
 		// must have more than one input wave
 		// so create a copy and flip back and forth
-		Duplicate /O savetemp $(cdf+"ITCinWave")
+		Duplicate /O savetemp $(sdf+"ITCinWave")
 		flip = 1 
 	endif
 	
@@ -321,7 +321,7 @@ Function ITCAcqPrecise(mode, savewhen)
 				stimcnt = 0
 			endif
 			
-			outName = cdf + "ITCoutWave" + num2str(stimcnt)
+			outName = sdf + "ITCoutWave" + num2str(stimcnt)
 			
 			outpnts = numpnts($outName)
 			
@@ -357,7 +357,7 @@ Function ITCAcqPrecise(mode, savewhen)
 				stimcnt = 0
 			endif
 			
-			outName = cdf + "ITCoutWave" + num2str(stimcnt)
+			outName = sdf + "ITCoutWave" + num2str(stimcnt)
 			outpnts = numpnts($outName)
 			
 		endif
@@ -381,10 +381,10 @@ Function ITCAcqPrecise(mode, savewhen)
 			endif
 			
 			if ((flip == 0) || (flipread == 1))
-				inName = cdf + "ITCinWave"+ num2str(sampcnt)
+				inName = sdf + "ITCinWave"+ num2str(sampcnt)
 				flipread = 0
 			else
-				inName = cdf + "ITCinWave" 
+				inName = sdf + "ITCinWave" 
 				flipread = 1
 			endif
 			
@@ -458,10 +458,10 @@ Function ITCAcqPrecise(mode, savewhen)
 			endif
 			
 			if ((flip == 0) || (flipsave == 1))
-				saveName = cdf + "ITCinWave" + num2str(savecnt)
+				saveName = sdf + "ITCinWave" + num2str(savecnt)
 				flipsave = 0
 			else
-				saveName = cdf + "ITCinWave"
+				saveName = sdf + "ITCinWave"
 				flipsave = 1
 			endif
 			
@@ -514,10 +514,11 @@ Function ITCAcqPrecise(mode, savewhen)
 	endif
 	
 	for (wcnt = 0; wcnt < NumStimWaves; wcnt += 1)
-		KillWaves /Z $(cdf+"ITCoutWave"+num2str(wcnt)), $(cdf+"ITCinWave"+num2str(wcnt))
+		//KillWaves /Z $(sdf+"ITCoutWave"+num2str(wcnt))
+		KillWaves /Z $(sdf+"ITCinWave"+num2str(wcnt))
 	endfor
 	
-	KillWaves /Z $(cdf+"ITCinWave"), $(cdf+"ITCmix"), $(cdf+"ITCTTLOUT")
+	KillWaves /Z $(sdf+"ITCinWave"), $(sdf+"ITCmix"), $(sdf+"ITCTTLOUT")
 	
 	ClampAcquireFinish(mode, savewhen)
 
@@ -673,8 +674,8 @@ Function ITCAcqLong(mode, savewhen)
 
 		for (wcnt = 0; wcnt < NumStimWaves; wcnt += 1) // loop thru stims
 			
-			outName = cdf + "ITCoutWave" + num2str(wcnt)
-			inName = cdf + "ITCinWave"+ num2str(wcnt)
+			outName = sdf + "ITCoutWave" + num2str(wcnt)
+			inName = sdf + "ITCinWave"+ num2str(wcnt)
 			alist = ADClist[wcnt]
 			dlist = DAClist[wcnt]
 			
@@ -796,10 +797,11 @@ Function ITCAcqLong(mode, savewhen)
 	Execute aboard + "stopacq"
 	
 	for (wcnt = 0; wcnt < NumStimWaves; wcnt += 1)
-		KillWaves /Z $(cdf+"ITCoutWave"+num2str(wcnt)), $(cdf+"ITCinWave"+num2str(wcnt))
+		//KillWaves /Z $(sdf+"ITCoutWave"+num2str(wcnt))
+		KillWaves /Z $(sdf+"ITCinWave"+num2str(wcnt))
 	endfor
 	
-	KillWaves /Z $(cdf+"ITCinWave"), $(cdf+"ITCmix"), $(cdf+"ITCTTLOUT")
+	KillWaves /Z $(sdf+"ITCinWave"), $(sdf+"ITCmix"), $(sdf+"ITCTTLOUT")
 	
 	ClampAcquireFinish(mode, savewhen)
 
@@ -901,7 +903,7 @@ Function ITCread(chan, gain, npnts)
 	
 	Variable garbage = 15
 	
-	Make /O/N=(npnts+garbage) CT_ITCread = 0
+	Make /O/N=(npnts+garbage) CT_ITCread = Nan
 	
 	//Execute aboard + "Reset"
 	
@@ -927,6 +929,8 @@ Function ITCread(chan, gain, npnts)
 	CT_ITCread /= (32768 / ITCrange(gain)) // convert to volts
 	
 	CT_ITCread[0,garbage-1] = Nan
+	
+	CT_ITCread = Zero2Nan(CT_ITCread) // remove possible 0's
 	
 	WaveStats /Q CT_ITCread
 	
@@ -1195,7 +1199,7 @@ End // ITCseqStr
 //****************************************************************
 //****************************************************************
 
-Function /T ITCextendList(list, extend2, listType)
+Function /S ITCextendList(list, extend2, listType)
 	String list
 	Variable extend2
 	Variable listType // (0) string list "0121" (1) item list "item1;item2;"
@@ -1312,34 +1316,38 @@ Function ITCmakeWaves(NumOuts, NumStimWaves, InterStimTime, NumStimReps, InterRe
 			insertN += repN
 		endif
 		
-		wname = cdf + "ITCoutWave" + num2str(wcnt)
+		wname = sdf + "ITCoutWave" + num2str(wcnt)
 		
-		switch(AcqMode)
+		if (WaveExists($wname) == 0)
 		
-			case 0: // episodic-fast
+			switch(AcqMode)
+			
+				case 0: // episodic-fast
+			
+					if (insertN >= pipe)
+						error = ITCmixWaves(wname, NumOuts, wlist, tlist, SamplesPerWave, insertN, 1, pipe) // mix output waves, shift
+					else
+						ITCError("ITC Episodic Error", "inter-wave or inter-rep time too short. Try continuous acquisition.")
+						return -1
+					endif
+					
+					break
+					
+				case 1: // continuous
+					error = ITCmixWaves(wname, NumOuts, wlist, tlist, SamplesPerWave, insertN, 1, 0) // mix output waves, no shift
+					break
+					
+				case 2: // episodic-slow
+				case 3: // triggered
+					error = ITCmixWaves(wname, NumOuts, wlist, tlist, SamplesPerWave, insertN, 1, pipe)
+					break
+					
+				default:
+					error = -1
+					
+			endswitch
 		
-				if (insertN >= pipe)
-					error = ITCmixWaves(wname, NumOuts, wlist, tlist, SamplesPerWave, insertN, 1, pipe) // mix output waves, shift
-				else
-					ITCError("ITC Episodic Error", "inter-wave or inter-rep time too short. Try continuous acquisition.")
-					return -1
-				endif
-				
-				break
-				
-			case 1: // continuous
-				error = ITCmixWaves(wname, NumOuts, wlist, tlist, SamplesPerWave, insertN, 1, 0) // mix output waves, no shift
-				break
-				
-			case 2: // episodic-slow
-			case 3: // triggered
-				error = ITCmixWaves(wname, NumOuts, wlist, tlist, SamplesPerWave, insertN, 1, pipe)
-				break
-				
-			default:
-				error = -1
-				
-		endswitch
+		endif
 		
 		if (error < 0)
 			ITCError("ITC Config Error", "mix wave error")
@@ -1350,7 +1358,7 @@ Function ITCmakeWaves(NumOuts, NumStimWaves, InterStimTime, NumStimReps, InterRe
 		
 		// make input waves
 		
-		wname = cdf + "ITCinWave" + num2str(wcnt)
+		wname = sdf + "ITCinWave" + num2str(wcnt)
 		Make /O/N=(npnts) $wname = Nan
 		
 		for (icnt = 0; icnt < ItemsInList(ADClist[wcnt]); icnt += 1)
@@ -1370,6 +1378,23 @@ Function ITCmakeWaves(NumOuts, NumStimWaves, InterStimTime, NumStimReps, InterRe
 	endfor
 
 End // ITCmakeWaves
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ITCkillWaves() // Kill ITC waves that may exist
+	
+	Variable icnt
+	String sdf = StimDF()
+	String wname, wlist = WaveListFolder(sdf, "ITC*", ";", "")
+		
+	for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
+		wname = StringFromList(icnt, wlist)
+		KillWaves /Z $(sdf+wname)
+	endfor
+
+End // ITCkillWaves
 
 //****************************************************************
 //****************************************************************
@@ -1401,20 +1426,24 @@ Function ITCmixWaves(mixwname, nmix, wlist, tlist, npnts, ipnts, mixflag, pipede
 	Variable mixflag // (1) mix (-1) unmix
 	Variable pipedelay // FIFO pipeline delay value
 
-	Variable icnt, jcnt, kcnt, allpnts, numTTL, chan, gain
+	Variable icnt, jcnt, kcnt, allpnts, numTTL, chan, gain, np
 	String item, wname
 	
-	String cdf = ClampDF()
+	String cdf = ClampDF(), sdf = StimDF()
+	
+	Variable SamplesPerWave = NumVarOrDefault(sdf+"SamplesPerWave", 0)
 	
 	numTTL = ItemsInList(tlist)
 	
-	if (mixflag == 1)
-		npnts = GetXStats("numpnts", wlist)
-	endif
+	//if (mixflag == 1)
+	//	npnts = GetXStats("numpnts", wlist)
+	//endif
 	
-	if (numtype(npnts) > 0)
-		return -1 // waves of different length
-	endif
+	//if (numtype(npnts) > 0)
+	//	return -1 // waves of different length
+	//endif
+	
+	npnts = SamplesPerWave
 	
 	if (mixflag == 1) // mix waves
 
@@ -1430,7 +1459,7 @@ Function ITCmixWaves(mixwname, nmix, wlist, tlist, npnts, ipnts, mixflag, pipede
 			chan = str2num(StringFromList(1, item, ","))
 	
 			if ((WaveExists($wname) == 0) || (chan < 0))
-				continue
+				Make /O/N=(npnts) $wname = 0
 			endif
 			
 			Wave tempWave = $wname
@@ -1448,8 +1477,8 @@ Function ITCmixWaves(mixwname, nmix, wlist, tlist, npnts, ipnts, mixflag, pipede
 		
 		if (numTTL > 0)
 		
-			Make /O/N=(npnts) $(cdf+"ITCTTLOUT") = 0
-			Wave TTLout = $(cdf+"ITCTTLOUT")
+			Make /O/N=(npnts) $(sdf+"ITCTTLOUT") = 0
+			Wave TTLout = $(sdf+"ITCTTLOUT")
 		
 			for (icnt = 0; icnt < numTTL; icnt += 1) // sum TTL output "D" together
 			
@@ -1458,7 +1487,7 @@ Function ITCmixWaves(mixwname, nmix, wlist, tlist, npnts, ipnts, mixflag, pipede
 				chan = str2num(StringFromList(1, item, ","))
 
 				if ((WaveExists($wname) == 0) || (chan < 0))
-					continue
+					Make /O/N=(npnts) $wname = 0
 				endif
 				
 				Wave tempwave = $wname
@@ -1503,9 +1532,9 @@ Function ITCmixWaves(mixwname, nmix, wlist, tlist, npnts, ipnts, mixflag, pipede
 			Rotate -pipedelay, mWave
 		endif
 		
-		Duplicate /O/R=[ipnts,ipnts+npnts*nmix-1] $mixwname $(cdf + "ITCmix")
+		Duplicate /O/R=[ipnts,ipnts+npnts*nmix-1] $mixwname $(sdf + "ITCmix")
 
-		Wave mixWave = $(cdf + "ITCmix")
+		Wave mixWave = $(sdf + "ITCmix")
 
 		for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
 		
@@ -1535,6 +1564,8 @@ Function ITCmixWaves(mixwname, nmix, wlist, tlist, npnts, ipnts, mixflag, pipede
 		endfor
 	
 	endif
+	
+	KillWaves /Z NoOutput
 	
 	return 0
 

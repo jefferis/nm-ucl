@@ -1,13 +1,13 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic MyTab Demo Tab
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
@@ -180,7 +180,8 @@ Function MyTabCall(fxn, select)
 	strswitch(fxn)
 	
 		case "Demo":
-			return NMMainLoop() // see NM_MainTab.ipf
+			NMDemoLoop() // see NM_MainTab.ipf
+			return 0
 	
 		case "Function0":
 			return MyFunction0()

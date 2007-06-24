@@ -1,13 +1,13 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	NeuroMatic Groups Functions
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
@@ -131,7 +131,7 @@ Function NMGroupsDefine() // turn on/off Group functionality
 	String seqStr
 	
 	Variable ngrps = NumVarOrDefault("NumGrps", 2)
-	Variable first = NumVarOrDefault("FirstGrp", NMCountFrom())
+	Variable first = NumVarOrDefault("FirstGrp", 0)
 	Variable from = 0
 	Variable to = npnts - 1
 	Variable blocks = 1
@@ -379,7 +379,7 @@ End // NMGroupsNum
 Function NMGroupFirstDefault()
 	String df = NMDF()
 
-	return NumVarOrDefault(df+"FirstGrp", NMCountFrom())
+	return NumVarOrDefault(df+"FirstGrp", 0)
 
 End // NMGroupFirstDefault
 

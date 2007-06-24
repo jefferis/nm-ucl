@@ -1,19 +1,20 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.91
+#pragma version = 1.98
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Spontaneous Event Detection
-//	To be run with NeuroMatic, v1.91
+//	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 22 April 2005
+//	Began 5 May 2002
+//	Last modified 25 Dec 2006
 //
 //	NM tab entry "Event"
 //
@@ -119,8 +120,8 @@ Function CheckEvent()
 	CheckNMvar(df+"BaseWin", 2)					// baseline avg window (ms)
 	CheckNMvar(df+"BaseDT", 2)					// time between mid-baseline and thresh crossing (ms)
 	
-	CheckNMvar(df+"ThreshX", 0)
-	CheckNMvar(df+"ThreshY", 0)					// threshold/level x-y points
+	CheckNMvar(df+"ThreshX", Nan)
+	CheckNMvar(df+"ThreshY", Nan)				// threshold/level x-y points
 	
 	CheckNMvar(df+"MatchFlag", 0)				// match template flag
 	CheckNMvar(df+"MatchTau1", 2)				// template time constant
@@ -276,7 +277,7 @@ Function UpdateEventTab() // update event tab display
 	Variable tbgn = EventSearchBgn()
 	Variable tend = EventSearchEnd()
 	
-	String dname = CurrentChanDisplayWave()
+	String dname = ChanDisplayWave(-1)
 	
 	if (WaveExists($EventName("ThreshT", TableNum)) == 0)
 		TableNum = -1
@@ -389,7 +390,7 @@ Function EventSearchBgn()
 	Variable t = NumVarOrDefault(EventDF()+"SearchBgn", -inf)
 
 	if (numtype(t) > 0)
-		t = leftx($CurrentChanDisplayWave())
+		t = leftx($ChanDisplayWave(-1))
 	endif
 	
 	return t
@@ -405,7 +406,7 @@ Function EventSearchEnd()
 	Variable t = NumVarOrDefault(EventDF()+"SearchEnd", inf)
 
 	if (numtype(t) > 0)
-		t = rightx($CurrentChanDisplayWave())
+		t = rightx($ChanDisplayWave(-1))
 	endif
 	
 	return t
@@ -434,6 +435,8 @@ Function EventSearchCall(func)
 	
 	Variable event = EventFindSaved(EventName("WaveN", -1), df+"EV_ThreshT", ThreshX, 0.01, CurrentWave)
 	
+	Variable findHistory = EventSetValue(-1)
+	
 	if (event < 0) // no event time found
 	
 		if (EventNum == numpnts(ThreshT) - 1)
@@ -451,9 +454,13 @@ Function EventSearchCall(func)
 		case "Next":
 		
 			//NMCmdHistory("EventFindNext", "")
-		
-			if (EventFindNext(1) == -1)
+			
+			if (numtype(findHistory) == 0)
+				
+			elseif (EventFindNext(1) == -1)
+			
 				DoAlert 0, "Found no more events."
+				
 			endif
 			
 			break
@@ -584,7 +591,7 @@ Function EventCheckBox(ctrlName, checked) : CheckBoxControl
 	NVAR MatchFlag = $(df+"MatchFlag")
 	NVAR SearchMethod = $(df+"SearchMethod")
 	
-	String dname = CurrentChanDisplayWave()
+	String dname = ChanDisplayWave(-1)
 
 	strswitch(ctrlName)
 	
@@ -731,6 +738,7 @@ End // EventPopupSearch
 Function EventPopupTable(ctrlName, popNum, popStr) : PopupMenuControl
 	String ctrlName; Variable popNum; String popStr
 	
+	Variable ipnt
 	String df = EventDF()
 	
 	Variable tnum
@@ -748,7 +756,8 @@ Function EventPopupTable(ctrlName, popNum, popStr) : PopupMenuControl
 			break
 			
 		default:
-			tnum = str2num(popStr[10,10])
+			ipnt = strlen(popStr)
+			tnum = str2num(popStr[ipnt-1,ipnt-1])
 			NMCmdHistory("EventTableSelect", NMCmdNum(tnum,""))
 			EventTableSelect(tnum)
 			break
@@ -918,13 +927,13 @@ Function EventCursors(enable) // place cursors on onset and peak times
 	NVAR DsplyWin = $(df+"DsplyWin"); NVAR ThreshX = $(df+"ThreshX")
 	NVAR OnsetX = $(df+"OnsetX"); NVAR PeakX = $(df+"PeakX")
 	
-	String gName = CurrentChanGraphName()
-	String dName = GetPathName(CurrentChanDisplayWave(), 0)
+	String gName = ChanGraphName(-1)
+	String dName = GetPathName(ChanDisplayWave(-1), 0)
 	
 	Variable tmid = ThreshX
 
-	if (numtype(tmid) > 0)
-		tmid = OnsetX
+	if ((numtype(tmid) > 0) || (tmid == 0))
+		tmid = leftx($ChanDisplayWave(-1))
 	endif
 
 	if ((enable == 1) && (WinType(gName) == 1))
@@ -1095,7 +1104,7 @@ Function EventSearchTime(t) // set current search time
 	String df = EventDF()
 	
 	if (numtype(t) > 0)
-		t = leftx($CurrentChanDisplayWave())
+		t = leftx($ChanDisplayWave(-1))
 	endif
 	
 	SetNMvar(df+"SearchTime", t)
@@ -1211,7 +1220,7 @@ Function EventFindAll(wselect, dsply) // find events until end of trace
 	Variable dsply // (0) no (1) yes, update display
 
 	Variable pflag
-	String wName, df = EventDF()
+	String wName, setName, df = EventDF()
 	
 	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
 	
@@ -1219,6 +1228,7 @@ Function EventFindAll(wselect, dsply) // find events until end of trace
 	
 	NVAR SearchTime = $(df+"SearchTime")
 	NVAR TableNum = $(df+"TableNum")
+	NVAR EventNum = $(df+"EventNum")
 	
 	Wave ThreshT = $(df+"EV_ThreshT")
 	Wave WavSelect
@@ -1229,7 +1239,7 @@ Function EventFindAll(wselect, dsply) // find events until end of trace
 	Variable savewave = CurrentWave
 	Variable savetime = SearchTime
 
-	Variable event = EventFindSaved(EventName("WaveN", -1), df+"EV_ThreshT", savetime, 0.01, CurrentWave)
+	//Variable saveEvent = EventFindSaved(EventName("WaveN", -1), df+"EV_ThreshT", savetime, 0.01, CurrentWave)
 
 	if (TableNum < 0)
 		EventTableNew()
@@ -1242,10 +1252,12 @@ Function EventFindAll(wselect, dsply) // find events until end of trace
 		wend = numpnts(WavSelect) - 1
 	endif
 	
-	DoWindow /F $CurrentChanGraphName()
+	Wave set = $EventSetName(TableNum)
 	
-	Print ""
-	Print "Auto event detection for Ch " + ChanNum2Char(CurrentChan) + " saved in Table " + num2str(TableNum)
+	DoWindow /F $ChanGraphName(-1)
+	
+	//Print ""
+	//Print "Auto event detection for Ch " + ChanNum2Char(CurrentChan) + " saved in Table " + num2str(TableNum)
 	
 	NMProgressStr("Detecting Events...")
 
@@ -1253,7 +1265,7 @@ Function EventFindAll(wselect, dsply) // find events until end of trace
 	
 		if ((wselect == 0) || ((wselect == 1) && (WavSelect[wcnt] == 1)))
 		
-			if (wselect == 1)
+			if (wselect == 1) // all waves
 				CurrentWave = wcnt
 				UpdateCurrentWave()
 				UpdateEventDisplay()
@@ -1278,16 +1290,22 @@ Function EventFindAll(wselect, dsply) // find events until end of trace
 						break
 					endif
 					
+					if (numtype(set[wcnt]) > 0)
+						set[wcnt] = EventNum // mark location of first event
+					endif
+					
 					ecnt += 1
 					
 				else
+				
 					break // no more events
+					
 				endif
 				
 			while (1)
 			
 			Print "Located " + num2str(ecnt) + " event(s) in wave " + CurrentWaveName()
-		
+			
 		endif
 		
 		if (pflag == 1) // cancel
@@ -1298,19 +1316,16 @@ Function EventFindAll(wselect, dsply) // find events until end of trace
 	
 	CallProgress(1)
 	
-	events = EventCount()
-	
 	if (pflag == 0)
 	
-		if (event == -1)
-			EventSearchTime(savetime)
-		else
-			EventRetrieve(event)
-		endif
+		//if (saveEvent == -1)
+		//	EventSearchTime(savetime)
+		//else
+		//	EventRetrieve(saveEvent)
+		//endif
 		
-		CurrentWave = savewave
-		
-		if (wbgn != wend)
+		if (CurrentWave != wbgn)
+			CurrentWave = wbgn
 			UpdateCurrentWave()
 		endif
 	
@@ -1318,9 +1333,7 @@ Function EventFindAll(wselect, dsply) // find events until end of trace
 	
 	UpdateEventTab()
 	
-	DoWindow /F $EventTableName(tablenum)
-	
-	//DoAlert 0, "Statistics for " + num2str(events) + " events saved in Table " + num2str(TableNum)
+	DoWindow /F $EventTableName(tableNum)
 
 End // EventFindAll
 
@@ -1363,7 +1376,7 @@ Function EventFindNext(dsply) // find next event
 	Wave BaseT = $(df+"EV_BaseT"); Wave BaseY = $(df+"EV_BaseY")
 	Wave ThisT = $(df+"EV_ThisT"); Wave ThisY = $(df+"EV_ThisY")
 	
-	String wName = CurrentChanDisplayWave()
+	String wName = ChanDisplayWave(-1)
 	
 	if (WaveExists($wName) == 0)
 		return 0
@@ -1731,7 +1744,7 @@ Function MatchTemplateSelect()
 	
 	if ((v1 == 1) || (v1 == 2))
 	
-		dx = deltax($CurrentChanDisplayWave())
+		dx = deltax($ChanDisplayWave(-1))
 		
 		vlist = NMCmdNum(v1, vlist)
 		vlist = NMCmdNum(v2, vlist)
@@ -1767,7 +1780,7 @@ Function /S MatchTemplateMake(fxn, tau1, tau2, base, wform, dx)
 
 	String wName = EventDF() + "TemplateWave"
 	
-	Make /O/N=((base + wform) / dx) $wName
+	Make /D/O/N=((base + wform) / dx) $wName
 	SetScale /P x, 0, dx, $wName
 	
 	Wave pulse = $wName
@@ -1884,7 +1897,9 @@ Function MatchTemplateCompute(wName, tName) // match template to wave
 	DoUpdate
 	
 	Duplicate /O $wName $(df+"EV_MatchTmplt")
-	Execute "MatchTemplate /C " + tName + " " + df+"EV_MatchTmplt"
+	
+	Execute /Z "MatchTemplate /C " + tName + " " + df+"EV_MatchTmplt"
+	Execute /Z "MatchTemplate /C " + tName + ", " + df+"EV_MatchTmplt" // NEW FORMAT
 	
 	CallProgress(1)
 	
@@ -1928,7 +1943,7 @@ Function EventRetrieve(event) // retrieve event times from wave
 	if (BaseFlag == 1) // compute baseline display
 		wbgn = ThreshX - BaseDT - BaseWin/2
 		wend = ThreshX - BaseDT + BaseWin/2
-		WaveStats /Q/R=(wbgn,wend) $CurrentChanDisplayWave()
+		WaveStats /Q/R=(wbgn,wend) $ChanDisplayWave(-1)
 		BaseY = V_avg
 		BaseT[0] = wbgn
 		BaseT[1] = wend
@@ -1988,7 +2003,7 @@ Function EventSaveCurrent(cursors) // save event times to table
 	
 	// get cursor points from graph (allows user to move onset/peak cursors)
 	
-	String gName = CurrentChanGraphName()
+	String gName = ChanGraphName(-1)
 	
 	Variable onTv = OnsetX, onYv = OnsetY, pkTv = PeakX, pkYv = PeakY
 	
@@ -2128,7 +2143,15 @@ Function EventDelete(event) // delete saved event from table/display waves
 		return -1
 	endif
 	
-	DeletePoints event2, 1, waveN, thT, thY, onT, onY, pkT, pkY, baseY
+	//DeletePoints event2, 1, waveN, thT, thY, onT, onY, pkT, pkY, baseY
+	waveN[event2] = Nan
+	thT[event2] = Nan
+	thY[event2] = Nan
+	onT[event2] = Nan
+	onY[event2] = Nan
+	pkT[event2] = Nan
+	pkY[event2] = Nan
+	baseY[event2] = Nan
 	
 	EventCount()
 	
@@ -2298,10 +2321,10 @@ End // EventTableSelect
 //****************************************************************
 //****************************************************************
 
-Function /S EventTableName(tablenum)
-	Variable tablenum
+Function /S EventTableName(tableNum)
+	Variable tableNum
 	
-	return EventName(NMFolderListName("")+"_Table", tablenum)
+	return EventName(NMFolderListName("")+"_Table", tableNum)
 
 End // EventTableName
 
@@ -2309,20 +2332,23 @@ End // EventTableName
 //****************************************************************
 //****************************************************************
 
-Function EventTable(option, tablenum) // create table of event times
+Function EventTable(option, tableNum) // create table of event times
 	String option // "make", "update", "clear" or "kill"
-	Variable tablenum // table number
+	Variable tableNum // table number
 	
 	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
+	Variable NumWaves = NumVarOrDefault("NumWaves", 0)
 	
 	String df = EventDF()
 	
-	if (tablenum == -1)
-		tablenum = 0
+	if (tableNum == -1)
+		tableNum = 0
 	endif
 	
-	String suffix = ChanNum2Char(CurrentChan) + num2str(tablenum)
-	String tName = EventTableName(tablenum)
+	String suffix = ChanNum2Char(CurrentChan) + num2str(tableNum)
+	String tName = EventTableName(tableNum)
+	
+	EventSet(option, tableNum)
 	
 	strswitch(option)
 	
@@ -2355,46 +2381,46 @@ Function EventTable(option, tablenum) // create table of event times
 	
 	endswitch 
 	
-	EventTableWave(option, "WaveN", tablenum, tName)
-	EventTableWave(option, "ThreshT", tablenum, tName)
-	EventTableWave(option, "ThreshY", tablenum, tName)
-	EventTableWave(option, "OnsetT", tablenum, tName)
-	EventTableWave(option, "OnsetY", tablenum, tName)
-	EventTableWave(option, "PeakT", tablenum, tName)
-	EventTableWave(option, "PeakY", tablenum, tName)
-	EventTableWave(option, "BaseY", tablenum, tName)
+	EventTableWave(option, "WaveN", tableNum, tName)
+	EventTableWave(option, "ThreshT", tableNum, tName)
+	EventTableWave(option, "ThreshY", tableNum, tName)
+	EventTableWave(option, "OnsetT", tableNum, tName)
+	EventTableWave(option, "OnsetY", tableNum, tName)
+	EventTableWave(option, "PeakT", tableNum, tName)
+	EventTableWave(option, "PeakY", tableNum, tName)
+	EventTableWave(option, "BaseY", tableNum, tName)
 	
 	strswitch(option)
 	
 		case "make":
 		case "update":
 	
-			EventTableWave("remove", "WaveN", tablenum, tName)
-			EventTableWave("remove", "ThreshT", tablenum, tName)
-			EventTableWave("remove", "ThreshY", tablenum, tName)
-			EventTableWave("remove", "OnsetT", tablenum, tName)
-			EventTableWave("remove", "OnsetY", tablenum, tName)
-			EventTableWave("remove", "PeakT", tablenum, tName)
-			EventTableWave("remove", "PeakY", tablenum, tName)
-			EventTableWave("remove", "BaseY", tablenum, tName)
+			EventTableWave("remove", "WaveN", tableNum, tName)
+			EventTableWave("remove", "ThreshT", tableNum, tName)
+			EventTableWave("remove", "ThreshY", tableNum, tName)
+			EventTableWave("remove", "OnsetT", tableNum, tName)
+			EventTableWave("remove", "OnsetY", tableNum, tName)
+			EventTableWave("remove", "PeakT", tableNum, tName)
+			EventTableWave("remove", "PeakY", tableNum, tName)
+			EventTableWave("remove", "BaseY", tableNum, tName)
 			
-			EventTableWave("append", "WaveN", tablenum, tName)
+			EventTableWave("append", "WaveN", tableNum, tName)
 			
-			EventTableWave("append", "ThreshT", tablenum, tName)
-			EventTableWave("append", "ThreshY", tablenum, tName)
+			EventTableWave("append", "ThreshT", tableNum, tName)
+			EventTableWave("append", "ThreshY", tableNum, tName)
 			
 			if (NumVarOrDefault(df+"OnsetFlag", 0) == 1)
-				EventTableWave("append", "OnsetT", tablenum, tName)
-				EventTableWave("append", "OnsetY", tablenum, tName)
+				EventTableWave("append", "OnsetT", tableNum, tName)
+				EventTableWave("append", "OnsetY", tableNum, tName)
 			endif
 			
 			if (NumVarOrDefault(df+"PeakFlag", 0) == 1)
-				EventTableWave("append", "PeakT", tablenum, tName)
-				EventTableWave("append", "PeakY", tablenum, tName)
+				EventTableWave("append", "PeakT", tableNum, tName)
+				EventTableWave("append", "PeakY", tableNum, tName)
 			endif
 			
 			if (NumVarOrDefault(df+"BaseFlag", 0) == 1)
-				EventTableWave("append", "BaseY", tablenum, tName)
+				EventTableWave("append", "BaseY", tableNum, tName)
 			endif
 		
 	endswitch
@@ -2405,19 +2431,19 @@ End // EventTable
 //****************************************************************
 //****************************************************************
 
-Function EventTableWave(option, wtype, tablenum, tname)
+Function EventTableWave(option, wtype, tableNum, tname)
 	String option // "make", "clear" or "kill"
 	String wtype
-	Variable tablenum
+	Variable tableNum
 	String tname
 	
-	String wName = EventName(wtype, tablenum)
+	String wName = EventName(wtype, tableNum)
 	
 	strswitch(option)
 	
 		case "make":
 			if (WaveExists($wName) == 0)
-				Make /O/N=0 $wName
+				Make /D/O/N=0 $wName
 				EventNote(wName, wtype)
 			endif
 			break
@@ -2607,10 +2633,10 @@ Function EventCount()
 	
 	String df = EventDF()
 	
-	Variable tablenum = NumVarOrDefault(df+"TableNum", -1)
+	Variable tableNum = NumVarOrDefault(df+"TableNum", -1)
 	
-	if (tablenum >= 0)
-		events = numpnts($EventName("ThreshT", tablenum))
+	if (tableNum >= 0)
+		events = numpnts($EventName("ThreshT", tableNum))
 	endif
 	
 	SetNMvar(df+"NumEvents", events)
@@ -2624,7 +2650,7 @@ End // EventCount
 //****************************************************************
 
 Function /S EventTableList()
-	Variable icnt
+	Variable icnt, ipnt
 	
 	String wName, tList = ""
 	String wList = WaveList(EventPrefix("ThreshY_*"), ";", WaveListText0())
@@ -2635,7 +2661,8 @@ Function /S EventTableList()
 	
 	for (icnt = 0; icnt < ItemsInList(wList); icnt += 1)
 		wName = StringFromList(icnt, wList)
-		tList = AddListItem("EventTable"+wName[12, strlen(wName)], tList, ";", inf)
+		ipnt = strsearch(wName, "ThreshY_", 0)
+		tList = AddListItem("Event Table "+wName[ipnt+8, strlen(wName)], tList, ";", inf)
 	endfor
 	
 	return tList
@@ -2647,7 +2674,7 @@ End // EventTableList
 //****************************************************************
 
 Function /S EventTableNumList()
-	Variable icnt
+	Variable icnt, ipnt
 	
 	String wName, tList = ""
 	String wList = WaveList(EventPrefix("ThreshY_*"), ";", WaveListText0())
@@ -2658,12 +2685,95 @@ Function /S EventTableNumList()
 	
 	for (icnt = 0; icnt < ItemsInList(wList); icnt += 1)
 		wName = StringFromList(icnt, wList)
-		tList = AddListItem(wName[12, strlen(wName)], tList, ";", inf)
+		ipnt = strsearch(wName, "ThreshY_", 0)
+		tList = AddListItem(wName[ipnt+8, strlen(wName)], tList, ";", inf)
 	endfor
 	
 	return tList
 
 End // EventTableNumList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S EventSetName(tableNum)
+	Variable tableNum // (-1) for current table
+	
+	String df = EventDF()
+	
+	if (tableNum < 0)
+		tableNum = NumVarOrDefault(df+"TableNum", -1)
+	endif
+	
+	if (tableNum >= 0)
+		return "EV_Table" + num2str(tableNum)
+	else
+		return ""
+	endif
+	
+End // EventSetName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventSetValue(waveNum)
+	Variable waveNum // (-1) for current wave
+	
+	String df = EventDF()
+	
+	if (waveNum < 0)
+		waveNum = NumVarOrDefault("CurrentWave", 0)
+	endif
+	
+	String setName = EventSetName(-1)
+	
+	if (WaveExists($setName) == 0)
+	
+		return Nan
+		
+	else
+	
+		Wave set = $setName
+		
+		if ((waveNum >= 0) && (waveNum < numpnts(set)))
+			return set[waveNum]
+		endif
+		
+	endif
+	
+	return Nan
+
+End // EventSetValue
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventSet(option, tableNum)
+	String option // "make", "clear" or "kill"
+	Variable tableNum
+	
+	String setName = EventSetName(tableNum)
+	
+	strswitch(option)
+		case "make":
+			KillWaves /Z $setName
+			NMSetsNew(setName)
+			Wave temp = $setName
+			temp = Nan
+			break
+		case "clear":
+			Wave temp = $setName
+			temp = Nan
+			break
+		case "kill":
+			KillWaves /Z $setName
+			break
+	endswitch
+	
+End // EventSet
 
 //****************************************************************
 //****************************************************************
@@ -2743,22 +2853,23 @@ End // EventRepsCount
 
 Function Event2WaveCall()
 
-	Variable tnum, ccnt, cbgn, cend
+	Variable tnum, ccnt, cbgn, cend, stopyesno = 2
 	String wName, wName2, fname, xl, yl
 	String wlist, prefix, vlist = "", df = EventDF()
 	
 	String opstr = WaveListText0()
 	
-	Variable tablenum = NumVarOrDefault(df+"TableNum", -1)
+	Variable tableNum = NumVarOrDefault(df+"TableNum", -1)
 	
 	Variable currChan = NumVarOrDefault("CurrentChan", 0)
 	Variable nChan = NumVarOrDefault("NumChannels", 1)
 	
 	String wPrefix = StrVarOrDefault("CurrentPrefix", "")
 	
-	Variable before = NumVarOrDefault(df+"E2WBefore", 2)
-	Variable after = NumVarOrDefault(df+"E2WAfter", 10)
-	String chan = StrVarOrDefault(df+"E2WChan", ChanNum2Char(currChan))
+	Variable before = NumVarOrDefault(df+"E2W_before", 2)
+	Variable after = NumVarOrDefault(df+"E2W_after", 10)
+	Variable stop = NumVarOrDefault(df+"E2W_stopAtNextEvent", 0)
+	String chan = StrVarOrDefault(df+"E2W_chan", ChanNum2Char(currChan))
 	
 	String elist = EventWaveList(-1)
 	
@@ -2769,19 +2880,28 @@ Function Event2WaveCall()
 	
 	wName = StringFromList(0, EventWaveList(TableNum))
 	
+	if (stop < 0)
+		stopyesno = 1
+	endif
+	
 	Prompt wName, "wave of event times:", popup elist
-	Prompt before, "copy data from time before event (ms):"
-	Prompt after, "copy data to time after event (ms):"
+	Prompt before, "time before event (ms):"
+	Prompt after, "time after event (ms):"
+	Prompt stopyesno, "limit data to time before next spike?", popup "no;yes;"
+	Prompt stop, "additional time to limit data before next spike (ms):"
 	Prompt prefix, "enter new prefix name:"
 	
 	if (nChan > 1)
 	
-		Prompt chan, "channel waves to copy:", popup "All;"+ChanCharList(-1, ";")
-		DoPrompt "Events to Waves", wName, before, after, chan
+		Prompt chan, "channel waves to copy:", popup "All;" + ChanCharList(-1, ";")
+		DoPrompt "Events to Waves", wName, before, after, stopyesno, chan
+		
+		cbgn = ChanChar2Num(chan)
+		cend = ChanChar2Num(chan)
 		
 	else
 	
-		DoPrompt "Events to Waves", wName, before, after
+		DoPrompt "Events to Waves", wName, before, after, stopyesno
 		
 		cbgn = currChan
 		cend = currChan
@@ -2789,12 +2909,31 @@ Function Event2WaveCall()
 	endif
 	
 	if (V_flag == 1)
-		return 0
+		return -1
 	endif
 	
-	SetNMvar(df+"E2WBefore", before)
-	SetNMvar(df+"E2WAfter", after)
-	SetNMstr(df+"E2WChan", chan)
+	if (stopyesno == 2)
+	
+		if (stop < 0)
+			stop = 0
+		endif
+		
+		DoPrompt "Events to Waves", stop
+		
+	else
+	
+		stop = -1
+		
+	endif
+	
+	if (V_flag == 1)
+		return -1
+	endif
+	
+	SetNMvar(df+"E2W_before", before)
+	SetNMvar(df+"E2W_after", after)
+	SetNMvar(df+"E2W_stopAtNextEvent", stop)
+	SetNMstr(df+"E2W_chan", chan)
 	
 	tnum = EventTableNum(wName)
 	
@@ -2815,7 +2954,7 @@ Function Event2WaveCall()
 		return -1
 	endif
 	
-	prefix = "EV_Evnt" + num2str(tnum)
+	prefix = "EV_Event" + num2str(tnum)
 	
 	if (StringMatch(chan, "All") == 1)
 		cbgn = 0
@@ -2843,7 +2982,7 @@ Function Event2WaveCall()
 				elseif (V_flag == 2)
 				
 					tnum += 1
-					prefix = "EV_Evnt" + num2str(tnum)
+					prefix = "EV_Event" + num2str(tnum)
 					
 					DoPrompt "Event to Waves", prefix
 					
@@ -2865,12 +3004,13 @@ Function Event2WaveCall()
 		vlist = NMCmdStr(wName, vlist)
 		vlist = NMCmdNum(before, vlist)
 		vlist = NMCmdNum(after, vlist)
+		vlist = NMCmdNum(stop, vlist)
 		vlist = NMCmdNum(ccnt, vlist)
 		vlist = NMCmdStr(prefix, vlist)
 		
 		NMCmdHistory("Event2Wave", vlist)
 	
-		wlist = Event2Wave(wName2, wName, before, after, ccnt, prefix)
+		wlist = Event2Wave(wName2, wName, before, after, stop, ccnt, prefix)
 		
 		if (strlen(wlist) == 0)
 			return 0
@@ -3029,12 +3169,12 @@ Function EventHisto(wName, reps, bin, winB, winE, yl)
 	
 	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
 	
-	String hName = NextWaveName(wName + "_hist", -1, NMOverWrite())
+	String hName = NextWaveName("", wName + "_hist", -1, NMOverWrite())
 	String gPrefix = wName + "_" + NMFolderPrefix("") + "PSTH"
 	String gName = NextGraphName(gPrefix, -1, 0) // no overwrite, due to long name
 	String gTitle = NMFolderListName("") + " : " + wName + " Histogram"
 	
-	Make /O/N=1 $hName
+	Make /D/O/N=1 $hName
 	
 	WaveStats /Q $wName
 	
@@ -3102,12 +3242,12 @@ Function EventHistoIntvl(wName, bin, winB, winE, isiMin, isiMax)
 		return -1
 	endif
 	
-	String hName = NextWaveName(wName + "_intvl", -1, NMOverWrite())
+	String hName = NextWaveName("", wName + "_intvl", -1, NMOverWrite())
 	String gPrefix = wName + "_" + NMFolderPrefix("") + "ISIH"
 	String gName = NextGraphName(gPrefix, -1, 0) // no overwrite, due to long name
 	String gTitle = NMFolderListName("") + " : " + wName + " Interval Histogram"
 
-	Make /O/N=1 $hName
+	Make /D/O/N=1 $hName
 	
 	WaveStats /Q U_INTVLS
 	
