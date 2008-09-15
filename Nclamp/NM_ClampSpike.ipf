@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -44,9 +44,7 @@ End // StimSpikeDF
 Function ClampSpike(enable)
 	Variable enable // (0) no (1) yes
 	
-	String sdf = StimDF()
-	
-	if (DataFolderExists(sdf) == 0)
+	if (DataFolderExists(StimDF()) == 0)
 		return -1
 	endif
 	
@@ -60,22 +58,36 @@ End // ClampSpike
 //****************************************************************
 //****************************************************************
 
-Function ClampSpikeOn(on)
+Function StimSpikeOn()
+	
+	return BinaryCheck(NumVarOrDefault(StimSpikeDF()+"SpikeOn", 0))
+	
+End // StimSpikeOn
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimSpikeOnSet(on)
 	Variable on // (0) no (1) yes
 	
-	String df = StimSpikeDF()
+	String ssdf = StimSpikeDF()
 	
 	on = BinaryCheck(on)
 	
-	if ((on == 1) && (DataFolderExists(df) == 0))
+	if ((on == 1) && (DataFolderExists(ssdf) == 0))
+		NewDataFolder $LastPathColon(ssdf, 0)
+		SetNMvar(ssdf+"SpikeOn", 1)
 		ClampSpikeSaveToStim()
 	endif
 	
-	SetNMvar(df+"SpikeOn", on)
+	SetNMvar(ssdf+"SpikeOn", on)
 	
 	ClampSpike(on)
+	
+	return on
 
-End // ClampSpikeOn
+End // StimSpikeOnSet
 
 //****************************************************************
 //****************************************************************
@@ -84,16 +96,16 @@ End // ClampSpikeOn
 Function ClampSpikeSaveToStim() // save Spike variables to stim folder
 	
 	String spdf = SpikeDF()
-	String df = StimSpikeDF()
+	String ssdf = StimSpikeDF()
 	
-	if (DataFolderExists(df) == 0)
-		NewDataFolder $LastPathColon(df, 0)
+	if (DataFolderExists(ssdf) == 0)
+		NewDataFolder $LastPathColon(ssdf, 0)
 	endif
 	
-	SetNMvar(df+"Thresh", NumVarOrDefault(spdf+"Thresh", 20))
-	SetNMvar(df+"WinB", NumVarOrDefault(spdf+"WinB", -inf))
-	SetNMvar(df+"WinE", NumVarOrDefault(spdf+"WinE", inf))
-	SetNMvar(df+"ChanSelect", NumVarOrDefault(spdf+"ChanSelect", 0))
+	SetNMvar(ssdf+"Thresh", NumVarOrDefault(spdf+"Thresh", 20))
+	SetNMvar(ssdf+"WinB", NumVarOrDefault(spdf+"WinB", -inf))
+	SetNMvar(ssdf+"WinE", NumVarOrDefault(spdf+"WinE", inf))
+	SetNMvar(ssdf+"ChanSelect", NumVarOrDefault(spdf+"ChanSelect", 0))
 	
 	return 0
 
@@ -106,16 +118,16 @@ End // ClampSpikeSaveToStim
 Function ClampSpikeRetrieveFromStim() // retrieve Spike variables from stim folder
 	
 	String spdf = SpikeDF()
-	String df = StimSpikeDF()
+	String ssdf = StimSpikeDF()
 	
 	if (StimSpikeOn() == 0)
 		return -1
 	endif
 	
-	SetNMvar(spdf+"Thresh", NumVarOrDefault(df+"Thresh", 20))
-	SetNMvar(spdf+"WinB", NumVarOrDefault(df+"WinB", -inf))
-	SetNMvar(spdf+"WinE", NumVarOrDefault(df+"WinE", inf))
-	SetNMvar(spdf+"ChanSelect", NumVarOrDefault(df+"ChanSelect", 0))
+	SetNMvar(spdf+"Thresh", NumVarOrDefault(ssdf+"Thresh", 20))
+	SetNMvar(spdf+"WinB", NumVarOrDefault(ssdf+"WinB", -inf))
+	SetNMvar(spdf+"WinE", NumVarOrDefault(ssdf+"WinE", inf))
+	SetNMvar(spdf+"ChanSelect", NumVarOrDefault(ssdf+"ChanSelect", 0))
 		
 	return 0
 
@@ -126,11 +138,9 @@ End // ClampSpikeRetrieveFromStim
 //****************************************************************
 
 Function ClampSpikeInit()
-	String spdf = SpikeDF()
-	String sdf = StimDF()
 
 	if (StimSpikeOn() == 1)
-		ClampSpikeSaveAsk(sdf)
+		ClampSpikeSaveAsk()
 		ClampSpikeRetrieveFromStim() // get Spike from new stim
 		SpikeDisplayClear()
 		ClampSpikeDisplaySavePosition()
@@ -138,6 +148,8 @@ Function ClampSpikeInit()
 	else
 		ClampSpikeRemoveWaves(1)
 	endif
+	
+	ClampSpikeDisplaySetPosition()
 
 End // ClampSpikeInit()
 
@@ -164,8 +176,15 @@ End // ClampSpikeStart
 Function ClampSpikeCompute(mode, currentWave, nwaves)
 	Variable mode, currentWave, nwaves
 	
+	String xname = "SP_RasterX", yname = "SP_RasterY"
+	String df = SpikeDF()
+	
+	Variable winB = NumVarOrDefault(df+"WinB", -inf)
+	Variable winE = NumVarOrDefault(df+"WinE", inf)
+	Variable thresh = NumVarOrDefault(df+"Thresh", 0)
+	
 	if (StimSpikeOn() == 1)
-		AutoSpike()
+		SpikeRaster(NMCurrentChan(), 0, Thresh, winB, winE, xname, yname, 1, 0)
 		ClampSpikeRasterUpdate(currentWave)
 		ClampSpikeDisplayUpdate(currentWave, nwaves)
 	endif
@@ -176,8 +195,19 @@ End // ClampSpikeCompute()
 //****************************************************************
 //****************************************************************
 
-Function ClampSpikeSaveAsk(sdf)
-	String sdf // stim data folder
+Function ClampSpikeFinish()
+	
+	if (StimSpikeOn() == 1)
+		KillWaves /Z SP_RasterX, SP_RasterY
+	endif
+
+End // ClampSpikeFinish
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampSpikeSaveAsk()
 	
 	Variable change
 	
@@ -230,8 +260,8 @@ Function ClampSpikeRasterMake()
 	String df = StimSpikeDF()
 	Variable chan = SpikeChanSelect()
 
-	String xName = NextWaveName("", "SP_RX_RAll_", chan, 1)
-	String yName = NextWaveName("", "SP_RY_RAll_", chan, 1)
+	String xName = NextWaveName2("", "SP_RX_RAll_", chan, 1)
+	String yName = NextWaveName2("", "SP_RY_RAll_", chan, 1)
 	
 	Make /O/N=0 $xName=Nan
 	Make /O/N=0 $yName=Nan
@@ -277,7 +307,7 @@ Function ClampSpikeRasterUpdate(currentWave)
 	
 	nraster = numpnts(rasterX)
 	
-	WaveStats /Q spkX
+	WaveStats /Q/Z spkX
 	
 	nspikes = V_npnts
 	
@@ -317,9 +347,9 @@ Function ClampSpikeDisplay(enable)
 	Variable enable
 	
 	String wlist, wname
-	String sdf = StimDF(), df = StimSpikeDF()
-	Variable wcnt, winE = NumVarOrDefault(sdf+"WaveLength", 0)
-	Variable nwaves = StimNumWaves(sdf)
+	String df = StimSpikeDF()
+	Variable wcnt, winE = StimWaveLength("")
+	Variable nwaves = StimNumWavesTotal("")
 	
 	String gName = ClampSpikeRaster()
 	String xRaster = StrVarOrDefault(df+"RasterWaveX", "")
@@ -346,8 +376,7 @@ Function ClampSpikeDisplay(enable)
 	if (gexists == 0)
 		Make /O/N=0 CT_DummyWave
 		DoWindow /K $gName
-		Display /K=1/W=(0,0,200,100) CT_DummyWave as "NClamp Spike"
-		DoWindow /C $gName
+		Display /K=1/N=$gName/W=(0,0,200,100) CT_DummyWave as "NClamp Spike"
 		RemoveFromGraph /Z CT_DummyWave
 		KillWaves /Z CT_DummyWave
 		ClampSpikeDisplaySetPosition()
@@ -396,7 +425,7 @@ End // ClampSpikeDisplayUpdate
 Function ClampSpikeDisplaySavePosition()
 	
 	String raster = ClampSpikeRaster()
-	String sdf = StimDF()
+	String sdf = StimSpikeDF()
 	
 	if (WinType(raster) == 1)
 		GetWindow $raster wsize	

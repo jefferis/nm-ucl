@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -20,7 +20,7 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 25 Feb 2007
+//	Last modified 10 March 2008
 //
 //****************************************************************
 //****************************************************************
@@ -34,16 +34,34 @@ Function ITCconfig(aboard)
 	Execute /Z aboard + "Reset" // attemp to reset ITC board
 
 	if (V_flag != 0)
-		ClampError("unrecognized board : " + aboard)
+		//ClampError("unrecognized board : " + aboard)
 		return -1
 	else
 		SetNMVar(cdf+"BoardDriver", 0)
-		SetNMStr(cdf+"BoardList", "0, " + aboard + ";")
+		SetNMStr(cdf+"BoardList", aboard + ";")
 	endif
 	
 	return 0
 	
 End // ITCconfig
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ITCdebug()
+
+	String cdf = ClampDF()
+	
+	Variable ITC18_SeqExtraParameter = 1 // (0) no (1) yes
+	Variable ITC_ResetDuringAcquisition = 0 // (0) no (1) yes
+	Variable ITC_SetRange = 1 // (0) no (1) yes
+	
+	SetNMvar(cdf+"ITC18_SeqExtraParameter", ITC18_SeqExtraParameter)
+	SetNMvar(cdf+"ITC_ResetDuringAcquisition", ITC_ResetDuringAcquisition)
+	SetNMvar(cdf+"ITC_SetRange", ITC_SetRange)
+
+End // ITCdebug
 
 //****************************************************************
 //****************************************************************
@@ -82,8 +100,8 @@ Function ITCacquire(mode, savewhen, WaveLength, NumStimWaves, InterStimTime, Num
 	
 	Make /I/O/N=1 $(cdf+"Avail2Read"), $(cdf+"Avail2Write")
 	
-	Wave Avail2Read = $(cdf+"Avail2Read")
-	Wave Avail2Write = $(cdf+"Avail2Write")
+	Wave Avail2Read = $cdf+"Avail2Read"
+	Wave Avail2Write = $cdf+"Avail2Write"
 	
 	if (ITCupdateLists(NumStimWaves) == -1)
 		return -1 // bad input/output configuration
@@ -120,11 +138,11 @@ Function ITCacquire(mode, savewhen, WaveLength, NumStimWaves, InterStimTime, Num
 	SetNMvar(cdf+"InterRepTime", InterRepTime)
 	
 	switch(acqMode)
-		case 0: // episodic
+		case 0: // epic precise
 		case 1: // continuous
 			ITCAcqPrecise(mode, savewhen)
 			break
-		case 2: // episodic precise
+		case 2: // episodic
 		case 3: // triggered
 			ITCAcqLong(mode, savewhen)
 			break
@@ -143,14 +161,14 @@ Function ITCAcqPrecise(mode, savewhen)
 	Variable nwaves, rcnt, ccnt, wcnt, icnt, period, pipe
 	Variable stimcnt, stimtotal, sampcnt, samptotal, savecnt
 	Variable outpnts, inpnts, npnts, scale, config
-	Variable chan, gain, tgain, cancel, outs, ins
+	Variable gain, tgain, tgainavg, tgainv, cancel, outs, ins
 	Variable flip, flipread, flipsave
 	Variable firstread = 1, firstwrite = 1
 	
-	String wname, dname, inName, outName, saveName, alist
-	String item, chanstr, seqstr, ITCoutList, ITCinList
+	String wname, dname, inName, outName, saveName, alist, dlist, tlist
+	String item, chanstr, seqstr, ITCoutList, ITCinList, instr
 	
-	String cdf = ClampDF(), sdf = StimDF()
+	String cdf = ClampDF(), sdf = StimDF(), bdf = StimBoardDF(sdf)
 	
 	NVAR CurrentWave
 	
@@ -159,10 +177,9 @@ Function ITCAcqPrecise(mode, savewhen)
 	Variable NumStimWaves = NumVarOrDefault(sdf+"NumStimWaves", 0)
 	Variable NumStimReps = NumVarOrDefault(sdf+"NumStimReps", 0)
 	
-	NVAR InterStimTime = $(cdf+"InterStimTime")
-	NVAR InterRepTime = $(cdf+"InterRepTime")
+	NVAR InterStimTime = $cdf+"InterStimTime"
+	NVAR InterRepTime = $cdf+"InterRepTime"
 	
-	Variable SamplesPerWave = NumVarOrDefault(sdf+"SamplesPerWave", 0)
 	Variable SampleInterval = NumVarOrDefault(sdf+"SampleInterval", 0)
 	Variable acqMode = NumVarOrDefault(cdf+"AcqMode", 0)
 	
@@ -179,19 +196,30 @@ Function ITCAcqPrecise(mode, savewhen)
 	
 	//Make /I/O/N=1 $(cdf+"Avail2Read"), $(cdf+"Avail2Write")
 	
-	Wave Avail2Read = $(cdf+"Avail2Read")
-	Wave Avail2Write = $(cdf+"Avail2Write")
+	Wave Avail2Read = $cdf+"Avail2Read"
+	Wave Avail2Write = $cdf+"Avail2Write"
 
 	//if (ITCupdateLists(NumStimWaves) == -1)
 	//	return -1 // bad input/output configuration
 	//endif
 	
-	Wave ADCscale = $(sdf+"ADCscale")
+	Wave ADCscale = $bdf+"ADCscale"
+	Wave ADCchan = $bdf+"ADCchan"
+	Wave /T ADCmode = $bdf+"ADCmode"
 	
-	Wave /T ADClist = $(cdf+"ADClist")
-	Wave /T preADClist = $(cdf+"preADClist")
+	Wave stimPnts = $cdf+"StimNumpnts"
 	
-	Variable tGainConfig = NumVarOrDefault(cdf+"TGainConfig",0)
+	Wave /T ADClist = $cdf+"ADClist"
+	Wave /T DAClist = $cdf+"DAClist"
+	Wave /T TTLlist = $cdf+"TTLlist"
+	Wave /T preADClist = $cdf+"preADClist"
+	
+	Variable tGainConfig = NumVarOrDefault(cdf+"TGainConfig", 0)
+	//String instr = StrVarOrDefault(cdf+"ClampInstrument", "")
+	
+	Variable ITC18_SeqExtraParameter = NumVarOrDefault(cdf+"ITC18_SeqExtraParameter", 1)
+	Variable ITC_ResetDuringAcquisition = NumVarOrDefault(cdf+"ITC_ResetDuringAcquisition", 0)
+	Variable ITC_SetRange = NumVarOrDefault(cdf+"ITC_SetRange", 0)
 	
 	seqstr = ITCseqStr()
 	
@@ -229,26 +257,29 @@ Function ITCAcqPrecise(mode, savewhen)
 	
 	// set up telegraph gains
 	
-	if ((tGainConfig == 1) && (WaveExists($(cdf+"ADCtgain")) == 1))
+	if (tGainConfig == 1)
 	
-		Wave ADCtgain = $(cdf+"ADCtgain")
-		
-		for (config = 0; config < numpnts(ADCtgain); config += 1) // loop thru configs
-		
-			if (numtype(ADCtgain[config]) == 0)
+		if (WaveExists($bdf+"ADCtgain") == 1)
+	
+			Wave ADCtgain = $bdf+"ADCtgain"
 			
-				chan = StimWaveVar(sdf, "ADC", "chan", config)
-				tgain = ClampTgainValue(cdf, chan, -1)
+			for (config = 0; config < numpnts(ADCtgain); config += 1) // loop thru configs
+			
+				if (numtype(ADCtgain[config]) == 0)
 				
-				if (tgain == -1)
-					tGainConfig = 0 // bad value
-				else
-					SetNMvar("Tgain"+num2str(chan), tgain) // save in data folder
+					tgain = ClampTgainValue(GetDataFolder(1), config, -1)
+					
+					if (tgain == -1)
+						tGainConfig = 0 // bad value
+					else
+						SetNMvar("CT_Tgain"+num2str(config)+"_avg", tgain) // save in data folder
+					endif
+					
 				endif
 				
-			endif
-			
-		endfor
+			endfor
+		
+		endif
 		
 	else
 	
@@ -268,7 +299,7 @@ Function ITCAcqPrecise(mode, savewhen)
 	inpnts = numpnts($inName)
 	npnts = numpnts($saveName)
 	
-	Wave savetemp = $(saveName)
+	Wave savetemp = $saveName
 	savetemp = Nan
 	
 	if ((NumStimWaves == 1) && (NumStimReps > 1))
@@ -278,13 +309,20 @@ Function ITCAcqPrecise(mode, savewhen)
 		flip = 1 
 	endif
 	
-	//Execute aboard + "Reset"
+	if (ITC_ResetDuringAcquisition == 1)
+		Execute aboard + "Reset"
+	endif
 	
 	for (icnt = 0; icnt < ItemsInList(ADClist[0]); icnt += 1)
+	
 		item = StringFromList(icnt, ADClist[0])
 		chanstr = StringFromList(1,item,",")
 		gain = str2num(StringFromList(2,item,","))
-		Execute aboard + "SetADCRange " + chanstr + "," + ITCrangeStr(gain)
+		
+		if (ITC_SetRange == 1)
+			Execute aboard + "SetADCRange " + chanstr + "," + ITCrangeStr(gain)
+		endif
+		
 	endfor
 	
 	strswitch(aboard)
@@ -292,7 +330,11 @@ Function ITCAcqPrecise(mode, savewhen)
 			Execute aboard + "Seq \"" + ITCoutList + "\",\"" + ITCinList + "\""
 			break
 		case "ITC18":
-			Execute aboard + "Seq \"" + ITCoutList + "\",\"" + ITCinList + "\",1"
+			if (ITC18_SeqExtraParameter == 1)
+				Execute aboard + "Seq \"" + ITCoutList + "\",\"" + ITCinList + "\",1"
+			else
+				Execute aboard + "Seq \"" + ITCoutList + "\",\"" + ITCinList + "\""
+			endif
 			break
 	endswitch
 	
@@ -404,13 +446,13 @@ Function ITCAcqPrecise(mode, savewhen)
 				savetemp[0,pipe-1] = Nan // delete pipedelay points if in continuous preview
 			endif
 	
-			ITCmixWaves(saveName, ins, alist, "", SamplesPerWave, 0, -1, pipe) // unmix waves, shift
+			ITCmixWaves(saveName, ins, alist, "", stimPnts[savecnt], 0, -1, pipe) // unmix waves, shift
 			
 			for (ccnt = 0; ccnt < ItemsInList(alist); ccnt += 1) // save waves
 				
 				item = StringFromList(ccnt,alist)
 				dname = StringFromList(0,item,",")
-				chan = str2num(StringFromList(1,item,","))
+				//chan = str2num(StringFromList(1,item,","))
 				config = str2num(StringFromList(3,item,","))
 		
 				if (mode == 1)
@@ -421,8 +463,10 @@ Function ITCAcqPrecise(mode, savewhen)
 				
 				scale = ADCscale[config]
 				
-				if ((tGainConfig == 1) && (numtype(ADCtgain[config]) == 0))
-					scale = MyTelegraphGain(NumVarOrDefault("Tgain"+num2str(chan), scale), scale)
+				if ((tGainConfig == 1) && (tgain > 0) && (numtype(ADCtgain[config]) == 0))
+					instr = ClampTgainInstrument(ADCmode[ADCtgain[config]])
+					tgainv = ClampTgainValue(GetDataFolder(1), ADCchan[config], CurrentWave)
+					scale = MyTelegraphGain(tgainv, scale, instr)
 				endif
 
 				Wave wtemp = $dname
@@ -445,7 +489,7 @@ Function ITCAcqPrecise(mode, savewhen)
 			endfor
 			
 			cancel = ClampAcquireNext(mode, nwaves)
-	
+			
 			savecnt += 1
 			
 			if (savecnt >= NumStimWaves)
@@ -468,7 +512,7 @@ Function ITCAcqPrecise(mode, savewhen)
 			alist = ADClist[savecnt]
 			npnts = numpnts($saveName)
 	
-			Wave savetemp = $(saveName)
+			Wave savetemp = $saveName
 			
 			if (cancel == 1)
 				break
@@ -514,8 +558,8 @@ Function ITCAcqPrecise(mode, savewhen)
 	endif
 	
 	for (wcnt = 0; wcnt < NumStimWaves; wcnt += 1)
-		//KillWaves /Z $(sdf+"ITCoutWave"+num2str(wcnt))
-		KillWaves /Z $(sdf+"ITCinWave"+num2str(wcnt))
+		KillWaves /Z $sdf+"ITCoutWave"+num2str(wcnt)
+		KillWaves /Z $sdf+"ITCinWave"+num2str(wcnt)
 	endfor
 	
 	KillWaves /Z $(sdf+"ITCinWave"), $(sdf+"ITCmix"), $(sdf+"ITCTTLOUT")
@@ -533,16 +577,16 @@ Function ITCAcqLong(mode, savewhen)
 	Variable savewhen // (0) never (1) after (2) while
 	
 	Variable nwaves, rcnt, ccnt, wcnt, icnt, period, pipe
-	Variable stimcnt, stimtotal, sampcnt, samptotal, savecnt
-	Variable outpnts, inpnts, npnts, wpnts, scale, config
-	Variable chan, gain, tgain, cancel, outs, ins
+	Variable stimcnt, stimtotal, sampcnt, samptotal
+	Variable scale, config
+	Variable gain, tgain, tgainv, cancel, outs, ins
 	Variable flip, flipread, flipsave
 	Variable firstread, firstwrite, firstsave, acqflag = 2
 	
-	String wname, dname, inName, outName, alist, dlist
+	String wname, dname, inName, outName, alist, instr
 	String item, chanstr, seqstr, ITCoutList, ITCinList
 	
-	String cdf = ClampDF(), sdf = StimDF()
+	String cdf = ClampDF(), sdf = StimDF(), bdf = StimBoardDF(sdf)
 	
 	NVAR CurrentWave
 	
@@ -551,10 +595,9 @@ Function ITCAcqLong(mode, savewhen)
 	Variable NumStimWaves = NumVarOrDefault(sdf+"NumStimWaves", 0)
 	Variable NumStimReps = NumVarOrDefault(sdf+"NumStimReps", 0)
 	
-	NVAR InterStimTime = $(cdf+"InterStimTime")
-	NVAR InterRepTime = $(cdf+"InterRepTime")
+	NVAR InterStimTime = $cdf+"InterStimTime"
+	NVAR InterRepTime = $cdf+"InterRepTime"
 	
-	Variable SamplesPerWave = NumVarOrDefault(sdf+"SamplesPerWave", 0)
 	Variable SampleInterval = NumVarOrDefault(sdf+"SampleInterval", 0)
 	Variable acqMode = NumVarOrDefault(cdf+"AcqMode", 0)
 	
@@ -571,18 +614,26 @@ Function ITCAcqLong(mode, savewhen)
 	
 	//Make /I/O/N=1 $(cdf+"Avail2Read"), $(cdf+"Avail2Write")
 	
-	Wave Avail2Read = $(cdf+"Avail2Read")
-	Wave Avail2Write = $(cdf+"Avail2Write")
+	Wave Avail2Read = $cdf+"Avail2Read"
+	Wave Avail2Write = $cdf+"Avail2Write"
 
 	//if (ITCupdateLists(NumStimWaves) == -1)
 	//	return -1 // bad input/output configuration
 	//endif
 	
-	Wave ADCscale = $(sdf+"ADCscale")
-	Wave /T ADClist = $(cdf+"ADClist")
-	Wave /T DAClist = $(cdf+"DAClist")
+	Wave stimPnts = $cdf+"StimNumpnts"
 	
-	Variable tGainConfig = NumVarOrDefault(cdf+"TGainConfig",0)
+	Wave ADCscale = $bdf+"ADCscale"
+	Wave ADCchan = $bdf+"ADCchan"
+	Wave /T ADCmode = $bdf+"ADCmode"
+	
+	Wave /T ADClist = $cdf+"ADClist"
+	
+	Variable tGainConfig = NumVarOrDefault(cdf+"TGainConfig", 0)
+	
+	Variable ITC18_SeqExtraParameter = NumVarOrDefault(cdf+"ITC18_SeqExtraParameter", 1)
+	Variable ITC_ResetDuringAcquisition = NumVarOrDefault(cdf+"ITC_ResetDuringAcquisition", 0)
+	Variable ITC_SetRange = NumVarOrDefault(cdf+"ITC_SetRange", 0)
 	
 	seqstr = ITCseqStr()
 	ITCoutList = StringFromList(0, seqstr)
@@ -623,21 +674,20 @@ Function ITCAcqLong(mode, savewhen)
 	
 	// set up telegraph gains
 	
-	if ((tGainConfig == 1) && (WaveExists($(cdf+"ADCtgain")) == 1))
+	if ((tGainConfig == 1) && (WaveExists($bdf+"ADCtgain") == 1))
 	
-		Wave ADCtgain = $(cdf+"ADCtgain")
+		Wave ADCtgain = $bdf+"ADCtgain"
 		
 		for (config = 0; config < numpnts(ADCtgain); config += 1)
 		
 			if (numtype(ADCtgain[config]) == 0)
 			
-				chan = StimWaveVar(sdf, "ADC", "chan", config)
-				tgain = ClampTgainValue(cdf, chan, -1)
+				tgain = ClampTgainValue(GetDataFolder(1), config, -1)
 				
 				if (tgain == -1)
 					tGainConfig = 0 // bad value
 				else
-					SetNMvar("Tgain"+num2str(chan), tgain) // save in data folder
+					SetNMvar("CT_Tgain"+num2str(config)+"_avg", tgain) // save in data folder
 				endif
 				
 			endif
@@ -652,13 +702,20 @@ Function ITCAcqLong(mode, savewhen)
 	
 	// start acquisition
 	
-	//Execute aboard + "Reset"
+	if (ITC_ResetDuringAcquisition == 1)
+		Execute aboard + "Reset"
+	endif
 	
 	for (icnt = 0; icnt < ItemsInList(ADClist[0]); icnt += 1)
+	
 		item = StringFromList(icnt, ADClist[0])
 		chanstr = StringFromList(1,item,",")
 		gain = str2num(StringFromList(2,item,","))
-		Execute aboard + "SetADCRange " + chanstr + "," + ITCrangeStr(gain)
+		
+		if (ITC_SetRange == 1)
+			Execute aboard + "SetADCRange " + chanstr + "," + ITCrangeStr(gain)
+		endif
+		
 	endfor
 	
 	strswitch(aboard)
@@ -666,7 +723,11 @@ Function ITCAcqLong(mode, savewhen)
 			Execute aboard + "Seq \"" + ITCoutList + "\",\"" + ITCinList + "\""
 			break
 		case "ITC18":
-			Execute aboard + "Seq \"" + ITCoutList + "\",\"" + ITCinList + "\",1"
+			if (ITC18_SeqExtraParameter == 1)
+				Execute aboard + "Seq \"" + ITCoutList + "\",\"" + ITCinList + "\",1"
+			else
+				Execute aboard + "Seq \"" + ITCoutList + "\",\"" + ITCinList + "\""
+			endif
 			break
 	endswitch
 	
@@ -677,13 +738,6 @@ Function ITCAcqLong(mode, savewhen)
 			outName = sdf + "ITCoutWave" + num2str(wcnt)
 			inName = sdf + "ITCinWave"+ num2str(wcnt)
 			alist = ADClist[wcnt]
-			dlist = DAClist[wcnt]
-			
-			wpnts = GetXStats("numpnts", dlist)
-			
-			if (numtype(wpnts) > 0)
-				continue
-			endif
 			
 			Wave wtemp = $inName
 				
@@ -726,17 +780,17 @@ Function ITCAcqLong(mode, savewhen)
 			
 			do
 				
-				if ((firstread == 0) && (firstwrite == 0) && (numtype(wtemp[npnts-1]) == 0))
+				if ((firstread == 0) && (firstwrite == 0) && (numtype(wtemp[numpnts(wtemp)-1]) == 0))
 				
 					Execute aboard + "stopacq"
 		
-					ITCmixWaves(inName, ins, alist, "", wpnts, 0, -1, pipe) // unmix waves, shift
+					ITCmixWaves(inName, ins, alist, "", stimPnts[wcnt], 0, -1, pipe) // unmix waves, shift
 					
 					for (ccnt = 0; ccnt < ItemsInList(alist); ccnt += 1) // save waves
 						
 						item = StringFromList(ccnt,alist)
 						dname = StringFromList(0,item,",")
-						chan = str2num(StringFromList(1,item,","))
+						//chan = str2num(StringFromList(1,item,","))
 						config = str2num(StringFromList(3,item,","))
 				
 						if (mode == 1)
@@ -747,8 +801,10 @@ Function ITCAcqLong(mode, savewhen)
 						
 						scale = ADCscale[config]
 						
-						if ((tGainConfig == 1) && (numtype(ADCtgain[config]) == 0))
-							scale = MyTelegraphGain(NumVarOrDefault("Tgain"+num2str(chan), scale), scale)
+						if ((tGainConfig == 1) && (tgain > 0) && (numtype(ADCtgain[config]) == 0))
+							instr = ClampTgainInstrument(ADCmode[ADCtgain[config]])
+							tgainv = ClampTgainValue(GetDataFolder(1), ADCchan[config], CurrentWave)
+							scale = MyTelegraphGain(tgainv, scale, instr)
 						endif
 		
 						Wave wtemp = $dname
@@ -797,8 +853,8 @@ Function ITCAcqLong(mode, savewhen)
 	Execute aboard + "stopacq"
 	
 	for (wcnt = 0; wcnt < NumStimWaves; wcnt += 1)
-		//KillWaves /Z $(sdf+"ITCoutWave"+num2str(wcnt))
-		KillWaves /Z $(sdf+"ITCinWave"+num2str(wcnt))
+		KillWaves /Z $sdf+"ITCoutWave"+num2str(wcnt)
+		KillWaves /Z $sdf+"ITCinWave"+num2str(wcnt)
 	endfor
 	
 	KillWaves /Z $(sdf+"ITCinWave"), $(sdf+"ITCmix"), $(sdf+"ITCTTLOUT")
@@ -816,16 +872,23 @@ Function ITCprescan()
 	Variable icnt, gain, config, npnts, period, scale
 	String item, inName, chanstr
 	
-	String cdf = ClampDF(), sdf = StimDF()
+	String cdf = ClampDF(), sdf = StimDF(), bdf = StimBoardDF(sdf)
 	
 	String aboard = StrVarOrDefault(cdf+"AcqBoard", "")
 	
-	Wave ADCscale = $(sdf+"ADCscale")
-	Wave /T preADClist = $(cdf+"preADClist")
+	Variable ITC18_SeqExtraParameter = NumVarOrDefault(cdf+"ITC18_SeqExtraParameter", 1)
+	Variable ITC_ResetDuringAcquisition = NumVarOrDefault(cdf+"ITC_ResetDuringAcquisition", 0)
+	Variable ITC_SetRange = NumVarOrDefault(cdf+"ITC_SetRange", 0)
+	
+	Wave ADCscale = $bdf+"ADCscale"
+	
+	Wave /T preADClist = $cdf+"preADClist"
 	
 	period = ITCperiod(0.01, 1)
 	
-	//Execute aboard + "Reset"
+	if (ITC_ResetDuringAcquisition == 1)
+		Execute aboard + "Reset"
+	endif
 	
 	for (icnt = 0; icnt < ItemsInList(preADClist[0]); icnt += 1)
 
@@ -847,7 +910,9 @@ Function ITCprescan()
 		
 		tempWave = 0
 		
-		Execute aboard + "SetADCRange " + chanstr + "," + ITCrangeStr(gain)
+		if (ITC_SetRange == 1)
+			Execute aboard + "SetADCRange " + chanstr + "," + ITCrangeStr(gain)
+		endif
 	
 		strswitch(aboard)
 			case "ITC16":
@@ -855,7 +920,11 @@ Function ITCprescan()
 				Execute aboard + "StartAcq " + num2str(period) + ", 2"
 				break
 			case "ITC18":
-				Execute aboard + "Seq \"0\",\"" + chanstr + "\",1"
+				if (ITC18_SeqExtraParameter == 1)
+					Execute aboard + "Seq \"0\",\"" + chanstr + "\",1"
+				else
+					Execute aboard + "Seq \"0\",\"" + chanstr + "\""
+				endif
 				Execute aboard + "StartAcq " + num2str(period) + ", 2, 0"
 				break
 		endswitch
@@ -899,15 +968,23 @@ Function ITCread(chan, gain, npnts)
 	
 	String aboard = StrVarOrDefault(cdf+"AcqBoard", "")
 	
+	Variable ITC18_SeqExtraParameter = NumVarOrDefault(cdf+"ITC18_SeqExtraParameter", 1)
+	Variable ITC_ResetDuringAcquisition = NumVarOrDefault(cdf+"ITC_ResetDuringAcquisition", 0)
+	Variable ITC_SetRange = NumVarOrDefault(cdf+"ITC_SetRange", 0)
+	
 	Variable period = ITCperiod(0.01, 1)
 	
 	Variable garbage = 15
 	
 	Make /O/N=(npnts+garbage) CT_ITCread = Nan
 	
-	//Execute aboard + "Reset"
+	if (ITC_ResetDuringAcquisition == 1)
+		Execute aboard + "Reset"
+	endif
 	
-	Execute aboard + "SetADCRange " + chanstr + "," + ITCrangeStr(gain)
+	if (ITC_SetRange == 1)
+		Execute aboard + "SetADCRange " + chanstr + "," + ITCrangeStr(gain)
+	endif
 	
 	strswitch(aboard)
 		case "ITC16":
@@ -915,7 +992,11 @@ Function ITCread(chan, gain, npnts)
 			Execute aboard + "StartAcq " + num2str(period) + ", 2"
 			break
 		case "ITC18":
-			Execute aboard + "Seq \"0\",\"" + chanstr + "\",1"
+			if (ITC18_SeqExtraParameter == 1)
+				Execute aboard + "Seq \"0\",\"" + chanstr + "\",1"
+			else
+				Execute aboard + "Seq \"0\",\"" + chanstr + "\""
+			endif
 			Execute aboard + "StartAcq " + num2str(period) + ", 2, 0"
 			break
 	endswitch
@@ -992,40 +1073,53 @@ Function ITCupdateLists(NumStimWaves) // check input/output configurations and c
 	Variable NumStimWaves
 
 	Variable wcnt, config, chan, gain, mode, outs, ins, tgain
-	String wname, wlist, wlist2, item, nowave = ""
+	String wname, alist, dlist, tlist, alist2, item, modestr, nowave = ""
 	
-	String cdf = ClampDF(), sdf = StimDF()
+	String cdf = ClampDF(), sdf = StimDF(), bdf = StimBoardDF(sdf)
 	
-	Wave DACon = $(sdf+"DACon")
-	Wave TTLon = $(sdf+"TTLon")
-	Wave ADCon = $(sdf+"ADCon")
+	Variable npnts = NumVarOrDefault(sdf+"SamplesPerWave", Nan)
 	
+	if (WaveExists($bdf+"ADCname") == 0)
+		return -1
+	endif
+	
+	Wave /T ADCname = $bdf+"ADCname"
+	Wave /T DACname = $bdf+"DACname"
+	Wave /T TTLname = $bdf+"TTLname"
+	
+	Wave ADCtgain = $bdf+"ADCtgain" // telegraph gain
+	
+	Make /O/N=(NumStimWaves) $(cdf+"StimNumpnts")
 	Make /T/O/N=(NumStimWaves) $(cdf+"DAClist"), $(cdf+"TTLlist"), $(cdf+"ADClist"), $(cdf+"preADClist")
 	
-	Wave /T DAClist = $(cdf+"DAClist") // where lists are saved
-	Wave /T TTLlist = $(cdf+"TTLlist")
-	Wave /T ADClist = $(cdf+"ADClist")
-	Wave /T preADClist = $(cdf+"preADClist")
+	Wave stimPnts = $cdf+"StimNumpnts"
+	Wave /T DAClist = $cdf+"DAClist" // where lists are saved
+	Wave /T TTLlist = $cdf+"TTLlist"
+	Wave /T ADClist = $cdf+"ADClist"
+	Wave /T preADClist = $cdf+"preADClist"
 	
-	String tGainList = StrVarOrDefault(cdf+"TGainList", "")
+	//String tGainList = StrVarOrDefault(cdf+"TGainList", "")
 	
-	if ((strlen(tGainList) > 0) && (WaveExists($(cdf+"ADCtgain")) == 1))
-		Wave ADCtgain = $(cdf+"ADCtgain") // telegraph gain
-		tgain = 1
-	endif
+	//if ((strlen(tGainList) > 0) && (WaveExists($cdf+"ADCtgain") == 1))
+	//	Wave ADCtgain = $cdf+"ADCtgain" // telegraph gain
+	//	tgain = 1
+	//endif
 	
 	for (wcnt = 0; wcnt < NumStimWaves; wcnt += 1)
 	
 		outs = 0
 		ins = 0
-		wlist = ""
+		alist = ""
+		alist2 = ""
+		dlist = ""
+		tlist = ""
 		
-		for (config = 0; config < numpnts(DACon); config += 1) // DAC sequence
+		for (config = 0; config < numpnts(DACname); config += 1) // DAC sequence
 		
-			if (DACon[config] == 1)
+			if (strlen(DACname[config]) > 0)
 			
 				outs += 1
-				chan = StimWaveVar(sdf, "DAC", "chan", config)
+				chan = WaveValOrDefault(bdf+"DACchan", config, 0)
 				
 				if ((chan < 0) || (chan > 3)) // 0123
 					ITCError("ITC Config Error", "DAC chan out of range : " + num2str(chan))
@@ -1034,20 +1128,19 @@ Function ITCupdateLists(NumStimWaves) // check input/output configurations and c
 				
 				wname = sdf + StimWaveName("DAC", config, wcnt)
 				item = wname + "," + num2str(chan)
-				wlist = AddListItem(item, wlist, ";", inf)
+				dlist = AddListItem(item, dlist, ";", inf)
 				
 			endif
 			
 		endfor
 
-		DAClist[wcnt] = wlist
-		wlist = ""
+		DAClist[wcnt] = dlist
 		
-		for (config = 0; config < numpnts(TTLon); config += 1) // TTL sequence
+		for (config = 0; config < numpnts(TTLname); config += 1) // TTL sequence
 		
-			if (TTLon[config] == 1)
+			if (strlen(TTLname[config]) > 0)
 			
-				chan = StimWaveVar(sdf, "TTL", "chan", config)
+				chan = WaveValOrDefault(bdf+"TTLchan", config, 0)
 				
 				if ((chan < 0) || (chan > 15))
 					ITCError("ITC Config Error", "TTL chan out of range : " + num2str(chan))
@@ -1056,22 +1149,23 @@ Function ITCupdateLists(NumStimWaves) // check input/output configurations and c
 				
 				wname = sdf + StimWaveName("TTL", config, wcnt)
 				item = wname + "," + num2str(chan)
-				wlist = AddListItem(item, wlist, ";", inf)
+				tlist = AddListItem(item, tlist, ";", inf)
 				
 			endif
 			
 		endfor
 		
-		TTLlist[wcnt] = wlist
-		wlist = ""; wlist2 = ""
+		TTLlist[wcnt] = tlist
 		
-		for (config = 0; config < numpnts(ADCon); config += 1) // ADC sequence
+		stimPnts[wcnt] = ClampWavesNumpnts(dlist, tlist, npnts)
 		
-			if (ADCon[config] == 1)
+		for (config = 0; config < numpnts(ADCname); config += 1) // ADC sequence
+		
+			if (strlen(ADCname[config]) > 0)
 			
-				chan = StimWaveVar(sdf, "ADC", "chan", config)
-				gain = StimWaveVar(sdf, "ADC", "gain", config)
-				mode = StimWaveVar(sdf, "ADC", "mode", config)
+				chan = WaveValOrDefault(bdf+"ADCchan", config, 0)
+				gain = WaveValOrDefault(bdf+"ADCgain", config, 1)
+				modestr = WaveStrOrDefault(bdf+"ADCmode", config, "")
 	
 				if (ITCrange(gain) == -1)
 					ITCError("ITC Config Error", "ADC gain value not allowed : " + num2str(gain))
@@ -1083,32 +1177,35 @@ Function ITCupdateLists(NumStimWaves) // check input/output configurations and c
 					return -1
 				endif
 				
-				if (mode == 0) // normal input
+				if (strlen(modestr) == 0) // normal input
 				
 					wname = ChanDisplayWave(ins)
 					item = wname + "," + num2str(chan) + "," + num2str(gain) + "," + num2str(config)
-					wlist = AddListItem(item, wlist, ";", inf)
+					alist = AddListItem(item, alist, ";", inf)
 					ins += 1
 					
-					if (tgain == 1) // telegraph gain is on
-					
-						if (numtype(ADCtgain[config]) == 0)
-						
-							gain = 1 // full scale
-							mode = 10 // number of samples to read
-							wname = cdf + "CT_Tgain" + num2str(chan)
-							item = wname + "," + num2str(ADCtgain[config]) + "," + num2str(gain)+ "," + num2str(mode) + "," + num2str(-1)
-							wlist2 = AddListItem(item, wlist2, ";", inf) // save as pre-stim input
-							
-						endif
-						
-					endif
+					//if ((strlen(tGainList) > 0) && (numtype(ADCtgain[config]) == 0))
+					//	gain = 1 // full scale
+					//	wname = "CT_Tgain" + num2str(config)
+					//	item = wname + "," + num2str(ADCtgain[config]) + "," + num2str(gain)+ "," + num2str(50) + "," + num2str(-1)
+					//	alist2 = AddListItem(item, alist2, ";", inf) // save as pre-stim input
+					//endif
 				
-				elseif (mode > 0) // pre-stim
+				elseif (strsearch(modestr, "PreSamp=", 0) >= 0) // pre-sample
 				
-					wname = "CT_" + StimWaveStr(sdf, "ADC", "name", config)
+					wname = "CT_" + WaveStrOrDefault(bdf+"ADCname", config, "")
+					mode = str2num(modestr[8, inf])
 					item = wname + "," + num2str(chan) + "," + num2str(gain) + "," + num2str(mode) + "," + num2str(config)
-					wlist2 = AddListItem(item, wlist2, ";", inf)
+					alist2 = AddListItem(item, alist2, ";", inf)
+					
+				elseif (strsearch(modestr, "Tgain=", 0) >= 0) // telegraph gain
+				
+					tgain = 1
+					gain = 1 // full scale
+					//mode = (-1 * mode - 100)
+					wname = "CT_Tgain" + num2str(ClampTgainChan(modestr))
+					item = wname + "," + num2str(chan) + "," + num2str(gain)+ "," + num2str(10) + "," + num2str(-1)
+					alist2 = AddListItem(item, alist2, ";", inf) // save as pre-stim input
 					
 				endif
 			
@@ -1116,8 +1213,8 @@ Function ITCupdateLists(NumStimWaves) // check input/output configurations and c
 			
 		endfor
 
-		ADClist[wcnt] = wlist
-		preADClist[wcnt] = wlist2
+		ADClist[wcnt] = alist
+		preADClist[wcnt] = alist2
 		
 	endfor
 
@@ -1150,9 +1247,9 @@ Function /S ITCseqStr() // create ITC sequence output/input strings (i.e. "012D"
 	
 	String cdf = ClampDF()
 
-	Wave /T DAClist = $(cdf+"DAClist")
-	Wave /T TTLlist = $(cdf+"TTLlist")
-	Wave /T ADClist = $(cdf+"ADClist")
+	Wave /T DAClist = $cdf+"DAClist"
+	Wave /T TTLlist = $cdf+"TTLlist"
+	Wave /T ADClist = $cdf+"ADClist"
 	
 	for (jcnt = 0; jcnt < ItemsInList(ADClist[0]); jcnt += 1)
 		item = StringFromList(jcnt, ADClist[0]) 
@@ -1259,37 +1356,38 @@ End // ITCextendList
 Function ITCmakeWaves(NumOuts, NumStimWaves, InterStimTime, NumStimReps, InterRepTime, AcqMode)
 	Variable NumOuts, NumStimWaves, InterStimTime, NumStimReps, InterRepTime, AcqMode
 	
-	Variable icnt, wcnt, stimN, repN, insertN, npnts, pipe, error
+	Variable icnt, wcnt, stimN, repN, insertN, pipe, error, npnts
 	String item, wname, wlist = "", tlist = ""
 	
 	String cdf = ClampDF(), sdf = StimDF()
+	
+	Variable SampleInterval = NumVarOrDefault(sdf+"SampleInterval", 0)
+	String precision = StrVarOrDefault(cdf+"WavePrecision", "S") // ITC waves have to be single precision
 
-	if (WaveExists($(cdf+"DAClist")) == 0)
+	if (WaveExists($cdf+"DAClist") == 0)
 		ITCError("ITC Config Error", "missing wave " + cdf + "DAClist")
 		return -1
 	endif
 	
-	if (WaveExists($(cdf+"TTLlist")) == 0)
+	if (WaveExists($cdf+"TTLlist") == 0)
 		ITCError("ITC Config Error", "missing wave " + cdf + "TTLlist")
 		return -1
 	endif
 	
-	if (WaveExists($(cdf+"ADClist")) == 0)
+	if (WaveExists($cdf+"ADClist") == 0)
 		ITCError("ITC Config Error", "missing wave " + cdf + "ADClist")
 		return -1
 	endif
 	
-	Wave /T DAClist = $(cdf+"DAClist")
-	Wave /T TTLlist = $(cdf+"TTLlist")
-	Wave /T ADClist = $(cdf+"ADClist")
-	Wave /T preADClist = $(cdf+"preADClist")
-	
-	Variable SamplesPerWave = NumVarOrDefault(sdf+"SamplesPerWave", 0)
-	Variable SampleInterval = NumVarOrDefault(sdf+"SampleInterval", 0)
+	Wave /T DAClist = $cdf+"DAClist"
+	Wave /T TTLlist = $cdf+"TTLlist"
+	Wave /T ADClist = $cdf+"ADClist"
+	Wave /T preADClist = $cdf+"preADClist"
+	Wave stimPnts = $cdf+"StimNumpnts"
 	
 	pipe = ITCpipeDelay(NumOuts)
 	
-	if (AcqMode == 0) // episodic-fast
+	if (AcqMode == 0) // epic precise
 	
 		if (InterStimTime > 0)
 			stimN = floor(InterStimTime / SampleInterval)
@@ -1322,10 +1420,10 @@ Function ITCmakeWaves(NumOuts, NumStimWaves, InterStimTime, NumStimReps, InterRe
 		
 			switch(AcqMode)
 			
-				case 0: // episodic-fast
+				case 0: // epic precise
 			
 					if (insertN >= pipe)
-						error = ITCmixWaves(wname, NumOuts, wlist, tlist, SamplesPerWave, insertN, 1, pipe) // mix output waves, shift
+						error = ITCmixWaves(wname, NumOuts, wlist, tlist, stimPnts[wcnt], insertN, 1, pipe) // mix output waves, shift
 					else
 						ITCError("ITC Episodic Error", "inter-wave or inter-rep time too short. Try continuous acquisition.")
 						return -1
@@ -1334,12 +1432,12 @@ Function ITCmakeWaves(NumOuts, NumStimWaves, InterStimTime, NumStimReps, InterRe
 					break
 					
 				case 1: // continuous
-					error = ITCmixWaves(wname, NumOuts, wlist, tlist, SamplesPerWave, insertN, 1, 0) // mix output waves, no shift
+					error = ITCmixWaves(wname, NumOuts, wlist, tlist, stimPnts[wcnt], insertN, 1, 0) // mix output waves, no shift
 					break
 					
-				case 2: // episodic-slow
+				case 2: // episodic
 				case 3: // triggered
-					error = ITCmixWaves(wname, NumOuts, wlist, tlist, SamplesPerWave, insertN, 1, pipe)
+					error = ITCmixWaves(wname, NumOuts, wlist, tlist, stimPnts[wcnt], insertN, 1, pipe)
 					break
 					
 				default:
@@ -1364,7 +1462,7 @@ Function ITCmakeWaves(NumOuts, NumStimWaves, InterStimTime, NumStimReps, InterRe
 		for (icnt = 0; icnt < ItemsInList(ADClist[wcnt]); icnt += 1)
 			item = StringFromList(icnt, ADClist[wcnt])
 			wname = StringFromList(0, item, ",")
-			Make /O/N=(SamplesPerWave) $wname = Nan
+			Make /O/N=(stimPnts[wcnt]) $wname = Nan
 			Setscale /P x 0, SampleInterval, $wname
 		endfor
 		
@@ -1391,7 +1489,7 @@ Function ITCkillWaves() // Kill ITC waves that may exist
 		
 	for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
 		wname = StringFromList(icnt, wlist)
-		KillWaves /Z $(sdf+wname)
+		KillWaves /Z $sdf+wname
 	endfor
 
 End // ITCkillWaves
@@ -1431,19 +1529,11 @@ Function ITCmixWaves(mixwname, nmix, wlist, tlist, npnts, ipnts, mixflag, pipede
 	
 	String cdf = ClampDF(), sdf = StimDF()
 	
-	Variable SamplesPerWave = NumVarOrDefault(sdf+"SamplesPerWave", 0)
-	
 	numTTL = ItemsInList(tlist)
 	
-	//if (mixflag == 1)
-	//	npnts = GetXStats("numpnts", wlist)
-	//endif
-	
-	//if (numtype(npnts) > 0)
-	//	return -1 // waves of different length
-	//endif
-	
-	npnts = SamplesPerWave
+	if ((numtype(npnts) > 0) || (npnts <= 0))
+		return -1
+	endif
 	
 	if (mixflag == 1) // mix waves
 
@@ -1478,7 +1568,7 @@ Function ITCmixWaves(mixwname, nmix, wlist, tlist, npnts, ipnts, mixflag, pipede
 		if (numTTL > 0)
 		
 			Make /O/N=(npnts) $(sdf+"ITCTTLOUT") = 0
-			Wave TTLout = $(sdf+"ITCTTLOUT")
+			Wave TTLout = $sdf+"ITCTTLOUT"
 		
 			for (icnt = 0; icnt < numTTL; icnt += 1) // sum TTL output "D" together
 			
@@ -1534,7 +1624,7 @@ Function ITCmixWaves(mixwname, nmix, wlist, tlist, npnts, ipnts, mixflag, pipede
 		
 		Duplicate /O/R=[ipnts,ipnts+npnts*nmix-1] $mixwname $(sdf + "ITCmix")
 
-		Wave mixWave = $(sdf + "ITCmix")
+		Wave mixWave = $sdf + "ITCmix"
 
 		for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
 		

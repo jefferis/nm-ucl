@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -639,20 +639,20 @@ Function /S ReadAxoColumnY_3(file, df, saveTheData)  // read y-column, format >=
 	samples = ReadAxoVar(file, "long")
 	
 	if (dbug == 1)
-		//Print "Samples Per Wave:", samples
+		Print "Samples Per Wave:", samples
 	endif
 	
 	dataFormat = ReadAxoVar(file, "long")
 	
 	if (dbug == 1)
-		//Print "Data Format Type:", dataFormat
+		Print "Data Format Type:", dataFormat
 	endif
 	
 	charbytes = ReadAxoVar(file, "long")
 	nchar = charbytes / 2
 	
 	if (dbug == 1)
-		//Print "Num Label Chars:", nchar
+		Print "Num Label Chars:", nchar
 	endif
 	
 	tLabel = ReadAxoUnicode(file, nchar)

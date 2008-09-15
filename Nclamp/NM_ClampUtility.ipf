@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 4
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -20,15 +20,35 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 8 Feb 2006
+//	Last modified 1 April 2008
 //
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ClampUtilityList(select)
+	String select
+	
+	strswitch(select)
+		case "Pre":
+			return ClampUtilityPreList()
+		case "Int":
+			return ClampUtilityInterList()
+		case "Pos":
+			return ClampUtilityPostList()
+	endswitch
+	
+	return ""
+	
+End // ClampUtilityList
+
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
 Function /S ClampUtilityPreList()
 	return "TModeCheck;ReadTemp;"
-End
+End // ClampUtilityPreList
 
 //****************************************************************
 //****************************************************************
@@ -36,7 +56,7 @@ End
 
 Function /S ClampUtilityInterList()
 	return "OnlineAvg;Rstep;RCstep;TempRead;"
-End
+End // ClampUtilityInterList
 
 //****************************************************************
 //****************************************************************
@@ -44,7 +64,7 @@ End
 
 Function /S ClampUtilityPostList()
 	return ""
-End
+End // ClampUtilityPostList
 
 //****************************************************************
 //
@@ -55,26 +75,37 @@ End
 //****************************************************************
 
 Function OnlineAvg(mode)
-	Variable mode // (0) run fxn (1) config fxn (-1) kill fxn
+	Variable mode // (-1) kill (0) run (1) config (2) init
 	
 	Variable ccnt, cbeg, cend
 	String wname, avgname, gname, sdf = StimDF()
 	
 	Variable chan = NumVarOrDefault(sdf+"OnlineAvgChan", -1)
+	Variable currentWave = NumVarOrDefault("CurrentWave", 0)
+	Variable nchans = NumVarOrDefault("NumChannels", 0)
 	
-	if (mode == 1)
-		OnlineAvgConfig()
-		return 0
-	elseif (mode == -1)
-		KillVariables /Z $(sdf+"OnlineAvgChan")
-		return 0
-	endif
+	switch(mode)
 	
-	NVAR CurrentWave, NumChannels
+		case 0:
+			break
+	
+		case 1:
+			OnlineAvgConfig()
+			return 0
+	
+		case -1:
+			KillVariables /Z $(sdf+"OnlineAvgChan")
+			return 0
+		
+		case 2:
+		default:
+			return 0
+			
+	endswitch
 	
 	if (chan == -1)
 		cbeg = 0
-		cend = NumChannels - 1
+		cend = nchans - 1
 	else
 		cbeg = chan
 		cend = chan
@@ -92,13 +123,13 @@ Function OnlineAvg(mode)
 		
 		Wave wtemp = $wname
 		
-		if (CurrentWave == 0)
+		if (currentWave == 0)
 			Duplicate /O $wname $avgname
 			RemoveFromGraph /Z/W=$gname $avgname
 			AppendToGraph /W=$gname $avgname
 		else
 			Wave avgtemp = $avgname
-			avgtemp = ((avgtemp * CurrentWave) + wtemp) / (CurrentWave + 1)
+			avgtemp = ((avgtemp * currentWave) + wtemp) / (currentWave + 1)
 		endif
 		
 	endfor
@@ -112,7 +143,7 @@ End // OnlineAvg
 Function OnlineAvgConfig()
 	String sdf = StimDF()
 
-	Variable numchan = StimOnCount(sdf, "ADC")
+	Variable numchan = StimBoardOnCount("", "ADC")
 	String chanList = ChanCharList(numchan, ";")
 	
 	if (numchan == 1)
@@ -158,17 +189,26 @@ End // OnlineAvgConfig
 //****************************************************************
 
 Function TModeCheck(mode)
-	Variable mode // (0) run fxn (1) config fxn (-1) kill fxn
+	Variable mode // (-1) kill (0) run (1) config (2) init
 	
 	Variable telValue
 	String tmode, cdf = ClampDF(), sdf = StimDF()
 	
-	if (mode == 1)
-		TModeCheckConfig()
-		return 0
-	elseif (mode == -1)
-		return 0
-	endif
+	switch(mode)
+	
+		case 0:
+			break
+	
+		case 1:
+			TModeCheckConfig()
+			return 0
+			
+		case 2:
+		case -1:
+		default:
+			return 0
+			
+	endswitch
 	
 	Variable driver = NumVarOrDefault(cdf+"BoardDriver", 0)
 	
@@ -243,16 +283,26 @@ End // TModeCheckConfig
 //****************************************************************
 
 Function ReadTemp(mode)
-	Variable mode // (0) run fxn (1) config fxn (-1) kill fxn
+	Variable mode // (-1) kill (0) run (1) config (2) init
 	
 	Variable telValue
-	String cdf = ClampDF(), sdf = StimDF()
+	String cdf = ClampDF()
 	
-	if (mode == 1)
-		ReadTempConfig()
-	elseif (mode == -1)
-		return 0
-	endif
+	switch(mode)
+	
+		case 0:
+			break
+	
+		case 1:
+			ReadTempConfig()
+			break
+	
+		case 2:
+		case -1:
+		default:
+			return 0
+			
+	endswitch
 	
 	Variable driver = NumVarOrDefault(cdf+"BoardDriver", 0)
 	Variable chan = NumVarOrDefault(cdf+"TempChan", -1)
@@ -274,6 +324,32 @@ Function ReadTemp(mode)
 End // ReadTemp
 
 //****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ReadTempConfig()
+	String cdf = ClampDF()
+	
+	Variable chan = NumVarOrDefault(cdf+"TempChan", -1) + 1
+	Variable slope = NumVarOrDefault(cdf+"TempSlope", 1)
+	Variable offset = NumVarOrDefault(cdf+"TempOffset", 0)
+	
+	Prompt chan, "select ADC input to acquire temperature:", popup "0;1;2;3;4;5;6;7;"
+	Prompt slope, "enter slope conversion factor (degrees / V) :"
+	Prompt offset, "enter offset factor (degrees) :"
+	DoPrompt "Read Temperature", chan, slope, offset
+	
+	if (V_flag == 1)
+		return 0 // cancel
+	endif
+	
+	SetNMvar(cdf+"TempChan", chan-1)
+	SetNMvar(cdf+"TempSlope", slope)
+	SetNMvar(cdf+"TempOffset", offset)
+
+End // ReadTempConfig
+
+//****************************************************************
 //
 //	TempRead()
 //	read temperature from ADC input (saves to a wave)
@@ -282,16 +358,26 @@ End // ReadTemp
 //****************************************************************
 
 Function TempRead(mode)
-	Variable mode // (0) run fxn (1) config fxn (-1) kill fxn
+	Variable mode // (-1) kill (0) run (1) config (2) init
 	
 	Variable telValue
-	String cdf = ClampDF(), sdf = StimDF()
+	String cdf = ClampDF()
 	
-	if (mode == 1)
-		ReadTempConfig()
-	elseif (mode == -1)
-		return 0
-	endif
+	switch(mode)
+	
+		case 0:
+			break
+	
+		case 1:
+			ReadTempConfig()
+			break
+	
+		case 2:
+		case -1:
+		default:
+			return 0
+	
+	endswitch
 	
 	Variable driver = NumVarOrDefault(cdf+"BoardDriver", 0)
 	Variable chan = NumVarOrDefault(cdf+"TempChan", -1)
@@ -338,32 +424,6 @@ Function TempRead(mode)
 End // TempRead
 
 //****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ReadTempConfig()
-	String cdf = ClampDF(), sdf = StimDF()
-	
-	Variable chan = NumVarOrDefault(cdf+"TempChan", -1) + 1
-	Variable slope = NumVarOrDefault(cdf+"TempSlope", 1)
-	Variable offset = NumVarOrDefault(cdf+"TempOffset", 0)
-	
-	Prompt chan, "select ADC input to acquire temperature:", popup "0;1;2;3;4;5;6;7;"
-	Prompt slope, "enter slope conversion factor (degrees / V) :"
-	Prompt offset, "enter offset factor (degrees) :"
-	DoPrompt "Read Temperature", chan, slope, offset
-	
-	if (V_flag == 1)
-		return 0 // cancel
-	endif
-	
-	SetNMvar(cdf+"TempChan", chan-1)
-	SetNMvar(cdf+"TempSlope", slope)
-	SetNMvar(cdf+"TempOffset", offset)
-
-End // ReadTempConfig
-
-//****************************************************************
 //
 //	Rstep()
 //	measure resistance of voltage/current step
@@ -371,19 +431,31 @@ End // ReadTempConfig
 //****************************************************************
 
 Function Rstep(mode)
-	Variable mode // (0) run fxn (1) config fxn (-1) kill fxn
+	Variable mode // (-1) kill (0) run (1) config (2) init
 	
 	Variable chan, base, output, input, tscale = 1
-	Variable /G CT_Rstep
+	Variable /G CT_R_Electrode
 	String outName, inName, gname
 	String cdf = ClampDF(), sdf = StimDF()
 	
-	if (mode == 1)
-		RstepConfig()
-		return 0
-	elseif (mode == -1)
-		return 0
-	endif
+	switch(mode)
+	
+		case 0:
+			break
+			
+		case 1:
+			RstepConfig(1)
+			return 0
+		
+		case 2:
+			RstepConfig(0)
+			return 0
+			
+		case -1:
+		default:
+			return 0
+			
+	endswitch
 	
 	Variable ADCconfig = NumVarOrDefault(sdf+"RstepADC", Nan)
 	Variable DACconfig = NumVarOrDefault(sdf+"RstepDAC", Nan)
@@ -397,7 +469,7 @@ Function Rstep(mode)
 		return 0
 	endif
 	
-	String ADClist = StimOnList(sdf, "ADC")
+	String ADClist = StimBoardOnList("", "ADC")
 	
 	Variable grp = NumVarOrDefault("CurrentGrp", 0)
 	
@@ -432,17 +504,19 @@ Function Rstep(mode)
 	input = abs(V_avg - base)
 	
 	if (scale < 0)
-		CT_Rstep = -1 * output * scale / input
+		CT_R_Electrode = -1 * output * scale / input
 	else
-		CT_Rstep = input * scale / output
+		CT_R_Electrode = input * scale / output
 	endif
 	
-	CT_Rstep = round(CT_Rstep * 100) / 100
+	CT_R_Electrode = round(CT_R_Electrode * 100) / 100
 	
 	gName = ChanGraphName(chan)
 	outName = GetWaveName("Display", chan, 0)
 	
-	Tag /C/W=$gname/N=Rtag bottom, tend, num2str(CT_Rstep) + " Mohms"
+	Tag /C/W=$gname/N=Rtag bottom, tend, num2str(CT_R_Electrode) + " Mohms"
+	
+	NotesFileVar("F_Relectrode", CT_R_Electrode)
 	
 End // Rstep
 
@@ -450,25 +524,29 @@ End // Rstep
 //****************************************************************
 //****************************************************************
 
-Function RstepConfig()
-	String cdf = ClampDF(), sdf = StimDF()
+Function RstepConfig(userInput)
+	Variable userInput // (0) no (1) yes
+	
+	String cdf = ClampDF(), sdf = StimDF(), bdf = StimBoardDF(sdf)
 	
 	Variable ADCconfig, DACconfig, tbgn, tend, scale
 	String ADCstr, DACstr, ADCunit, DACunit
 	
-	String ADClist = StimOnList(sdf, "ADC")
-	String DAClist = StimOnList(sdf, "DAC")
+	String ADClist = StimBoardOnList("", "ADC")
+	String DAClist = StimBoardOnList("", "DAC")
 	
 	Variable ADCcount = ItemsInList(ADClist)
 	Variable DACcount = ItemsInList(DAClist)
 	
 	if (ADCcount == 0)
-		ClampError("No ADC input channels to measure.")
+		//ClampError("No ADC input channels to measure.")
+		Print "Rstep Error: no ADC input channels to measure."
 		return 0
 	endif
 	
 	if (DACcount == 0)
-		ClampError("No DAC output channels to measure.")
+		//ClampError("No DAC output channels to measure.")
+		Print "Rstep Error: no DAC output channels to measure."
 		return 0
 	endif
 	
@@ -481,31 +559,35 @@ Function RstepConfig()
 	tend = NumVarOrDefault(sdf+"RstepTend", 5)
 	scale = NumVarOrDefault(sdf+"RstepScale", 1)
 	
-	ADCstr = num2str(ADCconfig)
-	DACstr = num2str(DACconfig)
-
-	Prompt ADCstr, "ADC input configuration to measure:", popup ADClist
-	Prompt DACstr, "DAC output configuration to measure:", popup DAClist
-	Prompt tbgn, "measure time begin:"
-	Prompt tend, "measure time end:"
-	DoPrompt "Compute Rstepance", ADCstr, DACstr, tbgn, tend
+	if (userInput == 1)
 	
-	if (V_flag == 1)
-		return 0 // cancel
+		ADCstr = num2str(ADCconfig)
+		DACstr = num2str(DACconfig)
+
+		Prompt ADCstr, "ADC input configuration to measure:", popup ADClist
+		Prompt DACstr, "DAC output configuration to measure:", popup DAClist
+		Prompt tbgn, "measure time begin:"
+		Prompt tend, "measure time end:"
+		DoPrompt "Compute Rstepance", ADCstr, DACstr, tbgn, tend
+		
+		if (V_flag == 1)
+			return 0 // cancel
+		endif
+		
+		ADCconfig = str2num(ADCstr)
+		DACconfig = str2num(DACstr)
+		
+		SetNMvar(sdf+"RstepADC", ADCconfig)
+		SetNMvar(sdf+"RstepDAC", DACconfig)
+		SetNMvar(sdf+"RstepTbgn", tbgn)
+		SetNMvar(sdf+"RstepTend", tend)
+	
 	endif
 	
-	ADCconfig = str2num(ADCstr)
-	DACconfig = str2num(DACstr)
+	Wave DACscale = $(bdf+"DACscale")
 	
-	SetNMvar(sdf+"RstepADC", ADCconfig)
-	SetNMvar(sdf+"RstepDAC", DACconfig)
-	SetNMvar(sdf+"RstepTbgn", tbgn)
-	SetNMvar(sdf+"RstepTend", tend)
-	
-	Wave DACscale = $(sdf+"DACscale")
-	
-	Wave /T ADCunits = $(sdf+"ADCunits")
-	Wave /T DACunits = $(sdf+"DACunits")
+	Wave /T ADCunits = $(bdf+"ADCunits")
+	Wave /T DACunits = $(bdf+"DACunits")
 	
 	ADCstr = ADCunits[ADCconfig]
 	DACstr = DACunits[DACconfig]
@@ -574,9 +656,9 @@ End // MetricValue
 //****************************************************************
 
 Function RCstep(mode)
-	Variable mode // (0) run fxn (1) config fxn (-1) kill fxn
+	Variable mode // (-1) kill (0) run (1) config (2) init
 	
-	Variable toffset = 0.02 // time after step to start curve fit
+	//Variable toffset = 0.02 // time after step to start curve fit
 	
 	Variable fbgn, fend
 	Variable chan, base, vstep, input, tbase, tscale = 1, negstep = 0
@@ -585,12 +667,24 @@ Function RCstep(mode)
 	String outName, inName, inName2, gname
 	String cdf = ClampDF(), sdf = StimDF()
 	
-	if (mode == 1)
-		RCstepConfig()
-		//return 0
-	elseif (mode == -1)
-		return 0
-	endif
+	switch(mode)
+	
+		case 0:
+			break
+	
+		case 1:
+			RCstepConfig(1)
+			break
+		
+		case 2:
+			RCstepConfig(0)
+			return 0
+			
+		case -1:
+		default:
+			return 0
+			
+	endswitch
 	
 	Variable currentWave = NumVarOrDefault("CurrentWave", 0)
 	Variable nwaves = NumVarOrDefault("NumWaves", 0)
@@ -604,7 +698,7 @@ Function RCstep(mode)
 	
 	Variable dsply = NumVarOrDefault(sdf+"RCstepDisplay", 1)
 	
-	String ADClist = StimOnList(sdf, "ADC")
+	String ADClist = StimBoardOnList("", "ADC")
 	String board = StrVarOrDefault(cdf+"AcqBoard", "")
 	
 	if (numtype(ADCconfig*DACconfig*tbgn*tend*scale) > 0)
@@ -638,7 +732,7 @@ Function RCstep(mode)
 	
 	tbase = tbgn - 0.5
 	
-	WaveStats /Q/R=(0, tbase) $outName // baseline
+	WaveStats /Q/R=(0, tbase*tscale) $outName // baseline
 	
 	base = V_avg // should be zero
 	
@@ -652,14 +746,13 @@ Function RCstep(mode)
 	
 	WaveStats /Q/R=(tbgn*tscale, tend*tscale) $inName
 	
-	//fbgn = tbgn
+	//if (negstep == 1)
+	//	fbgn = V_minloc + toffset
+	//else
+	//	fbgn = V_maxloc + toffset
+	//endif
 	
-	if (negstep == 1)
-		fbgn = V_minloc + toffset
-	else
-		fbgn = V_maxloc + toffset
-	endif
-	
+	fbgn = tbgn //+ toffset
 	fend = tend
 	
 	gName = ChanGraphName(chan)
@@ -743,8 +836,7 @@ Function RCstepDisplay()
 	
 	if (WinType(gName) == 0)
 	
-		Display /K=1/W=(0,0,200,100) CT_Rp, CT_Rm as "Nclamp RC Estimation"
-		DoWindow /C $gName
+		Display /K=1/N=$gName/W=(0,0,200,100) CT_Rp, CT_Rm as "Nclamp RC Estimation"
 		
 		AppendToGraph /R=Cm /W=$gName CT_Cm
 		
@@ -805,25 +897,29 @@ End // RCfit
 //****************************************************************
 //****************************************************************
 
-Function RCstepConfig()
-	String cdf = ClampDF(), sdf = StimDF()
+Function RCstepConfig(userInput)
+	Variable userInput // (0) no (1) yes
+	
+	String cdf = ClampDF(), sdf = StimDF(), bdf = StimBoardDF(sdf)
 
 	Variable scale = 1
 	String ADCstr, DACstr, ADCunit, DACunit
 	
-	String ADClist = StimOnList(sdf, "ADC")
-	String DAClist = StimOnList(sdf, "DAC")
+	String ADClist = StimBoardOnList("", "ADC")
+	String DAClist = StimBoardOnList("", "DAC")
 	
 	Variable ADCcount = ItemsInList(ADClist)
 	Variable DACcount = ItemsInList(DAClist)
 	
 	if (ADCcount == 0)
-		ClampError("No ADC input channels to measure.")
+		//ClampError("No ADC input channels to measure.")
+		Print "RCstep Error: no ADC input channels to measure."
 		return 0
 	endif
 	
 	if (DACcount == 0)
-		ClampError("No DAC output channels to measure.")
+		//ClampError("No DAC output channels to measure.")
+		Print "RCstep Error: no DAC output channels to measure."
 		return 0
 	endif
 	
@@ -838,33 +934,37 @@ Function RCstepConfig()
 	
 	Variable dsply = NumVarOrDefault(sdf+"RCstepDisplay", 2)
 	
-	ADCstr = num2str(ADCconfig)
-	DACstr = num2str(DACconfig)
-
-	Prompt ADCstr, "ADC input configuration to measure (pA):", popup ADClist
-	Prompt DACstr, "DAC output configuration to measure (mV):", popup DAClist
-	Prompt tbgn, "DAC step time begin:"
-	Prompt tend, "DAC step time end:"
-	Prompt dsply, "display results in:", popup "Igor history;graph;"
-	DoPrompt "Compute Membrane R and C", ADCstr, DACstr, tbgn, tend, dsply
+	if (userInput == 1)
 	
-	if (V_flag == 1)
-		return 0 // cancel
+		ADCstr = num2str(ADCconfig)
+		DACstr = num2str(DACconfig)
+	
+		Prompt ADCstr, "ADC input configuration to measure:", popup ADClist
+		Prompt DACstr, "DAC output configuration to measure:", popup DAClist
+		Prompt tbgn, "DAC step time begin:"
+		Prompt tend, "DAC step time end:"
+		Prompt dsply, "display results in:", popup "Igor history;graph;"
+		DoPrompt "Compute Membrane R and C", ADCstr, DACstr, tbgn, tend, dsply
+		
+		if (V_flag == 1)
+			return 0 // cancel
+		endif
+		
+		ADCconfig = str2num(ADCstr)
+		DACconfig = str2num(DACstr)
+	
+		SetNMvar(sdf+"RCstepADC", ADCconfig)
+		SetNMvar(sdf+"RCstepDAC", DACconfig)
+		SetNMvar(sdf+"RCstepTbgn", tbgn)
+		SetNMvar(sdf+"RCstepTend", tend)
+		SetNMvar(sdf+"RCstepDisplay", dsply)
+		
 	endif
 	
-	ADCconfig = str2num(ADCstr)
-	DACconfig = str2num(DACstr)
+	Wave DACscale = $(bdf+"DACscale")
 	
-	SetNMvar(sdf+"RCstepADC", ADCconfig)
-	SetNMvar(sdf+"RCstepDAC", DACconfig)
-	SetNMvar(sdf+"RCstepTbgn", tbgn)
-	SetNMvar(sdf+"RCstepTend", tend)
-	SetNMvar(sdf+"RCstepDisplay", dsply)
-	
-	Wave DACscale = $(sdf+"DACscale")
-	
-	Wave /T ADCunits = $(sdf+"ADCunits")
-	Wave /T DACunits = $(sdf+"DACunits")
+	Wave /T ADCunits = $(bdf+"ADCunits")
+	Wave /T DACunits = $(bdf+"DACunits")
 	
 	ADCstr = ADCunits[ADCconfig]
 	DACstr = DACunits[DACconfig]
@@ -877,92 +977,13 @@ Function RCstepConfig()
 		DACunit = DACstr[0,strlen(DACstr)-2]
 		scale = 1e-6 * MetricValue(DACunits) *  DACscale[DACconfig] / MetricValue(ADCunits)
 	else
-		DoAlert 0, "RCStep warning: input / output units do not appear to be correct. This function works only in voltage-clamp mode."
+		//DoAlert 0, "RCStep warning: input / output units do not appear to be correct. This function works only in voltage-clamp mode."
+		Print "RCStep warning: input / output units do not appear to be correct. This function works only in voltage-clamp mode."
 	endif
 	
 	SetNMvar(sdf+"RCstepScale", scale)
 
 End // RCstepConfig
-
-//****************************************************************
-//
-//	MyTelegraphGain()
-//	see NIDAQ code for example call
-//
-//****************************************************************
-
-Function MyTelegraphGain(tgain, defaultGain)
-	Variable tgain // telegraphed value
-	Variable defaultGain // default gain value
-	
-	String cdf = ClampDF()
-	
-	String instr = StrVarOrDefault(cdf+"ClampInstrument", "")
-	
-	Variable scale, beta, alpha = -1
-	
-	strswitch(instr)
-		case "Axopatch200B":
-			alpha = TGainAxo200B(tgain)
-			beta = 1 // whole cell
-			scale = 0.001 * beta // V / mV
-			break
-	endswitch
-	
-	if ((alpha <= 0) || (numtype(alpha) != 0))
-		return defaultGain
-	else
-		return (alpha * scale)
-	endif
-	
-End // MyTelegraphGain
-
-//****************************************************************
-//
-//	TGainAxo200B()
-//	Axopatch 200B telegraph gain look-up table
-//
-//****************************************************************
-
-Function TGainAxo200B(telValue)
-	Variable telValue
-	
-	telValue = 5*round(10 * telValue / 5)
-	
-	switch(telValue)
-		case 5:
-			return 0.05
-		case 10:
-			return 0.1
-		case 15:
-			return 0.2
-		case 20:
-			return 0.5
-		case 25:
-			return 1
-		case 30:
-			return 2
-		case 35:
-			return 5
-		case 40:
-			return 10
-		case 45:
-			return 20
-		case 50:
-			return 50
-		case 55:
-			return 100
-		case 60:
-			return 200
-		case 65:
-			return 500
-		default:
-			Print "\rAxopatch 200B Telegraph Gain not recognized : " + num2str(telValue)
-	endswitch
-	
-	return -1
-
-End // TGainAxo200B
 
 //****************************************************************
 //
@@ -1052,6 +1073,76 @@ Function TCapAxo200B(telValue, beta)
 	endif
 
 End // TCapAxo200B
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+//
+//
+//	Igor-timed clock functions
+//
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampWait(t)
+	Variable t
+	
+	if (t == 0)
+		return 0
+	endif
+	
+	if (IgorVersion() >= 5)
+		return ClampWaitMSTimer(t)
+	else
+		return ClampWaitTicks(t)
+	endif
+	
+End // ClampWait
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampWaitTicks(t) // wait t msec (only accurate to 17 msec)
+	Variable t
+	
+	if (t == 0)
+		return 0
+	endif
+	
+	Variable t0 = ticks
+	
+	t *= 60 / 1000
+
+	do
+	while ((ClampAcquireCancel() == 0) && (ticks - t0 < t ))
+	
+	return 0
+	
+End // ClampWaitTicks
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampWaitMSTimer(t) // wait t msec (this is more accurate)
+	Variable t
+	
+	if (t <= 0)
+		return 0
+	endif
+	
+	Variable dt, t0 = stopMSTimer(-2)
+	
+	do
+		dt = (stopMSTimer(-2) - t0) / 1000 // msec
+	while ((ClampAcquireCancel() == 0) && (dt < t ))
+	
+	return 0
+	
+End // ClampWaitMSTimer
 
 //****************************************************************
 //****************************************************************

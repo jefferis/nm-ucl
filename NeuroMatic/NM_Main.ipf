@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -21,11 +21,31 @@
 //****************************************************************
 //****************************************************************
 
-Function NMVersion()
+Function NMVersionNum()
 
-	return 1.98
+	return 2.00
 
-End // NMVersion
+End // NMVersionNum
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMVersionStr()
+
+	return "2.00"
+
+End // NMVersionStr
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMwebpage()
+
+	BrowseURL /Z  "http://www.neuromatic.thinkrandom.com/"
+
+End // NMwebpage
 
 //****************************************************************
 //****************************************************************
@@ -159,10 +179,31 @@ End // NeuroMaticConfigHook
 Static Function IgorStartOrNewHook(igorApplicationNameStr)
 	String igorApplicationNameStr
 	
-	CheckNMversion()
+	CheckNMVersionNum()
+	
 	return 0
 	
-End
+End // IgorStartOrNewHook
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Static Function BeforeExperimentSaveHook(refNum, fileNameStr, pathNameStr, fileTypeStr, fileCreatorStr, fileKind )
+	Variable refNum
+	String fileNameStr, pathNameStr, fileTypeStr, fileCreatorStr
+	Variable fileKind
+	
+	KillPath /Z NMpath
+	KillPath /Z OpenDataPath
+	KillPath /Z SaveDataPath
+	KillPath /Z ClampPath
+	KillPath /Z StimPath
+	KillPath /Z OpenAllPath
+	
+	return 0
+
+End // BeforeExperimentSaveHook
 
 //****************************************************************
 //****************************************************************
@@ -172,10 +213,14 @@ Static Function AfterFileOpenHook(refNum, fileName, path, type, creator, kind)
 	Variable refNum,kind
 	String fileName,path,type,creator
 	
-	CheckNMversion()
+	CheckNMVersionNum()
 	
 	if (StringMatch(type,"IGsU") == 1) // Igor Experiment, packed
 		CheckFileOpen(fileName)
+	endif
+	
+	if (CheckComputerXYpixels() == 1) // check screen dimensions are OK
+		MakeNMpanel()
 	endif
 	
 	return 0
@@ -192,7 +237,7 @@ Function CheckNM(force) // check NM Package folders
 	Variable madeFolder
 	String df = NMDF()
 	
-	//Print "CheckNM(" + num2str(force) + ")"
+	SetNMvar(df+"NMOK", 0)
 	
 	if (NumVarOrDefault(df+"NMOn", 1) == 0)
 		return 1
@@ -219,6 +264,8 @@ Function CheckNM(force) // check NM Package folders
 		
 	endif
 	
+	SetNMvar(df+"NMOK", 1)
+	
 	if (madeFolder == 1)
 		NMConfigOpenAuto()
 		CheckNMPaths()
@@ -235,9 +282,9 @@ End // CheckNM
 //****************************************************************
 //****************************************************************
 
-Function CheckNMversion()
+Function CheckNMVersionNum()
 
-	if (NumVarOrDefault(NMDF() + "NMversion", 0) != NMversion())
+	if (NumVarOrDefault(NMDF() + "NMversion", 0) != NMVersionNum())
 		ResetNM(0)
 	endif
 
@@ -286,17 +333,44 @@ End // CheckNMFolderList
 //****************************************************************
 //****************************************************************
 
+Function /S NMCurrentFolder()
+
+	return CurrentNMFolder(0)
+
+End // NMCurrentFolder
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S CurrentNMFolder(path)
+	Variable path // (0) no path (1) with path
+	
+	String folder = StrVarOrDefault(NMDF()+"CurrentFolder", "")
+	
+	if (path == 1)
+		return "root:" + folder + ":"
+	endif
+
+	return folder
+
+End // CurrentNMFolder
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function CheckCurrentFolder() // check if current NM folder is OK
 
 	String df = NMDF()
-	String currentFolder = StrVarOrDefault(df+"CurrentFolder", GetDataFolder(1))
+	String currentFolder = NMCurrentFolder()
 	String thisFolder = GetDataFolder(1)
 	
 	if (NumVarOrDefault(df+"NMOn", 1) == 0)
 		return 1
 	endif
 
-	if ((StringMatch(CurrentFolder, thisFolder) == 0) && (IsNMDataFolder("") == 1))
+	if ((StringMatch(currentFolder, thisFolder) == 0) && (IsNMDataFolder("") == 1))
 		
 		DoAlert 1, "The current data folder has changed. Do you want NeuroMatic to change to this folder?"
 		
@@ -314,7 +388,7 @@ Function CheckCurrentFolder() // check if current NM folder is OK
 		NMFolderChangeToFirst()
 	endif
 	
-	UpdateNMPanelTitle()
+	//UpdateNMPanelTitle()
 	
 	return 1
 
@@ -341,7 +415,7 @@ Function ResetNM(killFirst) // use this function to re-initialize neuromatic
 
 	String df = NMDF()
 	
-	Variable version = NMversion()
+	Variable version = NMVersionNum()
 	
 	if (killfirst == 1)
 	
@@ -363,11 +437,11 @@ Function ResetNM(killFirst) // use this function to re-initialize neuromatic
 	
 	CheckNM(1)
 	
-	SetNMvar(df+"CurrentTab", 0) // set Main as current tab
+	SetNMvar(df+"CurrentTab", 0) // set Main Tab as current tab
 	
 	CheckNMDataFolders()
 	CheckNMFolderList()
-	ChanWaveListSet(0)
+	ChanWaveListSet(-1, 0)
 	
 	SetNMvar(df+"NMversion", version)
 	
@@ -377,7 +451,7 @@ Function ResetNM(killFirst) // use this function to re-initialize neuromatic
 		UpdateCurrentWave()
 	endif
 	
-	NMHistory("\rStarted NeuroMatic Version " + num2str(version))
+	NMHistory("\rStarted NeuroMatic Version " + NMVersionStr())
 	
 	return 0
 
@@ -390,7 +464,7 @@ End // ResetNM
 Function AutoStartNM()
 	String df = NMDF()
 
-	if (NumVarOrDefault(df+"AutoStart", 0) == 0)
+	if (NumVarOrDefault(df+"AutoStart", 1) == 0)
 		return 0
 	endif
 	
@@ -412,7 +486,6 @@ Function UpdateNM(force)
 	String df = NMDF()
 
 	if (NumVarOrDefault(df+"UpdateNMBlock", 0) == 1)
-		SetNMvar(df+"UpdateNMBlock", 0)
 		KillVariables /Z $(df+"UpdateNMBlock")
 		return 0
 	endif
@@ -486,14 +559,15 @@ End // NMKill
 //****************************************************************
 //****************************************************************
 
-Function CheckNeuroMatic() // check NeuroMatic globals
+Function CheckNeuroMatic() // check main NeuroMatic globals
+
 	String df = NMDF()
 	
 	if (DataFolderExists(df) == 0)
 		return -1
 	endif
 	
-	CheckNMvar(df+"NMversion", NMversion())	// NeuroMatic version
+	CheckNMvar(df+"NMversion", NMVersionNum())	// NeuroMatic version
 	
 	CheckNMvar(df+"NMOn", 1)			// NueorMatic (0) off (1) on
 	CheckNMvar(df+"AutoStart", 1)			// auto-start NeuroMatic (0) no (1) yes
@@ -502,13 +576,14 @@ Function CheckNeuroMatic() // check NeuroMatic globals
 	CheckNMvar(df+"OverWrite", 1)			// over-write (0) off (1) on
 	CheckNMvar(df+"WriteHistory", 1)		// analysis history (0) off (1) Igor History (2) notebook (3) both
 	CheckNMvar(df+"CmdHistory", 1)		// command history (0) off (1) Igor History (2) notebook (3) both
-	CheckNMvar(df+"GroupsOn", 0)		// groups (0) on (1) off")
+	CheckNMvar(df+"GroupsOn", 0)		// groups (0) on (1) off
 	CheckNMvar(df+"Cascade", 0)			// window cascade counter
 	CheckNMvar(df+"ImportPrompt", 1)		// display import prompt panel (0) no (1) yes
 	
+	CheckNMstr(df+"OrderWavesBy", "name")	// order waves by "name" or creation "date"
 	CheckNMstr(df+"FolderPrefix", "nm")
 	CheckNMstr(df+"PrefixList", "Record;Avg_;")
-	CheckNMstr(df+"NMTabList", "Main;Stats;Spike;Event;MyTab;")
+	CheckNMstr(df+"NMTabList", "Main;Stats;Spike;Event;Fit;")
 	
 	CheckNMstr(df+"OpenDataPath", "")	// open data file path (i.e. C:Jason:TestData:)
 	CheckNMstr(df+"SaveDataPath", "")	// save data file path (i.e. C:Jason:TestData:)
@@ -516,6 +591,39 @@ Function CheckNeuroMatic() // check NeuroMatic globals
 	CheckNMtwave(df+"FolderList", 0, "")	// wave of NM folder names
 
 End // CheckNeuroMatic
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NeuroMaticConfigs()
+	String fname = "NeuroMatic"
+
+	NMConfigVar(fname, "AutoStart", 1, "Auto-start NM (0) no (1) yes")
+	NMConfigVar(fname, "AutoPlot", 0, "Auto plot data upon loading file (0) no (1) yes")
+	NMConfigVar(fname, "NameFormat", 1, "Wave name format (0) short (1) long")
+	//NMConfigVar(fname, "ProgFlag", 1, "Progress display (0) off (1) WinProg XOP of Kevin Boyce")
+	
+	NMConfigVar(fname, "WriteHistory", 1, "Analysis history (0) off (1) Igor History (2) notebook (3) both")
+	NMConfigVar(fname, "CmdHistory", 1, "Command history (0) off (1) Igor History (2) notebook (3) both")
+	
+	//NMConfigVar(fname, "xPixels", 1000, "Screen x-pixels") // auto-detected
+	//NMConfigVar(fname, "yPixels", 800, "Screen y-pixels") // auto-detected
+	//NMConfigStr(fname,"Computer", "mac", "Computer type (mac or pc)") // auto-detected
+	
+	NMConfigVar(fname, "ImportPrompt", 1, "Import prompt (0) off (1) on")
+	
+	NMConfigVar(fname, "OverWrite", 1, "Over-write (0) off (1) on")
+	
+	NMConfigStr(fname, "OrderWavesBy", "name", "Order waves by \"name\" or creation \"date\"")
+	NMConfigStr(fname, "FolderPrefix", "nm", "NM folder prefix")
+	NMConfigStr(fname, "PrefixList", "Record;Avg_;ST_;", "List of wave prefix names")
+	NMConfigStr(fname, "NMTabList", "Main;Stats;Spike;MyTab;", "List of NM tabs")
+	
+	NMConfigStr(fname, "OpenDataPath", "", "Open data file path (i.e. C:Jason:TestData:)")
+	NMConfigStr(fname, "SaveDataPath", "", "Save data file path (i.e. C:Jason:TestData:)")
+			
+End // NeuroMaticConfigs
 
 //****************************************************************
 //****************************************************************
@@ -589,6 +697,58 @@ Function NMOn(on)
 	return 1
 
 End // NMOn
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMOrderWavesPref()
+
+	return StrVarOrDefault(NMDF() + "OrderWavesBy", "name")
+
+End // NMOrderWavesPref()
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMOrderWavesPrefCall()
+	
+	String order = NMOrderWavesPref()
+	
+	Prompt order, "Order selected waves by:", popup "name;date;"
+	DoPrompt "Order Waves Preference", order
+	
+	if (V_flag == 1)
+		return -1 // cancel
+	endif
+	
+	NMCmdHistory("NMOrderWavesPrefSet", NMCmdStr(order,""))
+	
+	return NMOrderWavesPrefSet(order)
+
+End // NMOrderWavesPreferenceCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMOrderWavesPrefSet(order)
+	String order // order waves (0) by creation date (1) alpha-numerically
+	
+	strswitch(order)
+		case "name":
+		case "date":
+			SetNMstr(NMDF() + "OrderWavesBy", order)
+			break
+		default:
+			DoAlert 0, "Unrecognized order waves preference: " + order
+			return -1
+	endswitch
+	
+	return 0
+	
+End // NMOrderWavesPrefSet
 
 //****************************************************************
 //****************************************************************
@@ -677,9 +837,16 @@ End // ChanCharList
 Function NMChanSelectCall(chanStr)
 	String chanStr
 	
-	NMCmdHistory("NMChanSelect", NMCmdStr(chanStr, ""))
+	strswitch(chanStr)
+		case "Channel":
+		case "---":
+			UpdateNMChanSelect()
+			return Nan
+			
+	endswitch
 	
-	return NMChanSelect(chanStr)
+	NMCmdHistory("NMChanSelect", NMCmdStr(chanStr, ""))
+	NMChanSelect(chanStr)
 	
 End // NMChanSelectCall
 
@@ -691,6 +858,12 @@ Function NMChanSelect(chanStr) // set current channel
 	String chanStr // "A", "B", "C"... or "All" or ("") for current channel
 	
 	Variable chanNum
+	String chanList = ChanCharList(-1, ";")
+	
+	if ((StringMatch(chanStr, "All") == 0) && (WhichListItem(chanStr, chanList) < 0))
+		DoAlert 0, "NMChanSelect Error: channel selected is out of range: " + chanStr
+		return Nan
+	endif
 	
 	if (strlen(chanStr) == 0)
 		chanNum = NMCurrentChan()
@@ -700,8 +873,8 @@ Function NMChanSelect(chanStr) // set current channel
 		chanNum = ChanChar2Num(chanStr)
 	endif
 	
-	if (numtype(chanNum) > 0)
-		return -1
+	if ((numtype(chanNum) > 0) || (chanNum < -1))
+		return Nan
 	endif
 	
 	return CurrentChanSet(chanNum)
@@ -721,12 +894,18 @@ Function CurrentChanSet(chanNum) // set current channel
 	
 	Variable currTab = NumVarOrDefault(df+"CurrentTab", 0)
 	Variable currChan = NMCurrentChan()
+	Variable nchan = NMNumChannels()
 	
-	if (WaveExists(ChanSelect) == 0)
-		return 0
+	if ((WaveExists(ChanSelect) == 0) || (nchan == 0))
+		return Nan
 	endif
 	
 	Wave ChanSelect
+	
+	if ((chanNum < -1) || (chanNum >= NMNumChannels()))
+		DoAlert 0, "CurrentChanSet Error: channel selected is out of range: " + num2str(chanNum)
+		return Nan
+	endif
 	
 	if (chanNum == -1)
 		changeto = 0
@@ -738,13 +917,17 @@ Function CurrentChanSet(chanNum) // set current channel
 		changeto = -1
 	endif
 	
+	Note /K ChanSelect
+	
 	if (chanNum == -1) // "All"
 		currChan = 0
 		ChanSelect = 1
+		Note ChanSelect, "All"
 	else
 		currChan = chanNum
 		ChanSelect = 0
 		ChanSelect[chanNum] = 1
+		Note ChanSelect, num2str(chanNum)
 	endif
 	
 	SetNMvar("CurrentChan", currChan)
@@ -753,6 +936,9 @@ Function CurrentChanSet(chanNum) // set current channel
 		ChangeTab(currTab, currTab, TabList) // updates tab display waves
 		//ChanGraphsToFront()
 	endif
+	
+	NMWaveSelectCount()
+	UpdateNMChanSelect()
 	
 	return currChan
 
@@ -778,6 +964,29 @@ Function NMChanSelected(chanNum)
 	endif
 	
 End // NMChanSelected
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMChanSelectedAll()
+	Variable ccnt
+
+	if (WaveExists(ChanSelect) == 0)
+		return 0
+	endif
+	
+	Wave ChanSelect
+	
+	for (ccnt = 0; ccnt < numpnts(ChanSelect); ccnt += 1)
+		if (chanSelect[ccnt] == 0)
+			return 0
+		endif
+	endfor
+	
+	return 1
+
+End // NMChanSelectedAll
 
 //****************************************************************
 //****************************************************************
@@ -899,6 +1108,7 @@ Function ChanLabelSet(chanNum, wSelect, xy, labelStr)
 			case "x":
 			case "y":
 				NMNoteStrReplace(wName, xy+"Label", labelStr)
+				RemoveWaveUnits(wName)
 				break
 				
 			default:
@@ -917,6 +1127,39 @@ End // ChanLabelSet
 //****************************************************************
 //****************************************************************
 //****************************************************************
+
+Function ChanUnits2Labels()
+	Variable ccnt
+	String wName, s, x, y
+	
+	Variable nwaves = NMNumWaves()
+	
+	if (nwaves <= 0)
+		return 0
+	endif
+	
+	for (ccnt = 0; ccnt < NMNumChannels(); ccnt += 1) // loop thru channels
+		
+		wName = ChanWaveName(ccnt, 0)
+		s = WaveInfo($wName, 0)
+		x = StringByKey("XUNITS", s)
+		y = StringByKey("DUNITS", s)
+		
+		if (strlen(x) > 0)
+			ChanLabelSet(ccnt, 2, "x", x)
+		endif
+		
+		if (strlen(y) > 0)
+			ChanLabelSet(ccnt, 2, "y", y)
+		endif
+
+	endfor
+
+End // ChanUnits2Labels
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
 //
 //	Chan Wave List Functions
 //
@@ -924,19 +1167,135 @@ End // ChanLabelSet
 //****************************************************************
 //****************************************************************
 
-Function ChanWaveListSet(force) // update the list of wave names (ChanWaveList)
+//****************************************************************
+//
+//	NMChanWaveList()
+//	returns a list of all currently selected waves in a channel.
+//	Note, this function requires the existance of NM waves WavSelect and ChanSelect.
+//	Note, this function replaces GetWaveList() and GetChanWaveList()
+//
+//****************************************************************
+
+Function /S NMChanWaveList(chanNum)
+	Variable chanNum // channel number (-1) for all currently selected channels
+	
+	Variable wcnt, ccnt, cbgn, cend
+	String wName, wList = ""
+	
+	if ((WaveExists(WavSelect) != 1) || (WaveExists(ChanSelect) != 1))
+		DoAlert 0, "ChanWaveList Abort : cannot locate NeuroMatic waves WavSelect and/or ChanSelect."
+		return ""
+	endif
+	
+	Wave WavSelect, ChanSelect
+	
+	if (chanNum < 0)
+		cbgn = 0
+		cend = numpnts(ChanSelect) - 1
+	else
+		cbgn = chanNum
+		cend = chanNum
+	endif
+	
+	for (ccnt = cbgn; ccnt <= cend; ccnt += 1) // loop thru channels
+	
+		if ((chanNum < 0) && (ChanSelect[ccnt] != 1)) 
+			continue
+		endif
+	
+		for (wcnt = 0; wcnt < numpnts(WavSelect); wcnt += 1) // loop thru waves
+	
+			if (WavSelect[wcnt] != 1)
+				continue
+			endif
+			
+			wName = ChanWaveName(ccnt, wcnt)
+		
+			if (WaveExists($wName) == 1)
+				wList = AddListItem(wName, wList, ";", inf)
+			endif
+		
+		endfor
+		
+	endfor
+	
+	return wList
+
+End // NMChanWaveList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ChanWaveListGet(chanNum)
+	Variable chanNum // channel number (pass -1 for all currently selected channels)
+	
+	return NMChanWaveList(chanNum)
+	
+End // ChanWaveListGet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S GetWaveList()
+
+	return NMChanWaveList(NumVarOrDefault("CurrentChan", -1))
+	
+End // GetWaveList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S GetChanWaveList(chanNum)
+	Variable chanNum // channel number
+
+	return NMChanWaveList(chanNum)
+	
+End // GetChanWaveList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S CurrentChanWaveList()
+
+	return NMChanWaveList(NumVarOrDefault("CurrentChan", -1))
+
+End // CurrentChanWaveList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanWavesCount(chanNum) // count number of currently active waves in a channel
+	Variable chanNum // channel number
+
+	return ItemsInList(NMChanWaveList(chanNum))
+
+End // ChanWavesCount
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanWaveListSet(chanNum, force) // update the list of wave names (ChanWaveList)
+	Variable chanNum // channel number (-1) for all channels
 	Variable force // (0) no (1) yes
 	
-	Variable ccnt, wcnt, nwaves, nmax, strict
+	Variable icnt, jcnt = -1, ccnt, cbgn = chanNum, cend = chanNum
+	Variable wcnt, nwaves, nmax, strict
 	String wname, wList = "", allList = "", sList = ""
+	
+	String order = NMOrderWavesPref()
 	
 	String opstr = WaveListText0()
 	
 	Variable numChannels = NMNumChannels()
 	Variable numWaves = NMNumWaves()
 	
-	String wPrefix = StrVarOrDefault("WavePrefix", "")
-	String cPrefix = StrVarOrDefault("CurrentPrefix", wPrefix)
+	String cPrefix = NMCurrentWavePrefix()
 	
 	CheckNMtwave("ChanWaveList", numChannels, "")
 	
@@ -946,26 +1305,56 @@ Function ChanWaveListSet(force) // update the list of wave names (ChanWaveList)
 		return 0
 	endif
 	
-	if (force == 1)
-		ChanWaveList = ""
+	DoWindow /K $NMChanWaveListTableName()
+	
+	if (chanNum < 0)
+		cbgn = 0
+		cend = numChannels - 1
 	endif
 	
-	for (ccnt = 0; ccnt < numChannels; ccnt += 1)
-
-		if ((force == 0) && (ItemsInList(ChanWaveList[ccnt]) > 0))
+	for (ccnt = cbgn; ccnt <= cend; ccnt += 1)
+	
+		if (force == 1)
+			ChanWaveList[ccnt] = ""
+		elseif (ItemsInList(ChanWaveList[ccnt]) > 0)
 			continue
 		endif
+		
+		wList = ""
 			
 		if (numChannels == 1)
+		
 			wList = WaveList(cPrefix + "*", ";", opstr)
+			
 		else
-			wList = ChanWaveListSearch(cPrefix, ccnt)
+		
+			if (jcnt < 0)
+				wList = ChanWaveListSearch(cPrefix, ccnt)
+			endif
+			
+			if (ItemsInList(wList) == 0)
+			
+				jcnt = max(jcnt, ccnt)
+		
+				for (icnt = jcnt; icnt < 10; icnt += 1)
+				
+					wList = ChanWaveListSearch(cPrefix, icnt)
+					
+					if (ItemsInList(wList) > 0)
+						jcnt = icnt + 1
+						break
+					endif
+					
+				endfor
+				
+			endif
+			
 		endif
 
 		if (ItemsInList(wList) == 0) // if none found, try most general name
 			wList = WaveList(cPrefix + "*", ";", opstr)
 		endif
-
+		
 		for (wcnt = 0; wcnt < ItemsInList(allList); wcnt += 1) // remove waves already used
 			wname = StringFromList(wcnt, allList)
 			wList = RemoveFromList(wname, wList)
@@ -987,16 +1376,11 @@ Function ChanWaveListSet(force) // update the list of wave names (ChanWaveList)
 		
 		slist = SortListAlphaNum(wList, cPrefix)
 		
-		//if ((strict == 1) && (StringMatch(wList, slist) == 0))
-		if (StringMatch(wList, slist) == 0)
-		
-			DoAlert 1, "Warning: waves beginning with prefix \"" + cPrefix + "\" are not listed in numerical order. Do you want to order them?"
-			
-			if (V_Flag == 1)
-				wList = slist
-			endif
-			
+		if ((StringMatch(order, "name") == 1) && (StringMatch(wList, slist) == 0))
+			wList = slist
 		endif
+		
+		//Print "Chan" + ChanNum2Char(ccnt) + ": " + wList
 	
 		ChanWaveList[ccnt] = wList
 		allList += wList
@@ -1008,6 +1392,38 @@ Function ChanWaveListSet(force) // update the list of wave names (ChanWaveList)
 	ChanWaveList2Waves()
 
 End // ChanWaveListSet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanWaveListSortAlphaNum(chanNum)
+	Variable chanNum // channel number (-1) for all currently selected channels
+	
+	Variable ccnt, cbgn = chanNum, cend = chanNum
+	String wlist, slist
+	
+	String cPrefix = NMCurrentWavePrefix()
+	
+	Wave /T ChanWaveList
+	
+	DoWindow /K $NMChanWaveListTableName()
+	
+	if (chanNum < 0)
+		cbgn = 0
+		cend = numpnts(ChanWaveList)
+	endif
+	
+	for (ccnt = cbgn; ccnt <= cend; ccnt += 1)
+		wlist = ChanWaveList[ccnt]
+		slist = SortListAlphaNum(wList, cPrefix)
+		ChanWaveList[ccnt] = slist
+		//Print "Chan" + ChanNum2Char(ccnt) + ": " + sList
+	endfor
+	
+	ChanWaveList2Waves()
+
+End // ChanWaveListSortAlphaNum
 
 //****************************************************************
 //****************************************************************
@@ -1032,14 +1448,14 @@ Function /S ChanWaveListSearch(wPrefix, chanNum) // return list of waves appropr
 	
 		wname = StringFromList(wcnt, wList)
 		
-		for (icnt = strlen(wname)-1; icnt > 0; icnt -= 1)
+		for (icnt = strlen(wname)-2; icnt > 0; icnt -= 1)
 		
 			if (StringMatch(wname[icnt,icnt], chanstr) == 1)
 			
 				seqstr = wname[icnt+1,inf]
 				foundLetter = 0
 				
-				for (jcnt=0;jcnt < strlen(seqstr); jcnt += 1)
+				for (jcnt=0; jcnt < strlen(seqstr); jcnt += 1)
 					if (numtype(str2num(seqstr[jcnt, jcnt])) > 0)
 						foundLetter = 1
 					endif
@@ -1086,9 +1502,11 @@ End // NMChanWaveListGet
 //****************************************************************
 //****************************************************************
 
-Function ChanWaveList2Waves()
-	Variable ccnt
+Function ChanWaves2WaveList()
+	Variable ccnt, numChannels = NMNumChannels()
 	String wName, wList
+	
+	CheckNMtwave("ChanWaveList", numChannels, "")
 
 	if (WaveExists(ChanWaveList) == 0)
 		return -1
@@ -1097,13 +1515,189 @@ Function ChanWaveList2Waves()
 	Wave /T ChanWaveList
 	
 	for (ccnt = 0; ccnt < numpnts(ChanWaveList); ccnt += 1)
+		wName = "wNames_" + ChanNum2Char(ccnt)
+		ChanWaveList[ccnt] = Wave2List(wName)
+	endfor
+
+End // ChanWaves2WaveList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanWaveList2Waves()
+	Variable ccnt, nwaves = NMNumWaves()
+	String wName, wList
+
+	if (WaveExists(ChanWaveList) == 0)
+		return -1
+	endif
+	
+	Wave /T ChanWaveList
+	
+	for (ccnt = 0; ccnt < 10; ccnt += 1)
 		wList = ChanWaveList[ccnt]
 		wName = "wNames_" + ChanNum2Char(ccnt)
 		KillWaves /Z $wName
+	endfor
+	
+	for (ccnt = 0; ccnt < numpnts(ChanWaveList); ccnt += 1)
+		wList = ChanWaveList[ccnt]
+		wName = "wNames_" + ChanNum2Char(ccnt)
 		List2Wave(wList, wName)
+		if ((WaveExists($wName) == 1) && (numpnts($wName) != nwaves))
+			Redimension /N=(nwaves) $wName
+		endif
 	endfor
 
 End // ChanWaveList2Waves
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S CurrentChanWaveListName()
+
+	return "wNames_" + ChanNum2Char(NMCurrentChan())
+
+End // CurrentChanWaveListName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ChanWaveListName(chanNum)
+	Variable chanNum // (-1) for current
+	
+	if (chanNum < 0)
+		chanNum = NMCurrentChan()
+	endif
+
+	return "wNames_" + ChanNum2Char(chanNum)
+
+End // ChanWaveListName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMChanWaveListTableName()
+
+	return NMPrefix(NMFolderPrefix("")+"OrderWaveNames")
+
+End // NMChanWaveListTableName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMChanWaveListOrderTable(chanNum)
+	Variable chanNum // (-1) for All
+	
+	Variable ccnt, cbgn = chanNum, cend = chanNum
+	
+	String wname = ChanWaveListName(ccnt)
+	String wname2 = "wNames_Order"
+	
+	String tName = NMChanWaveListTableName()
+	
+	if (WinType(tName) > 0)
+		DoWindow /F $tName
+		return 0
+	endif
+	
+	if (chanNum < 0)
+		cbgn = 0
+		cend = NMNumChannels()
+	endif
+	
+	Make /O/N=(numpnts($wname)) $wname2
+	Wave wtemp = $wname2
+	wtemp = x
+	
+	Edit /K=1/N=$tName $wname2 as "Click \"Order Waves\" to re-order"
+	SetWindow $tName hook=NMChanWaveListTableHook
+	Execute /Z "ModifyTable title(Point)= \"Order\""
+	
+	SetCascadeXY(tName)
+	
+	for (ccnt = cbgn; ccnt <= cend; ccnt += 1)
+	
+		wname = ChanWaveListName(ccnt)
+		
+		if (WaveExists($wname) == 1)
+			AppendToTable /W=$tName $wname
+		endif
+		
+	endfor
+	
+	RemoveFromTable /W=$tName $wname2
+	
+	AppendToTable /W=$tName $wname2
+
+End // NMChanWaveListOrderTable
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMChanWaveListTableHook(infoStr)
+	String infoStr
+	
+	String event= StringByKey("EVENT", infoStr)
+	String win= StringByKey("WINDOW", infoStr)
+	
+	String wList = WaveList("*", ";","WIN:"+ win)
+	
+	if (ItemsInList(wList) <= 1)
+		return -1
+	endif
+
+	strswitch(event)
+		case "kill":
+			NMChanWaveListOrder(wList)
+	endswitch
+
+End // NMChanWaveListTableHook
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMChanWaveListOrder(wList)
+	String wList
+
+	Variable wcnt
+	String wname, wname2 = "wNames_Order"
+	
+	if (WaveExists($wname2) == 0)
+		return -1
+	endif
+	
+	wList = RemoveFromList(wname2, wList)
+	
+	for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
+	
+		wname = StringFromList(wcnt, wList)
+		
+		if ((WaveExists($wname) == 0) || (numpnts($wname) != numpnts($wname2)))
+			Print "Failed to order waves."
+			continue
+		endif
+		
+		Sort $wname2, $wname
+		
+	endfor
+	
+	Sort $wname2, $wname2
+	
+	Wave wtemp = $wname2
+	
+	wtemp = x
+	
+	ChanWaves2WaveList()
+
+End // NMChanWaveListOrder
 
 //****************************************************************
 //****************************************************************
@@ -1225,7 +1819,9 @@ Function NextWaveNum(df, prefix, chanNum, overwrite)
 	Variable count
 	String wName
 	
-	df = LastPathColon(df, 1)
+	if (strlen(df) > 0)
+		df = LastPathColon(df, 1)
+	endif
 	
 	for (count = 0; count <= 9999; count += 1) // search thru sequence numbers
 	
@@ -1256,8 +1852,23 @@ End // NextWaveNum
 //
 //****************************************************************
 
-Function /S NextWaveName(df, prefix, chanNum, overwrite) 
-	String df // data folder
+Function /S NextWaveName(prefix, chanNum, overwrite) 
+	String prefix // wave prefix name
+	Variable chanNum // channel number (pass -1 for none)
+	Variable overwrite // overwrite flag: (1) return last name in sequence (0) return next name in sequence
+	
+	NMCmdHistory("NextWaveName", "DEPRECATED. Please change your code to use NextWaveName2.")
+	
+	return NextWaveName2("", prefix, chanNum, overwrite) 
+	
+End // NextWaveName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NextWaveName2(df, prefix, chanNum, overwrite) 
+	String df // data folder (enter "" for current data folder)
 	String prefix // wave prefix name
 	Variable chanNum // channel number (pass -1 for none)
 	Variable overwrite // overwrite flag: (1) return last name in sequence (0) return next name in sequence
@@ -1266,7 +1877,7 @@ Function /S NextWaveName(df, prefix, chanNum, overwrite)
 	
 	return GetWaveName(prefix, chanNum, waveNum)
 	
-End // NextWaveName
+End // NextWaveName2
 
 //****************************************************************
 //****************************************************************
@@ -1315,99 +1926,52 @@ Function ChanWaveNum(wName) // return wave number, given name
 End // ChanWaveNum
 
 //****************************************************************
-//
-//	NMChanWaveList()
-//	returns a list of all currently selected waves in a channel.
-//	Note, this function requires the existance of NM waves WavSelect and ChanSelect.
-//	Note, this function replaces GetWaveList() and GetChanWaveList()
-//
-//****************************************************************
-
-Function /S NMChanWaveList(chanNum)
-	Variable chanNum // channel number (-1) for all currently selected channels
-	
-	Variable wcnt, ccnt, cbgn, cend
-	String wName, wList = ""
-	
-	if ((WaveExists(WavSelect) != 1) || (WaveExists(ChanSelect) != 1))
-		DoAlert 0, "ChanWaveList Abort : cannot locate NeuroMatic waves WavSelect and/or ChanSelect."
-		return ""
-	endif
-	
-	Wave WavSelect, ChanSelect
-	
-	if (chanNum < 0)
-		cbgn = 0
-		cend = numpnts(ChanSelect) - 1
-	else
-		cbgn = chanNum
-		cend = chanNum
-	endif
-	
-	for (ccnt = cbgn; ccnt <= cend; ccnt += 1) // loop thru channels
-	
-		if ((chanNum < 0) && (ChanSelect[ccnt] != 1)) 
-			continue
-		endif
-	
-		for (wcnt = 0; wcnt < numpnts(WavSelect); wcnt += 1) // loop thru waves
-	
-			if (WavSelect[wcnt] != 1)
-				continue
-			endif
-			
-			wName = ChanWaveName(ccnt, wcnt)
-		
-			if (WaveExists($wName) == 1)
-				wList = AddListItem(wName, wList, ";", inf)
-			endif
-		
-		endfor
-		
-	endfor
-	
-	return wList
-
-End // NMChanWaveList
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S ChanWaveListGet(chanNum)
-	Variable chanNum // channel number (pass -1 for all currently selected channels)
-	
-	return NMChanWaveList(chanNum)
-	
-End // ChanWaveListGet
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S CurrentChanWaveList()
-
-	return NMChanWaveList(NumVarOrDefault("CurrentChan", -1))
-
-End // CurrentChanWaveList
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ChanWavesCount(chanNum) // count number of currently active waves in a channel
-	Variable chanNum // channel number
-
-	return ItemsInList(NMChanWaveList(chanNum))
-
-End // ChanWavesCount
-
-//****************************************************************
 //****************************************************************
 //****************************************************************
 //
 //	Display Functions (Computer Stats and Window Cascade)
 //
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function CheckComputerXYpixels()
+
+	String df = NMDF()
+	
+	Variable v1, v2, xpix = 900, ypix = 700, new
+	
+	Variable xp = NumVarOrDefault(df+"xPixels", -1)
+	Variable yp = NumVarOrDefault(df+"yPixels", -1)
+	
+	String s0 = IgorInfo(0)
+	
+	s0 = StringByKey("SCREEN1", s0, ":")
+	
+	sscanf s0, "%*[DEPTH=]%d%*[,RECT=]%d%*[,]%d%*[,]%d%*[,]%d", v1, v1, v1, v1, v2
+	
+	if ((numtype(v1) == 0) && (v1 > 200))
+		xpix = v1
+	endif
+	
+	if ((numtype(v2) == 0) && (v2 > 100))
+		ypix = v2
+	endif
+	
+	if (xp > xpix)
+		SetNMvar(df+"xPixels", xpix)
+		new = 1
+	endif
+	
+	if (yp > ypix)
+		SetNMvar(df+"yPixels", ypix)
+		new = 1
+	endif
+	
+	return new
+
+End // CheckComputerXYpixels
+
 //****************************************************************
 //****************************************************************
 //****************************************************************
@@ -1705,8 +2269,7 @@ Function NMNotebookResults()
 		return 0
 	endif
 	
-	NewNotebook /F=0/N=trythis/W=(0,0,0,0) as "NeuroMatic Results Notebook"
-	DoWindow /C $nbName
+	NewNotebook /F=0/N=$nbName/W=(0,0,0,0) as "NeuroMatic Results Notebook"
 	SetCascadeXY(nbName)
 	
 	NoteBook $nbName text="Date: " + date()
@@ -1727,8 +2290,7 @@ Function NMNotebookCommands()
 		return 0
 	endif
 	
-	NewNotebook /F=0/N=trythis/W=(400,100,800,400) as "NeuroMatic Command Notebook"
-	DoWindow /C $nbName
+	NewNotebook /F=0/N=$nbName/W=(400,100,800,400) as "NeuroMatic Command Notebook"
 	
 	NoteBook $nbName text="Date: " + date()
 	NoteBook $nbName text="\rTime: " + time()
@@ -1741,9 +2303,9 @@ Function NMNotebookCommands()
 	NoteBook $nbName text="\r***\t\tMacro MyMacro()"
 	NoteBook $nbName text="\r***\t\t\tNMChanSelect( \"A\" )"
 	NoteBook $nbName text="\r***\t\t\tNMWaveSelect( \"Set1\" )"
-	NoteBook $nbName text="\r***\t\t\tNMPlot( \"\" )"
+	NoteBook $nbName text="\r***\t\t\tNMPlot( \"rainbow\" , 0 , 0 )"
 	NoteBook $nbName text="\r***\t\t\tNMBslnWaves( 0 , 15 )"
-	NoteBook $nbName text="\r***\t\t\tNMAvgWaves( 2 , 1 , 0 , 0, 0 )"
+	NoteBook $nbName text="\r***\t\t\tNMAvgWaves( 1 , 0 , 1 , 0 , 0 , 0 )"
 	NoteBook $nbName text="\r***\t\tEnd"
 	NoteBook $nbName text="\r***"
 	NoteBook $nbName text="\r**************************************************************************************"
@@ -2041,8 +2603,7 @@ Function NMProgressXYPanel() // set Progress X,Y location
 	Variable y2 = yProgress + 100
 	
 	DoWindow /K ProgPanel
-	NewPanel /K=1/W=(xProgress,yProgress,x2,y2) as "Set Progress Location"
-	DoWindow /C ProgPanel
+	NewPanel /K=1/N=ProgPanel/W=(xProgress,yProgress,x2,y2) as "Set Progress Location"
 	
 	DrawText 10,25,"Move window to desired location and click..."
 	
@@ -2127,7 +2688,7 @@ Function SetNMvar(varName, value) // set variable to passed value within folder
 		return -1
 	endif
 
-	if (WaveExists($varName) == 2)
+	if ((WaveExists($varName) == 1) && (WaveType($varName) > 0))
 		NVAR tempVar = $varName
 		tempVar = value
 	else
@@ -2155,7 +2716,7 @@ Function SetNMstr(varName, strvalue) // set string to passed value within NeuroM
 		return -1
 	endif
 
-	if (WaveExists($varName) == 2)
+	if ((WaveExists($varName) == 1) && (WaveType($varName) == 0))
 		SVAR tempStr = $varName
 		tempStr = strvalue
 	else
@@ -2282,10 +2843,26 @@ Function CheckNMtwave(wList, nPoints, defaultValue)
 	Variable nPoints // (-1) dont care
 	String defaultValue // NOT LONGER USED
 	
-	Variable wcnt
+	Variable wcnt, init
 	String wname
 	
-	CheckNMwaveOfType(wList, nPoints, 0, "T")
+	for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
+		
+		wname = StringFromList(wcnt, wList)
+		init = 0
+		
+		if (WaveExists($wname) == 0)
+			init = 1
+		endif
+		
+		CheckNMwaveOfType(wname, nPoints, 0, "T")
+		
+		if ((init == 1) && (WaveType($wname) == 0))
+			Wave /T wtemp = $wname
+			wtemp = defaultValue
+		endif
+	
+	endfor
 	
 End // CheckNMtwave
 
@@ -2752,8 +3329,6 @@ End // NMNoteLabel
 Function NMNoteType(wName, wType, xLabel, yLabel, wNote)
 	String wName, wType, xLabel, yLabel, wNote
 	
-	String xyLabel = ""
-	
 	if (WaveExists($wName) == 1)
 	
 		Note /K $wName
@@ -2764,19 +3339,11 @@ Function NMNoteType(wName, wType, xLabel, yLabel, wNote)
 		endif
 		
 		if (strlen(yLabel) > 0)
-			xyLabel = "YLabel:" + yLabel
+			Note $wName, "YLabel:" + yLabel
 		endif
 		
 		if (strlen(xLabel) > 0)
-			if (strlen(xyLabel) > 0)
-				xyLabel += ";XLabel:" + xLabel + ";"
-			else
-				xyLabel = "XLabel:" + xLabel
-			endif
-		endif
-		
-		if (strlen(xyLabel) > 0)
-			Note $wName, xyLabel
+			Note $wName, "XLabel:" + xLabel
 		endif
 		
 		if (strlen(wNote) > 0)
@@ -2833,8 +3400,16 @@ End // NMReturnStr2Num
 Function /S NMCtrlName(prefix, ctrlName)
 	String prefix // object prefix (i.e. "NM_")
 	String ctrlName // control name (i.e. "NM_AddTab")
+	
+	Variable icnt = strsearch(ctrlName, prefix, 0, 2)
+	
+	if (icnt < 0)
+		return ctrlName
+	endif
+	
+	icnt += strlen(prefix)
 
-	return ctrlName[strlen(prefix), inf] // (i.e. "AddTab")
+	return ctrlName[icnt, inf] // (i.e. "AddTab")
 
 End // NMCtrlName
 
@@ -2850,7 +3425,7 @@ Function /S NMPrefixNext(pPrefix, wPrefix)
 	String newPrefix, wlist
 	
 	if (strlen(wPrefix) == 0)
-		wPrefix = StrVarOrDefault("CurrentPrefix", "")
+		wPrefix = NMCurrentWavePrefix()
 	endif
 	
 	if (StringMatch(wPrefix[0,1], pPrefix) == 1)
@@ -2900,7 +3475,13 @@ Function /S GetWaveUnits(xy, wName, defaultLabel)
 	
 	String s = WaveInfo($wName, 0)
 	
-	s = StringByKey("DUNITS", s)
+	if (StringMatch(xy, "x") == 1)
+		s = StringByKey("XUNITS", s)
+	elseif (StringMatch(xy, "y") == 1)
+		s = StringByKey("DUNITS", s)
+	else
+		s = ""
+	endif
 	
 	if (strlen(s) == 0)
 		return NMNoteLabel(xy, wName, defaultLabel)

@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -231,7 +231,7 @@ Function /S NMStability(wName, startPnt, endPnt, minArray, sig, win2Frac)
 	
 	Sort ST_inWaveX ST_inWaveY, ST_inWaveX // back to original
 	
-	WaveStats /Q ST_inWaveX // count the number of points, excluding NANs
+	WaveStats /Q/Z ST_inWaveX // count the number of points, excluding NANs
 	
 	npnts = V_maxloc+1
 	
@@ -446,8 +446,7 @@ Function /S NMStability(wName, startPnt, endPnt, minArray, sig, win2Frac)
 		
 		plast = pfirst + counter - 1
 		
-		Display /M/K=1/W=(1,11.3,20,20.3) STBL_AllRegrs, STBL_SigRegrs as "Stability Analysis : Regression"	 
-		Dowindow /C $regGraph
+		Display /M/K=1/N=$regGraph/W=(1,11.3,20,20.3) STBL_AllRegrs, STBL_SigRegrs as "Stability Analysis : Regression"	 
 		Label /Z Bottom "First point of " + num2str(Arrpnts) + " point window (second pass)"
 		Label /Z Left "Regression Coefficent"
 		ModifyGraph mode(STBL_AllRegrs)=4, marker(STBL_AllRegrs)=19, rgb(STBL_AllRegrs)=(0,0,0)
@@ -455,8 +454,7 @@ Function /S NMStability(wName, startPnt, endPnt, minArray, sig, win2Frac)
 		SetAxis bottom pfirst, plast
 		SetCascadeXY(regGraph)
 		
-		Display /M/K=1/W=(1,21.3,20,30.3) STBL_AllProbs, STBL_SigProbs,  STBL_SigLine as "Stability Analysis : Probability"
-		Dowindow /C $probGraph
+		Display /M/K=1/N=$probGraph/W=(1,21.3,20,30.3) STBL_AllProbs, STBL_SigProbs,  STBL_SigLine as "Stability Analysis : Probability"
 		Label /Z Bottom "First point of " + num2str(Arrpnts) + " point window (second pass)"
 		Label /Z Left "Probability"
 		ModifyGraph mode(STBL_AllProbs)=4, marker(STBL_AllProbs)=19, rgb(STBL_AllProbs)=(0,0,0)
@@ -545,8 +543,7 @@ Function /S NMStabilityPlot(wName)
 	String gTitle = NMFolderListName("") + " : Stability Analysis : " + GetPathName(wName,0)
 	
 	Dowindow /K $gName
-	Display /M/K=1/W=(1,1,20,10) $wName as gTitle
-	Dowindow /C $gName
+	Display /M/K=1/N=$gName/W=(1,1,20,10) $wName as gTitle
 	ModifyGraph mode=4, marker=19, rgb=(500,500,500)
 	Label /Z Bottom NMNoteLabel("x", wName, "")
 	Label /Z Left NMNoteLabel("y", wName, "")
@@ -658,7 +655,7 @@ Function NMStabilityReplaceNANs(xWave, yWave)
 	Variable icnt, opnts, xpnt
 	Variable npnts = numpnts(xWave)
 	
-	WaveStats /Q xWave
+	WaveStats /Q/Z xWave
 	
 	opnts = V_max + 1
 	

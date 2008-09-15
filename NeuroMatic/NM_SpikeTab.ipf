@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -13,7 +13,7 @@
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 30 March 2007
+//	Last modified 16 April 2008
 //
 //	NM tab entry "Spike"
 //
@@ -44,22 +44,27 @@ End // SpikeDF
 //****************************************************************
 //****************************************************************
 
-Function Spike(enable)
+Function SpikeTab(enable)
 	Variable enable // (0) disable (1) enable tab
 	
 	if (enable == 1)
 		CheckPackage("Spike", 0) // declare globals if necessary
+		SpikeDragCheck() // display drag waves
+		CheckSpikeThresh()
 		CheckSpikeWindows()
 		MakeSpike(0) // make controls if necessary
 		UpdateSpike()
+		ChanControlsDisable(-1, "000000")
 		AutoSpike()
 	endif
 	
 	if (DataFolderExists(SpikeDF()) == 1)
 		SpikeDisplay(-1, enable)
 	endif
+	
+	SpikeChanControlsEnable(-1, enable)
 
-End // Spike
+End // SpikeTab
 
 //****************************************************************
 //****************************************************************
@@ -96,12 +101,13 @@ Function CheckSpike()
 		return -1
 	endif
 	
-	CheckNMvar(df+"Thresh", 20)				// threshold detection level
+	CheckNMvar(df+"Thresh", Nan)				// threshold detection level
 	CheckNMvar(df+"WinB", -inf)				// analysis window begin time
 	CheckNMvar(df+"WinE", inf)				// analysis window end time
 	CheckNMvar(df+"ChanSelect", 0) 			// channel to measure
 	CheckNMvar(df+"Events", 0) 				// number of spikes detected in current wave
 	CheckNMvar(df+"Spikes", 0) 				// total number of spikes detected
+	CheckNMvar(df+"Rate", 0) 					// spike rate within detected window
 	
 	// waves for display graphs
 	
@@ -116,10 +122,35 @@ End // CheckSpike
 //****************************************************************
 //****************************************************************
 
+Function CheckSpikeThresh()
+	
+	String df = SpikeDF()
+	String wname = ChanDisplayWave(-1)
+	
+	Variable thresh = NumVarOrDefault(df+"Thresh", Nan)
+	
+	if ((numtype(thresh) == 0) || (WaveExists($wname) == 0))
+		return 0
+	endif
+	
+	Wavestats /Q/Z $wname
+	
+	thresh = ceil(V_max - 0.2*abs(V_max - V_avg))
+	
+	if (V_avg < 20)
+		thresh = max(thresh, 20)
+	endif
+	
+	SetNMvar(df+"Thresh", thresh)
+	
+End // CheckSpikeThresh
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function CheckSpikeWindows()
 	String df = SpikeDF()
-	
-	Variable tend = rightx($ChanDisplayWave(-1))
 
 	if (numtype(NumVarOrDefault(df+"WinB", Nan)) > 0)
 		SetNMvar(df+"WinB", -inf)
@@ -145,15 +176,44 @@ End // SpikeChanSelect
 //****************************************************************
 //****************************************************************
 
+Function SpikeChanControlsEnable(chanNum, enable)
+	Variable chanNum
+	Variable enable
+	
+	String ndf = NMDF()
+	
+	chanNum = ChanNumCheck(chanNum)
+	
+	if (enable == 1)
+		SetNMstr(ndf + "ChanPopupList" + num2str(chanNum), " ;Spike Drag;" + ChanPopupListDefault())
+		SetNMstr(ndf + "ChanPopupProc" + num2str(chanNum), "SpikeChanPopup")
+	else
+		KillStrings /Z $(ndf + "ChanPopupList" + num2str(chanNum))
+		KillStrings /Z $(ndf + "ChanPopupProc" + num2str(chanNum))
+	endif
+	
+	ChanGraphControlsUpdate(chanNum)
+	
+End // SpikeChanControlsEnable
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function SpikeDisplay(chan, appnd) // append/remove spike wave from channel graph
 	Variable chan // channel number (-1) for current channel
 	Variable appnd // 1 - append wave; 0 - remove wave
 	
-	Variable ccnt
+	Variable ccnt, drag = 1, dragstyle = 3
+	//Variable r = 65535, g = 65535, b = 65535
 	String gName, df = SpikeDF()
 	
 	if (DataFolderExists(df) == 0)
 		return 0 // spike has not been initialized yet
+	endif
+	
+	if ((WaveExists($(df+"SP_DragWYB")) == 0) || (StringMatch(NMTabCurrent(), "Spike") == 0))
+		drag = 0
 	endif
 	
 	Variable numChannels = NMNumChannels()
@@ -174,14 +234,31 @@ Function SpikeDisplay(chan, appnd) // append/remove spike wave from channel grap
 		endif
 	
 		RemoveFromGraph /Z/W=$gName SP_SpikeY
+		RemoveFromGraph /Z/W=$gName SP_DragWYB, SP_DragWYE
 		
 		if ((appnd == 1) && (ccnt == chan))
+		
 			AppendToGraph /W=$gName $(df+"SP_SpikeY") vs $(df+"SP_SpikeX")
 			ModifyGraph /W=$gName mode(SP_SpikeY)=3, marker(SP_SpikeY)=9
 			ModifyGraph /W=$gName mrkThick(SP_SpikeY)=2, rgb(SP_SpikeY)=(65535,0,0)
+			
+			if ((drag == 1) || (WaveExists($(df+"SP_DragWYB")) == 0))
+			
+				AppendToGraph /W=$gName $(df+"SP_DragWYB") vs $(df+"SP_DragWXB")
+				AppendToGraph /W=$gName $(df+"SP_DragWYE") vs $(df+"SP_DragWXE")
+				
+				ModifyGraph /W=$gName lstyle(SP_DragWYB)=dragstyle//, rgb(SP_DragWYB)=(r,g,b)
+				ModifyGraph /W=$gName lstyle(SP_DragWYE)=dragstyle//, rgb(SP_DragWYE)=(r,g,b)
+				ModifyGraph /W=$gName quickdrag(SP_DragWYB)=1,live(SP_DragWYB)=1, offset(SP_DragWYB)={0,0}
+				ModifyGraph /W=$gName quickdrag(SP_DragWYE)=1,live(SP_DragWYE)=1, offset(SP_DragWYE)={0,0}
+			
+			endif
+		
 		endif
 		
 	endfor
+	
+	SpikeChanControlsEnable(chan, appnd)
 
 End // SpikeDisplay
 
@@ -196,6 +273,201 @@ Function SpikeDisplayClear()
 	SetNMwave(df+"SP_SpikeY", -1, Nan)
 
 End // SpikeDisplayClear
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function SpikeDragCheck()
+
+	String df = SpikeDF()
+	String wdf = "root:WinGlobals:"
+	String cdf = "root:WinGlobals:" + ChanGraphName(-1) + ":"
+	
+	if (WaveExists($(df+"SP_DragWXB")) == 0)
+		
+		CheckNMwave(df+"SP_DragWXB", 2, -1) // window drag
+		CheckNMwave(df+"SP_DragWYB", 2, -1)
+		CheckNMwave(df+"SP_DragWXE", 2, -1)
+		CheckNMwave(df+"SP_DragWYE", 2, -1)
+	
+	endif
+	
+	Redimension /N=2 $(df+"SP_DragWXB"), $(df+"SP_DragWXE"), $(df+"SP_DragWYB"), $(df+"SP_DragWYE")
+	
+	if (DataFolderExists(wdf) == 0)
+		NewDataFolder $(LastPathColon(wdf,0))
+	endif
+	
+	if (DataFolderExists(cdf) == 0)
+		NewDataFolder $(LastPathColon(cdf,0))
+	endif
+	
+	CheckNMstr(cdf+"S_TraceOffsetInfo", "")
+	CheckNMvar(cdf+"HairTrigger", 0)
+	
+	SetFormula $(cdf+"HairTrigger"),"SpikeDragTrigger(" + cdf + "S_TraceOffsetInfo)"
+
+End // SpikeDragCheck
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function SpikeDragCall(on)
+	Variable on // (0) no (1) yes
+	
+	NMCmdHistory("SpikeDrag", NMCmdNum(on,""))
+	
+	return SpikeDrag(on)
+	
+End // SpikeDragCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function SpikeDrag(on)
+	Variable on // (0) no (1) yes
+	
+	SetNMVar(SpikeDF()+"DragOn", BinaryCheck(on))
+	//NMAutoSpike()
+	
+	return on
+	
+End // SpikeDrag
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function SpikeDragToggle()
+	String df = SpikeDF()
+	Variable on = NumVarOrDefault(df+"DragOn", 1)
+	
+	if (on == 1)
+		on = 0
+	else
+		on = 1
+	endif
+	
+	SetNMVar(df+"DragOn", on)
+	//NMAutoSpike()
+	
+	return on
+	
+End // SpikeDragToggle
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function SpikeDragTrigger(offsetStr)
+	String offsetStr
+	
+	if (strlen(offsetStr) == 0)
+		return -1
+	endif
+	
+	Variable tbgn, tend, tt, chan
+	String dwave, vname, df = SpikeDF()
+	
+	String gname = StringByKey("GRAPH", offsetStr)
+	String wname = StringByKey("TNAME", offsetStr)
+	Variable offset = str2num(StringByKey("XOFFSET", offsetStr))
+	
+	if ((WinType(gname) == 0) || (offset == 0))
+		return -1
+	endif
+	
+	chan = ChanChar2Num(gname[4, inf])
+	dwave = ChanDisplayWave(chan)
+	
+	strswitch(wname)
+	
+		case "SP_DragWYB":
+		
+			tt = NumVarOrDefault(df+"WinB", -inf)
+			
+			if (numtype(tt) == 0)
+				SetNMvar(df+"WinB", tt + offset)
+			else
+				SetNMvar(df+"WinB", NMLeftX(dwave) + offset)
+			endif
+			
+			break
+			
+		case "SP_DragWYE":
+		
+			tt = NumVarOrDefault(df+"WinE", -inf)
+			
+			if (numtype(tt) == 0)
+				SetNMvar(df+"WinE", tt + offset)
+			else
+				SetNMvar(df+"WinE", NMRightX(dwave) + offset)
+			endif
+			
+			break
+			
+	endswitch
+	
+	ModifyGraph /W=$gname offset($wname)={0,0} // remove offset
+	
+	SetNMvar(df+"AutoDoUpdate", 0) // prevent DoUpdate in AutoSpike
+	
+	AutoSpike()
+	
+	SetNMvar(df+"AutoDoUpdate", 1) // reset update flag
+	
+	//SpikeTimeStamp(df)
+	
+	DoWindow /F $gname
+	
+End // SpikeDragTrigger
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function SpikeDragSetY() // Note, this must be called AFTER graphs have been auto scaled
+
+	String df = SpikeDF()
+	String gName = ChanGraphName(-1)
+
+	Variable drag = NumVarOrDefault(df+"DragOn", 1)
+	
+	if (WaveExists($(df+"SP_DragWYB")) == 0)
+		return -1
+	endif
+
+	Wave SP_DragWYB = $(df+"SP_DragWYB")
+	Wave SP_DragWXB = $(df+"SP_DragWXB")
+	Wave SP_DragWYE = $(df+"SP_DragWYE")
+	Wave SP_DragWXE = $(df+"SP_DragWXE")
+
+	if (drag == 0)
+		
+		SP_DragWXB = Nan
+		SP_DragWXE = Nan
+		SP_DragWYB = Nan
+		SP_DragWYE = Nan
+	
+	elseif (WinType(gName) == 1)
+	
+		if (NumVarOrDefault(df+"AutoDoUpdate", 1) == 1)
+			DoUpdate
+		endif
+	
+		GetAxis /W=$gName/Q left
+		
+		SP_DragWYB[0] = V_min
+		SP_DragWYB[1] = V_max
+		SP_DragWYE[0] = V_min
+		SP_DragWYE[1] = V_max
+	
+	endif
+
+End // SpikeDragSetY
 	
 //****************************************************************
 //****************************************************************
@@ -204,8 +476,11 @@ End // SpikeDisplayClear
 Function MakeSpike(force) // create Spike tab controls
 	Variable force
 
-	Variable x0 = 40, y0 = 195, xinc = 120, yinc = 35
+	Variable x0 = 40, y0 = 195, xinc = 120, yinc = 35, fs = NMPanelFsize()
+	Variable taby = NMPanelTabY()
 	String df = SpikeDF()
+	
+	y0 = taby + 45
 	
 	ControlInfo /W=NMPanel SP_Thresh
 	
@@ -219,38 +494,47 @@ Function MakeSpike(force) // create Spike tab controls
 	
 	DoWindow /F NMPanel
 	
-	GroupBox SP_Grp1, title = "Spike Detection", pos={20,y0}, size={260,150}
+	GroupBox SP_Grp1, title = "Spike Detection", pos={20,y0}, size={260,150}, fsize=fs
 	
-	SetVariable SP_Thresh, title="Threshold: ", pos={x0,y0+1*yinc}, limits={-inf,inf,0}, size={100,20}, frame=1, value=$(df+"Thresh"), proc=SpikeSetVariable
-	SetVariable SP_Count, title="Spikes: ", pos={x0,y0+2*yinc}, limits={0,inf,0}, size={100,20}, frame=0, value=$(df+"Events")
-	SetVariable SP_WinB, title="t_beg: ", pos={x0+xinc,y0+1*yinc}, limits={-inf,inf,0}, size={100,20}, frame=1, value=$(df+"WinB"), proc=SpikeSetVariable
-	SetVariable SP_WinE, title="t_end: ", pos={x0+xinc,y0+2*yinc}, limits={-inf,inf,0}, size={100,20}, frame=1, value=$(df+"WinE"), proc=SpikeSetVariable
+	xinc = 145
+	yinc = 26
 	
-	y0 += 4
+	SetVariable SP_Thresh, title="Threshold", pos={x0,y0+1*yinc}, limits={-inf,inf,1}, size={120,20}, frame=1, value=$(df+"Thresh"), proc=SpikeSetVariable, fsize=fs
+	
+	SetVariable SP_WinB, title="t_beg", pos={x0,y0+2*yinc}, limits={-inf,inf,1}, size={120,20}, frame=1, value=$(df+"WinB"), proc=SpikeSetVariable, fsize=fs
+	SetVariable SP_WinE, title="t_end", pos={x0,y0+3*yinc}, limits={-inf,inf,1}, size={120,20}, frame=1, value=$(df+"WinE"), proc=SpikeSetVariable, fsize=fs
+	
+	SetVariable SP_Count, title="Spikes : ", pos={x0+xinc,y0+2*yinc}, limits={0,inf,0}, size={90,20}, frame=0, value=$(df+"Events"), fsize=fs
+	SetVariable SP_WRate, title="Hertz : ", pos={x0+xinc,y0+3*yinc}, limits={0,inf,0}, size={90,20}, frame=0, value=$(df+"Rate"), fsize=fs
+	
+	yinc = 35
+	
+	y0 += 10
 	
 	//Button SP_Save, title = "Save", pos={95,y0+2*yinc}, size={50,20}, proc = SpikeButton
 	//Button SP_Clear, title = "Clear", pos={155,y0+2*yinc}, size={50,20}, proc = SpikeButton
 	
-	Button SP_Table, title = "Table", pos={x0+20,y0+3*yinc}, size={80,20}, proc = SpikeButton
-	Button SP_All, title = "All Waves", pos={x0+120,y0+3*yinc}, size={80,20}, proc = SpikeButton
+	Button SP_Table, title = "Table", pos={x0+20,y0+3*yinc}, size={80,20}, proc = SpikeButton, fsize=fs
+	Button SP_All, title = "All Waves", pos={x0+120,y0+3*yinc}, size={80,20}, proc = SpikeButton, fsize=fs
 	
 	y0 = 380; yinc = 35
 	
-	GroupBox SP_Grp2, title = "Spike Analysis", pos={20,y0}, size={260,200}
+	GroupBox SP_Grp2, title = "Spike Analysis", pos={20,y0}, size={260,200}, fsize=fs
 	
-	PopupMenu SP_WaveSlct, pos={x0+120,y0+1*yinc}, bodywidth=125
+	PopupMenu SP_WaveSlct, pos={x0+120,y0+1*yinc}, bodywidth=125, fsize=fs
 	PopupMenu SP_WaveSlct, value="Select Wave;---;Other...;", proc=SpikePopup
 	
-	SetVariable SP_Spikes, title=": ", pos={x0+175,y0+1*yinc+2}, limits={0,inf,0}, size={60,20}, frame=0, value=$(df+"Spikes")
+	SetVariable SP_Spikes, title=": ", pos={x0+175,y0+1*yinc+2}, limits={0,inf,0}, size={60,20}, frame=0, value=$(df+"Spikes"), fsize=fs
 	
+	xinc = 120
 	yinc = 40
 	
-	Button SP_Raster, title="Raster Plot", pos={x0,y0+2*yinc}, size={100,20}, proc=SpikeButton
-	Button SP_Rate, title="Avg Rate", pos={x0+xinc,y0+2*yinc}, size={100,20}, proc=SpikeButton
-	Button SP_PSTH, title="PST Histo", pos={x0,y0+3*yinc}, size={100,20}, proc=SpikeButton
-	Button SP_ISIH, title="ISI Histo", pos={x0+xinc,y0+3*yinc}, size={100,20}, proc=SpikeButton
-	Button SP_Average, title="Average", pos={x0,y0+4*yinc}, size={100,20}, proc=SpikeButton
-	Button SP_2Waves, title="Spikes 2 Waves", pos={x0+xinc,y0+4*yinc}, size={100,20}, proc=SpikeButton
+	Button SP_Raster, title="Raster Plot", pos={x0,y0+2*yinc}, size={100,20}, proc=SpikeButton, fsize=fs
+	Button SP_Rate, title="Avg Rate", pos={x0+xinc,y0+2*yinc}, size={100,20}, proc=SpikeButton, fsize=fs
+	Button SP_PSTH, title="PST Histo", pos={x0,y0+3*yinc}, size={100,20}, proc=SpikeButton, fsize=fs
+	Button SP_ISIH, title="ISI Histo", pos={x0+xinc,y0+3*yinc}, size={100,20}, proc=SpikeButton, fsize=fs
+	//Button SP_Average, title="Average", pos={x0,y0+4*yinc}, size={100,20}, proc=SpikeButton, fsize=fs
+	Button SP_2Waves, title="Spikes 2 Waves", pos={x0+xinc/2,y0+4*yinc}, size={100,20}, proc=SpikeButton, fsize=fs
 	
 End // MakeSpike
 
@@ -324,6 +608,23 @@ End // SpikeButton
 //****************************************************************
 //****************************************************************
 
+Function SpikeChanPopup(ctrlName, popNum, popStr) : PopupMenuControl
+	String ctrlName; Variable popNum; String popStr 
+	
+	strswitch(popStr)
+		case "Spike Drag":
+			SpikeDragToggle()
+			break
+		default:
+			ChanPopup(ctrlName, popNum, popStr)
+	endswitch
+
+End //  SpikeChanPopup
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function SpikeCall(fxn, select)
 	String fxn, select
 	
@@ -344,7 +645,8 @@ Function SpikeCall(fxn, select)
 			return SpikeTableCall()
 		
 		case "All":
-			return SpikeAllWavesCall()
+			SpikeAllWavesCall()
+			return 0
 			
 		case "WaveSlct":
 			return SpikeRasterSelectCall(select)
@@ -432,12 +734,20 @@ End // SpikeWindowCall
 Function SpikeWindow(tbgn, tend)
 	Variable tbgn, tend
 	
+	Variable te = tend
 	String df = SpikeDF()
 	
-	if (tbgn >= tend)
-		tbgn = -inf // not allowed
+	if (tbgn > tend)
+		tend = tbgn
+		tbgn = te
+	endif
+	
+	if (numtype(tbgn) > 0)
+		tbgn = -inf
+	endif
+	
+	if (numtype(tend) > 0)
 		tend = inf
-		return -1
 	endif
 	
 	SetNMvar(df+"WinB", tbgn)
@@ -647,7 +957,7 @@ Function SpikeRasterCountSpikes(xRaster)
 	endif
 	
 	if ((WaveExists($xRaster) == 1) && (numpnts($xRaster) > 0))
-		WaveStats /Q $xRaster
+		WaveStats /Q/Z $xRaster
 		spikes = V_npnts
 	else
 		spikes = 0
@@ -677,7 +987,7 @@ Function SpikeRasterCountReps(yRaster)
 		return 0
 	endif
 	
-	WaveStats /Q $yRaster
+	WaveStats /Q/Z $yRaster
 	
 	Wave yWave = $yRaster
 	
@@ -700,7 +1010,7 @@ End // SpikeRasterCountReps
 
 Function AutoSpike() // compute threshold crossings on currently selected channel/wave; display on graph
 
-	Variable events
+	Variable events, rate
 	String xname = "SP_RasterX", yname = "SP_RasterY"
 	String df = SpikeDF()
 	
@@ -712,7 +1022,13 @@ Function AutoSpike() // compute threshold crossings on currently selected channe
 	
 	SetNMvar(df+"Events", events)
 	
+	rate = 1000 * events / (SpikeTmax(xname) - SpikeTmin(xname))
+	
+	SetNMvar(df+"Rate", rate)
+	
 	KillWaves /Z $xname, $yname
+	
+	SpikeDragSetY()
 
 End // AutoSpike
 
@@ -720,29 +1036,67 @@ End // AutoSpike
 //****************************************************************
 //****************************************************************
 
-Function SpikeAllWavesCall()
-	String df = SpikeDF()
+Function /S SpikeAllWavesCall()
+	String vlist = "", df = SpikeDF()
+	
+	Variable nwaves = ChanWavesCount(-1)
+	
+	if (nwaves <= 0)
+		DoAlert 0, "No waves selected!"
+		return ""
+	endif
 
 	Variable dsplyFlag = 1 + NumVarOrDefault(df+"AllWavesDisplay", 1)
 	Variable speed = NumVarOrDefault(df+"AllWavesSpeed", 0)
+	Variable format = 1 + NumVarOrDefault(df+"SpikeTableFormat", 0)
 	
 	Prompt dsplyFlag, "display results while computing?", popup "no;yes;yes, with accept/reject prompt;"
-	Prompt speed, "display delay (msec):"
-	DoPrompt "Spike All Waves", dsplyFlag, speed
+	Prompt speed, "display delay (sec):"
+	Prompt format, "save spike times to:", popup "one output wave;one output wave per input wave;"
+	
+	if (0) // (nwaves > 1)
+	
+		DoPrompt "Spike All Waves", dsplyFlag, speed, format
+		
+		format -= 1
+		
+		SetNMvar(df+"SpikeTableFormat", format)
+	
+	else
+	
+		DoPrompt "Spike All Waves", dsplyFlag, speed
+		
+		format = 0
+		
+	endif
 	
 	dsplyFlag -= 1
 	
 	if (V_flag == 1)
-		return 0 // cancel
+		return "" // cancel
 	endif
 	
 	SetNMvar(df+"AllWavesDisplay", dsplyFlag)
 	SetNMvar(df+"AllWavesSpeed", speed)
 
 	if (NMAllGroups() == 1)
-		SpikeAllGroupsDelay(dsplyFlag, speed)
+	
+		vlist = NMCmdNum(dsplyFlag, vlist)
+		vlist = NMCmdNum(speed, vlist)
+		vlist = NMCmdNum(format, vlist)
+		NMCmdHistory("SpikeAllGroupsDelayFormat", vlist)
+	
+		return SpikeAllGroupsDelayFormat(dsplyFlag, speed, format)
+		
 	else
-		SpikeAllWavesDelay(dsplyFlag, speed)
+	
+		vlist = NMCmdNum(dsplyFlag, vlist)
+		vlist = NMCmdNum(speed, vlist)
+		vlist = NMCmdNum(format, vlist)
+		NMCmdHistory("SpikeAllWavesDelayFormat", vlist)
+		
+		return SpikeAllWavesDelayFormat(dsplyFlag, speed, format)
+		
 	endif
 
 End // SpikeAllWavesCall
@@ -751,9 +1105,9 @@ End // SpikeAllWavesCall
 //****************************************************************
 //****************************************************************
 
-Function SpikeAllGroups()
+Function /S SpikeAllGroups() // OLD
 
-	return SpikeAllGroupsDelay(0, 0)
+	return SpikeAllGroupsDelayFormat(0, 0, 0)
 
 End // SpikeAllGroups
 
@@ -761,24 +1115,11 @@ End // SpikeAllGroups
 //****************************************************************
 //****************************************************************
 
-Function SpikeAllGroupsDelay(dsplyFlag, speed)
+Function /S SpikeAllGroupsDelay(dsplyFlag, speed)
 	Variable dsplyFlag // display results while computing (0) no (1) yes (2) yes, accept/reject prompt
-	Variable speed // update display speed in msec (0) for none
+	Variable speed // update display speed in sec (0) for none
 	
-	Variable gcnt
-	String gName
-	
-	String saveSelect = NMWaveSelectGet()
-	String grpList = NMGroupList(1)
-	
-	for (gcnt = 0; gcnt < ItemsInList(grpList); gcnt += 1)
-		NMWaveSelect(StringFromList(gcnt, grpList))
-		gName = SpikeAllWavesDelay(dsplyFlag, speed)
-	endfor
-	
-	NMWaveSelect(saveSelect)
-	
-	return 0
+	return SpikeAllGroupsDelayFormat(dsplyFlag, speed, 0)
 
 End // SpikeAllGroupsDelay
 
@@ -786,9 +1127,35 @@ End // SpikeAllGroupsDelay
 //****************************************************************
 //****************************************************************
 
+Function /S SpikeAllGroupsDelayFormat(dsplyFlag, speed, format)
+	Variable dsplyFlag // display results while computing (0) no (1) yes (2) yes, accept/reject prompt
+	Variable speed // update display speed in sec (0) for none
+	Variable format // save spike times to (0) one wave (1) one wave per input wave
+	
+	Variable gcnt
+	String gName = ""
+	
+	String saveSelect = NMWaveSelectGet()
+	String grpList = NMGroupList(1)
+	
+	for (gcnt = 0; gcnt < ItemsInList(grpList); gcnt += 1)
+		NMWaveSelect(StringFromList(gcnt, grpList))
+		gName = SpikeAllWavesDelayFormat(dsplyFlag, speed, format)
+	endfor
+	
+	NMWaveSelect(saveSelect)
+	
+	return gName
+
+End // SpikeAllGroupsDelayFormat
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function /S SpikeAllWaves()
 
-	return SpikeAllWavesDelay(0, 0)
+	return SpikeAllWavesDelayFormat(0, 0, 0)
 
 End // SpikeAllWaves
 
@@ -798,10 +1165,25 @@ End // SpikeAllWaves
 
 Function /S SpikeAllWavesDelay(dsplyFlag, speed)
 	Variable dsplyFlag // display results while computing (0) no (1) yes (2) yes, accept/reject prompt
-	Variable speed // update display speed in msec (0) for fastest
+	Variable speed // update display speed in sec (0) for fastest
+	
+	return SpikeAllWavesDelayFormat(dsplyFlag, speed, 0)
+	
+End // SpikeAllWavesDelay
 
-	Variable ccnt, spikes, changeChan, overwrite = NMOverWrite()
-	String pName, gName, xName, yName, df = SpikeDF()
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S SpikeAllWavesDelayFormat(dsplyFlag, speed, format)
+	Variable dsplyFlag // display results while computing (0) no (1) yes (2) yes, accept/reject prompt
+	Variable speed // update display speed in sec (0) for fastest
+	Variable format // save spike times to (0) one wave (1) one wave per input wave
+	
+	// NOTE, "format" is currently under construction
+
+	Variable ccnt, wcnt, spikes, changeChan, overwrite = NMOverWrite()
+	String pName, gName = "", xName, yName, df = SpikeDF()
 	
 	Variable Nameformat = NumVarOrDefault(NMDF() + "NameFormat", 1)
 	
@@ -829,8 +1211,8 @@ Function /S SpikeAllWavesDelay(dsplyFlag, speed)
 		
 		SetNMvar("CurrentChan", ccnt)
 
-		xName = NextWaveName("", "SP_RX_" + pName, ccnt, overwrite)
-		yName = NextWaveName("", "SP_RY_" + pName, ccnt, overwrite)
+		xName = NextWaveName2("", "SP_RX_" + pName, ccnt, overwrite)
+		yName = NextWaveName2("", "SP_RY_" + pName, ccnt, overwrite)
 		
 		if (dsplyFlag > 0)
 		
@@ -840,18 +1222,18 @@ Function /S SpikeAllWavesDelay(dsplyFlag, speed)
 				changeChan = 1
 			endif
 			
-			ChanControlsDisable(ccnt, "111111")
+			//ChanControlsDisable(ccnt, "111111")
 			DoWindow /F $ChanGraphName(ccnt)
 			DoUpdate
 			
 		endif
 		
-		spikes = SpikeRaster(ccnt, -1, thresh, WinB, WinE, xName, yName, dsplyFlag, speed)
+		spikes = SpikeRaster(ccnt, -1, thresh, WinB, WinE, xName, yName, dsplyFlag, speed * 1000)
 		
 		SetNMstr(df+"RasterWaveX", xName)
 		SetNMstr(df+"RasterWaveY", yName)
 		
-		gName = SpikeRasterPlot(xName, yName, SpikeWinBgn(), SpikeWinEnd())
+		gName = SpikeRasterPlot(xName, yName, WinB, WinE)
 		
 	endfor
 	
@@ -865,11 +1247,13 @@ Function /S SpikeAllWavesDelay(dsplyFlag, speed)
 	AutoSpike()
 	UpdateSpike()
 	
-	DoWindow /F $gName
+	if (WinType(gName) == 1)
+		DoWindow /F $gName
+	endif
 	
 	return gName
 	
-End // SpikeAllWavesDelay
+End // SpikeAllWavesDelayFormat
 
 //****************************************************************
 //****************************************************************
@@ -886,15 +1270,21 @@ Function SpikeRaster(chanNum, waveNum, thresh, WinB, WinE, xName, yName, dsplyFl
 	Variable dsplyFlag // display results while computing (0) no (1) yes (2) yes, accept/reject prompt
 	Variable speed // display speed delay
 	
-	Variable wcnt, ncnt, spkcnt, found, dimcnt, event, slope, allFlag, wbgn, wend, nwaves = 1
-	Variable dtWin, eventLimit = 2000
+	Variable wcnt, ncnt, scnt, spkcnt, found, event, dx, pwin, slope, allFlag, wbgn, wend, nwaves = 1
+	Variable tmin = inf, tmax = -inf
+	Variable eventLimit = 2000
 	String wName, aName = "", xl, yl, df = SpikeDF()
-	String copy = "ST_WaveTemp"
+	String copy = "SP_WaveTemp"
 	
 	Variable saveCurrentWave = NMCurrentWave()
 	Variable currentChan = NMCurrentChan()
 	
-	String wPrefix = StrVarOrDefault("CurrentPrefix", "")
+	String wPrefix = NMCurrentWavePrefix()
+	
+	Wave ST_DragWXB = $(df+"SP_DragWXB")
+	Wave ST_DragWXE = $(df+"SP_DragWXE")
+	
+	Variable drag = NumVarOrDefault(df+"DragOn", 1)
 	
 	if (waveNum < 0)
 		nwaves = NMNumWaves()
@@ -919,13 +1309,7 @@ Function SpikeRaster(chanNum, waveNum, thresh, WinB, WinE, xName, yName, dsplyFl
 	
 	Wave WavSelect
 	
-	NMProgressStr("Computing Spike Raster...")
-	
 	for (wcnt = wbgn; wcnt <= wend; wcnt += 1)
-	
-		if ((dsplyFlag != 2) && (CallNMProgress(wcnt, nwaves) == 1))
-			break
-		endif
 	
 		if (allFlag == 1)
 		
@@ -955,27 +1339,49 @@ Function SpikeRaster(chanNum, waveNum, thresh, WinB, WinE, xName, yName, dsplyFl
 			continue // wave does not exist
 		endif
 		
-		Findlevels /Q/R=(WinB,WinE)/D=Xtimes $aName, thresh
+		if (numtype(winB) == 0)
+			tmin = winB
+		elseif (NMLeftX(aName) < tmin)
+			tmin = NMLeftX(aName)
+		endif
 		
-		ncnt = numpnts(xWave)
+		if (numtype(winE) == 0)
+			tmax = winE
+		elseif (NMRightX(aName) > tmax)
+			tmax = NMRightX(aName)
+		endif
 		
-		dtWin = 2 * deltax($aName)
+		Variable tmin2 = NMXvalueTransform(aName, tmin, -1, 1)
+		Variable tmax2 = NMXvalueTransform(aName, tmax, -1, -1)
+		
+		Findlevels /Q/R=(tmin2, tmax2)/D=Xtimes $aName, thresh
+		
+		pwin = 1
 		
 		if (V_LevelsFound > 0)
 		
-			for (ncnt = 0; ncnt < V_LevelsFound; ncnt += 1)
+			if (V_LevelsFound > 1)
+				dx = deltax($aName)
+				pwin =  floor((Xtimes[1] - Xtimes[0]) / (dx * 2))
+				pwin = max(pwin, 1)
+				pwin = min(pwin, 3)
+			endif
+		
+			for (scnt = 0; scnt < V_LevelsFound; scnt += 1)
 			
-				event = Xtimes[ncnt]
+				event = Xtimes[scnt]
 				
-				slope = SpikeSlope(aName, event - dtWin, event + dtWin)
+				slope = SpikeSlope(aName, event, thresh, pwin)
 			
 				if (slope <= 0) // only accept levels with positive slope
-					Xtimes[ncnt] = Nan
+					Xtimes[scnt] = Nan
 				endif
+				
+				Xtimes[scnt] = NMXvalueTransform(aName, Xtimes[scnt], 1, 0)
 			
 			endfor
 			
-			WaveStats /Q Xtimes
+			WaveStats /Q/Z Xtimes
 				
 			found = V_npnts
 				
@@ -989,7 +1395,7 @@ Function SpikeRaster(chanNum, waveNum, thresh, WinB, WinE, xName, yName, dsplyFl
 		
 			if (V_LevelsFound > 0)
 		
-				WaveStats /Q Xtimes
+				WaveStats /Q/Z Xtimes
 				
 				if (V_npnts < eventlimit)
 					Duplicate /O Xtimes $(df+"SP_SpikeX")
@@ -1003,8 +1409,10 @@ Function SpikeRaster(chanNum, waveNum, thresh, WinB, WinE, xName, yName, dsplyFl
 				SetNMwave(df+"SP_SpikeY", -1, Nan)
 			
 			endif
-		
-			DoUpdate
+			
+			if (NumVarOrDefault(df+"AutoDoUpdate", 1) == 1)
+				DoUpdate
+			endif
 			
 			if ((dsplyFlag == 1) && (speed > 0))
 				NMWait(speed)
@@ -1024,38 +1432,41 @@ Function SpikeRaster(chanNum, waveNum, thresh, WinB, WinE, xName, yName, dsplyFl
 			
 		endif
 		
+		ncnt = numpnts(xWave)
+		
 		if (found == 0)
 		
 			Redimension /N=(ncnt+1) xWave, yWave
 			xWave[ncnt] = Nan
 			yWave[ncnt] = wcnt
-			dimcnt += 1
 			
 		else
 		
-			Redimension /N=(dimcnt+found) xWave, yWave
+			Redimension /N=(ncnt+found) xWave, yWave
 			
-			for (ncnt = 0; ncnt < V_LevelsFound; ncnt += 1)
+			for (scnt = 0; scnt < V_LevelsFound; scnt += 1)
 			
-				event = Xtimes[ncnt]
+				event = Xtimes[scnt]
 				
 				if (numtype(event) == 0)
-					xWave[dimcnt] = event
-					yWave[dimcnt] = wcnt
+					xWave[ncnt] = event
+					yWave[ncnt] = wcnt
 					spkcnt += 1
-					dimcnt += 1
+					ncnt += 1
 				endif
 			
 			endfor
 			
-			dimcnt += 1 // add extra row for Nan's
 			
-			Redimension /N=(dimcnt) xWave, yWave
-			
-			xWave[dimcnt] = Nan
-			yWave[dimcnt] = Nan
 		
 		endif
+		
+		ncnt = numpnts(xWave)
+			
+		Redimension /N=(ncnt + 1) xWave, yWave
+			
+		xWave[ncnt] = Nan // add extra row for Nan's
+		yWave[ncnt] = Nan
 		
 	endfor
 	
@@ -1068,6 +1479,7 @@ Function SpikeRaster(chanNum, waveNum, thresh, WinB, WinE, xName, yName, dsplyFl
 	NMNoteType(xName, "Spike RasterX", xl, yl, "Func:SpikeRaster")
 	
 	Note $xName, "Spike Thresh:" + num2str(thresh) + ";Spike Tbgn:" + num2str(WinB) + ";Spike Tend:" + num2str(WinE) + ";"
+	Note $xName, "Spike Tmin:" + num2str(tmin) + ";Spike Tmax:" + num2str(tmax) + ";"
 	Note $xName, "Spike Prefix:" + wPrefix
 	//Note $xName, "Wave List:" + ChangeListSep(wList, ",")
 	
@@ -1077,7 +1489,8 @@ Function SpikeRaster(chanNum, waveNum, thresh, WinB, WinE, xName, yName, dsplyFl
 	NMNoteType(yName, "Spike RasterY", xl, yl, "Func:SpikeRaster")
 	
 	Note $yName, "Spike Thresh:" + num2str(thresh) + ";Spike Tbgn:" + num2str(WinB) + ";Spike Tend:" + num2str(WinE) + ";"
-	Note $xName, "Spike Prefix:" + wPrefix
+	Note $yName, "Spike Tmin:" + num2str(tmin) + ";Spike Tmax:" + num2str(tmax) + ";"
+	Note $yName, "Spike Prefix:" + wPrefix
 	//Note $yName, "Wave List:" + ChangeListSep(wList, ",")
 	
 	KillWaves /Z Xtimes
@@ -1085,6 +1498,13 @@ Function SpikeRaster(chanNum, waveNum, thresh, WinB, WinE, xName, yName, dsplyFl
 	
 	SetNMvar("CurrentWave", saveCurrentWave)
 	setNMvar("CurrentGrp", NMGroupGet(saveCurrentWave))
+	
+	// update drag waves (ONLY THE X values)
+	
+	if (drag == 1)
+		ST_DragWXB = tmin
+		ST_DragWXE = tmax
+	endif
 	
 	return spkcnt // return spike count
 
@@ -1094,31 +1514,71 @@ End // SpikeRaster
 //****************************************************************
 //****************************************************************
 
-Function SpikeSlope(wName, tbgn, tend) // compute slope via simple linear regression
+Function SpikeSlope(wName, event, thresh, pwin) // compute slope via simple linear regression
 	String wName
-	Variable tbgn, tend
+	Variable event
+	Variable thresh
+	Variable pwin
 	
-	Variable icnt, xavg, yavg, xsum, ysum, xysum, sumsqr, slope, intercept
+	Variable tbgn, tend, epnt, xpnt, dt
+	Variable icnt, jcnt, xavg, yavg, xsum, ysum, xysum, sumsqr, slope, intercept
 	
 	if (WaveExists($wName) == 0)
 		return Nan
 	endif
 	
-	if (tbgn == tend)
-		Print "SpikeSlope error: tbgn equals tend!"
-		return Nan
+	Wave wtemp = $wName
+	
+	dt = deltax(wtemp)
+	epnt = x2pnt(wtemp, event)
+	xpnt = pnt2x(wtemp, epnt)
+	
+	Make /O/N=(1 + 2 * pWin) U_SlopeX, U_SlopeY
+	
+	if (xpnt == event) // unlikely
+	
+		jcnt = epnt - pwin
+		
+		for (icnt = 0; icnt < numpnts(U_SlopeX); icnt += 1)
+			U_SlopeX[icnt] = pnt2x(wtemp, jcnt)
+			U_SlopeY[icnt] = wtemp[jcnt]
+			jcnt += 1
+		endfor
+		
+	elseif (xpnt < event)
+	
+		U_SlopeX[0] = event
+		U_SlopeY[0] = thresh
+		
+		jcnt = epnt - (pwin - 1)
+	
+		for (icnt = 1; icnt < numpnts(U_SlopeX); icnt += 1)
+			U_SlopeX[icnt] = pnt2x(wtemp, jcnt)
+			U_SlopeY[icnt] = wtemp[jcnt]
+			jcnt += 1
+		endfor
+		
+	else
+	
+		U_SlopeX[0] = event
+		U_SlopeY[0] = thresh
+		
+		jcnt = epnt - pwin
+	
+		for (icnt = 1; icnt < numpnts(U_SlopeX); icnt += 1)
+			U_SlopeX[icnt] = pnt2x(wtemp, jcnt)
+			U_SlopeY[icnt] = wtemp[jcnt]
+			jcnt += 1
+		endfor
+	
 	endif
 	
-	Duplicate /O/R=(tbgn, tend) $wName U_SlopeX, U_SlopeY
-	
-	U_SlopeX = x
-	
-	Wavestats /Q U_SlopeX
+	Wavestats /Q/Z U_SlopeX
 	
 	xavg = V_avg
 	xsum = sum(U_SlopeX)
 	
-	Wavestats /Q U_SlopeY
+	Wavestats /Q/Z U_SlopeY
 	
 	yavg = V_avg
 	ysum = sum(U_SlopeY)
@@ -1141,6 +1601,56 @@ End // SpikeSlope
 //****************************************************************
 //****************************************************************
 
+Function SpikeTmin(xRaster)
+	String xRaster
+	
+	String wName = CurrentChanDisplayWave() 
+	
+	Variable winB = NMNoteVarByKey(xRaster, "Spike Tmin")
+	
+	if (numtype(winB) == 0)
+		return winB
+	endif
+	
+	winB = NMNoteVarByKey(xRaster, "Spike Tbgn")
+	
+	if (numtype(winB) == 0)
+		return winB
+	endif
+	
+	return leftx($wName)
+
+End // SpikeTmin
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function SpikeTmax(xRaster)
+	String xRaster
+	
+	String wName = CurrentChanDisplayWave() 
+	
+	Variable winB = NMNoteVarByKey(xRaster, "Spike Tmax")
+	
+	if (numtype(winB) == 0)
+		return winB
+	endif
+	
+	winB = NMNoteVarByKey(xRaster, "Spike Tend")
+	
+	if (numtype(winB) == 0)
+		return winB
+	endif
+	
+	return rightx($wName)
+
+End // SpikeTmax
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function SpikeRasterPlotCall()
 	String gName, vlist = "", df = SpikeDF()
 	
@@ -1153,8 +1663,8 @@ Function SpikeRasterPlotCall()
 	String xRaster = StrVarOrDefault(df+"RasterWaveX", "")
 	String yRaster = StrVarOrDefault(df+"RasterWaveY", "")
 	
-	Variable winB = NMNoteVarByKey(xRaster, "Spike Tbgn")
-	Variable winE = NMNoteVarByKey(xRaster, "Spike Tend")
+	Variable winB = SpikeTmin(xRaster)
+	Variable winE = SpikeTmax(xRaster)
 	
 	if (numtype(winB) > 0)
 		winB = -inf
@@ -1196,6 +1706,14 @@ Function /S SpikeRasterPlot(xRaster, yRaster, winB, winE)
 		return ""
 	endif
 	
+	if (numtype(winB) > 0)
+		winB = SpikeTmin(xRaster)
+	endif
+	
+	if (numtype(winE) > 0)
+		winE = SpikeTmax(xRaster)
+	endif
+	
 	Variable CurrentChan = NMCurrentChan()
 	Variable NumWaves = NMNumWaves()
 	
@@ -1207,17 +1725,17 @@ Function /S SpikeRasterPlot(xRaster, yRaster, winB, winE)
 	String gTitle = NMFolderListName("") + " : Ch " + ChanNum2Char(CurrentChan) + " : " + yRaster
 
 	DoWindow /K $gName
-	Display /K=1/W=(0,0,0,0) $yRaster vs $xRaster as gTitle
-	DoWindow /C $gName
+	Display /K=1/N=$gName/W=(0,0,0,0) $yRaster vs $xRaster as gTitle
 	SetCascadeXY(gName)
 	ModifyGraph mode=3, marker=10, standoff=0, rgb=(65535,0,0)
+	ModifyGraph manTick(left)={0,1,0,0},manMinor(left)={0,0}
 	
 	Label left NMNoteLabel("y", yRaster, wPrefix+"#")
 	Label bottom NMNoteLabel("y", xRaster, "msec")
 	
-	WaveStats /Q $yRaster
+	WaveStats /Q/Z $yRaster
 	
-	SetAxis left 0, V_max+1
+	SetAxis left -0.25, V_max+1
 	
 	if (numtype(winB*winE) == 0)
 		SetAxis bottom winB, winE
@@ -1246,7 +1764,7 @@ End // SpikeAvgAlert
 Function Spike2WavesCall()
 
 	Variable icnt, ccnt, cbgn, cend, seq, stopyesno = 2
-	String prefix, fname, wlist, xl, yl, vlist = "", df = SpikeDF()
+	String prefix, prefix2, fname, wlist, xl, yl, vlist = "", df = SpikeDF()
 	
 	String opstr = WaveListText0()
 	
@@ -1257,7 +1775,7 @@ Function Spike2WavesCall()
 	Variable currChan = NMCurrentChan()
 	Variable nChan = NMNumChannels()
 	
-	String wPrefix = StrVarOrDefault("CurrentPrefix", "")
+	String wPrefix = NMCurrentWavePrefix()
 	
 	Variable before = NumVarOrDefault(df+"S2W_before", 2)
 	Variable after = NumVarOrDefault(df+"S2W_after", 5)
@@ -1281,7 +1799,7 @@ Function Spike2WavesCall()
 	if (nChan > 1)
 	
 		
-		DoPrompt "Spikes to Waves", before, after, stopyesno, chan
+		DoPrompt "Copy Spikes to Waves", before, after, stopyesno, chan
 		
 		cbgn = ChanChar2Num(chan)
 		cend = ChanChar2Num(chan)
@@ -1398,6 +1916,16 @@ Function Spike2WavesCall()
 			return 0
 		endif
 		
+		if (WaveExists($prefix + "Times") == 1)
+		
+			prefix2 = ReplaceString("SP_Rstr", prefix, "SP_Rr")
+			
+			if (WaveExists($prefix2 + "Times") == 0)
+				Rename $(prefix + "Times"), $(prefix2 + "Times")
+			endif
+			
+		endif
+		
 		xl = ChanLabel(ccnt, "x", "")
 		yl = ChanLabel(ccnt, "y", "")
 		
@@ -1405,7 +1933,7 @@ Function Spike2WavesCall()
 		String gName = CheckGraphName(gPrefix)
 		String gTitle = NMFolderListName("") + " : Ch " + ChanNum2Char(ccnt) + " : Spikes"
 	
-		NMPlotWaves(gName, gTitle, xl, yl, wlist)
+		NMPlotWaves(gName, gTitle, xl, yl, "", wlist)
 		
 	endfor
 
@@ -1427,8 +1955,8 @@ Function SpikePSTHCall()
 	String xRaster = StrVarOrDefault(df+"RasterWaveX", "")
 	String yRaster = StrVarOrDefault(df+"RasterWaveY", "")
 	
-	Variable winB = NMNoteVarByKey(xRaster, "Spike Tbgn")
-	Variable winE = NMNoteVarByKey(xRaster, "Spike Tend")
+	Variable winB = SpikeTmin(xRaster)
+	Variable winE = SpikeTmax(xRaster)
 	Variable psthD = NumVarOrDefault(df+"PSTHD", 1)
 	String psthY = StrVarOrDefault(df+"PSTHY", "Spikes / bin")
 	
@@ -1488,19 +2016,17 @@ Function /S SpikePSTH(xRaster, yRaster, winB, winE, psthD, psthY)
 	Variable CurrentChan = NMCurrentChan()
 	Variable overWrite = NMOverWrite()
 
-	String wName = NextWaveName("", xRaster + "_PSTH", -1, overWrite)
+	String wName = NextWaveName2("", xRaster + "_PSTH", -1, overWrite)
 	String gPrefix = xRaster + "_" + NMFolderPrefix("") + "PSTH"
 	String gName = NextGraphName(gPrefix, -1, overWrite)
 	String gTitle = NMFolderListName("") + " : Ch " + ChanNum2Char(CurrentChan) + " : " + wName
 	
-	WaveStats /Q $xRaster
-	
 	if (numtype(winB) > 0)
-		winB = V_min
+		winB = SpikeTmin(xRaster)
 	endif
 	
 	if (numtype(winE) > 0)
-		winE = V_max
+		winE = SpikeTmax(xRaster)
 	endif
 	
 	Variable npnts = ceil((winE - winB) / psthD)
@@ -1526,8 +2052,7 @@ Function /S SpikePSTH(xRaster, yRaster, winB, winE, psthD, psthY)
 	endswitch
 	
 	DoWindow /K $gName
-	Display /K=1/W=(0,0,0,0) PSTH as gTitle
-	DoWindow /C $gName
+	Display /K=1/N=$gName/W=(0,0,0,0) PSTH as gTitle
 	
 	SetCascadeXY(gName)
 	
@@ -1557,8 +2082,8 @@ Function SpikeISIHCall()
 	String xRaster = StrVarOrDefault(df+"RasterWaveX", "")
 	String yRaster = StrVarOrDefault(df+"RasterWaveY", "")
 	
-	Variable winB = NMNoteVarByKey(xRaster, "Spike Tbgn")
-	Variable winE = NMNoteVarByKey(xRaster, "Spike Tend")
+	Variable winB = SpikeTmin(xRaster)
+	Variable winE = SpikeTmax(xRaster)
 	Variable isiMin = NumVarOrDefault(df+"ISImin", 0)
 	Variable isiMax = NumVarOrDefault(df+"ISImax", inf)
 	Variable isihD = NumVarOrDefault(df+"ISIHD", 1)
@@ -1631,6 +2156,14 @@ Function /S SpikeISIH(xRaster, yRaster, winB, winE, isiMin, isiMax, isihD, isihY
 		return ""
 	endif
 	
+	if (numtype(winB) > 0)
+		winB = SpikeTmin(xRaster)
+	endif
+	
+	if (numtype(winE) > 0)
+		winE = SpikeTmax(xRaster)
+	endif
+	
 	String xl = NMNoteLabel("y", xRaster, "msec")
 	
 	Variable events = Time2Intervals(xRaster, winB, winE, isiMin, isiMax) // results saved in U_INTVLS
@@ -1645,13 +2178,13 @@ Function /S SpikeISIH(xRaster, yRaster, winB, winE, isiMin, isiMax, isihD, isihY
 	Variable CurrentChan = NMCurrentChan()
 	Variable overWrite = NMOverWrite()
 	
-	String wName1 = NextWaveName("", xRaster + "_Intvls", -1, overWrite)
-	String wName2 = NextWaveName("", xRaster + "_ISIH", -1, overWrite)
+	String wName1 = NextWaveName2("", xRaster + "_Intvls", -1, overWrite)
+	String wName2 = NextWaveName2("", xRaster + "_ISIH", -1, overWrite)
 	String gPrefix = xRaster + "_" + NMFolderPrefix("") + "ISIH"
 	String gName = NextGraphName(gPrefix, -1, overWrite)
 	String gTitle = NMFolderListName("") + " : Ch " + ChanNum2Char(CurrentChan) + " : " + wName2
 	
-	WaveStats /Q $xRaster
+	WaveStats /Q/Z $xRaster
 	
 	if (numtype(winB) > 0)
 		winB = V_min
@@ -1698,7 +2231,7 @@ Function /S SpikeISIH(xRaster, yRaster, winB, winE, isiMin, isiMax, isihD, isihY
 		endif
 	endfor
 	
-	WaveStats /Q ISIH
+	WaveStats /Q/Z ISIH
 	
 	Redimension /N=(V_npnts) ISIH
 	
@@ -1707,8 +2240,7 @@ Function /S SpikeISIH(xRaster, yRaster, winB, winE, isiMin, isiMax, isihD, isihY
 	endif
 	
 	DoWindow /K $gName
-	Display /K=1/W=(0,0,0,0) ISIH as gTitle
-	DoWindow /C $gName
+	Display /K=1/N=$gName/W=(0,0,0,0) ISIH as gTitle
 	
 	SetCascadeXY(gName)
 	
@@ -1739,15 +2271,15 @@ Function SpikeRateCall()
 	String xRaster = StrVarOrDefault(df+"RasterWaveX", "")
 	String yRaster = StrVarOrDefault(df+"RasterWaveY", "")
 	
-	Variable winB = NMNoteVarByKey(xRaster, "Spike Tbgn")
-	Variable winE = NMNoteVarByKey(xRaster, "Spike Tend")
+	Variable winB = SpikeTmin(xRaster)
+	Variable winE = SpikeTmax(xRaster)
 	
 	if (numtype(winB) > 0)
-		winB = -inf
+		winB = leftx($dName)
 	endif
 	
 	if (numtype(winE) > 0)
-		winE = inf
+		winE = rightx($dName)
 	endif
 	
 	Prompt winB, "window begin time (ms):"
@@ -1778,14 +2310,6 @@ Function /S SpikeRate(xRaster, yRaster, winB, winE)
 	String xRaster, yRaster // Raster x-y data
 	Variable winB, winE
 	
-	if ((WaveExists($xRaster) == 0) || (WaveExists($yRaster) == 0))
-		return ""
-	endif
-	
-	if (numtype(winB*winE) > 0)
-		return ""
-	endif
-	
 	Variable icnt, npnts, wnum
 	String xl, yl
 	
@@ -1793,15 +2317,31 @@ Function /S SpikeRate(xRaster, yRaster, winB, winE)
 	Variable overWrite = NMOverWrite()
 	
 	String wPrefix = StrVarOrDefault("WavePrefix", "")
-	String wName = NextWaveName("", xRaster + "_Rate", -1, overWrite)
+	String wName = NextWaveName2("", xRaster + "_Rate", -1, overWrite)
 	String gPrefix = xRaster + "_" + NMFolderPrefix("") + "Rate"
 	String gName = NextGraphName(gPrefix, -1, overWrite)
 	String gTitle = NMFolderListName("") + " : Ch " + ChanNum2Char(CurrentChan) + " : " + wName
 	
+	if ((WaveExists($xRaster) == 0) || (WaveExists($yRaster) == 0))
+		return ""
+	endif
+	
+	if (numtype(winB) > 0)
+		winB = SpikeTmin(xRaster)
+	endif
+	
+	if (numtype(winE) > 0)
+		winE = SpikeTmax(xRaster)
+	endif
+	
+	if (numtype(winB*winE) > 0)
+		return ""
+	endif
+	
 	Wave xr = $xRaster
 	Wave yr = $yRaster
 	
-	WaveStats /Q yr
+	WaveStats /Q/Z yr
 	
 	npnts = V_max
 	
@@ -1835,14 +2375,13 @@ Function /S SpikeRate(xRaster, yRaster, winB, winE)
 	yl = "Spikes / sec"
 	
 	DoWindow /K $gName
-	Display /K=1/W=(0,0,0,0) $wName as gTitle
-	DoWindow /C $gName
+	Display /K=1/N=$gName/W=(0,0,0,0) $wName as gTitle
 	SetCascadeXY(gName)
 	ModifyGraph standoff=0, rgb=(65280,0,0), mode=4, marker=19
 	Label bottom xl
 	Label left yl
 	
-	WaveStats /Q $wName
+	WaveStats /Q/Z $wName
 	
 	SetAxis left 0, V_max
 	
@@ -1926,8 +2465,7 @@ Function SpikeTable()
 	tname = NextGraphName(tname, -1, NMOverWrite())
 	
 	DoWindow /K $tname
-	Edit /K=1/W=(0,0,0,0) as "Spike Waves"
-	DoWindow /C $tname
+	Edit /K=1/N=$tname/W=(0,0,0,0) as "Spike Waves"
 	SetCascadeXY(tname)
 	
 	for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
@@ -1942,5 +2480,26 @@ End // SpikeTable
 //****************************************************************
 //****************************************************************
 
+Function XTimes2Spike() : GraphMarquee // use marquee x-values for stats t_beg and t_end
+	String df = SpikeDF()
+	
+	if ((DataFolderExists(df) == 0) || (IsCurrentNMTab("Spike") == 0))
+		return 0 
+	endif
 
+	GetMarquee left, bottom
+	
+	if (V_Flag == 0)
+		return 0
+	endif
+	
+	SetNMvar(df+"WinB", V_left)
+	SetNMvar(df+"WinE", V_right)
+	
+	AutoSpike()
 
+End // XTimes2Spike
+
+//****************************************************************
+//****************************************************************
+//****************************************************************

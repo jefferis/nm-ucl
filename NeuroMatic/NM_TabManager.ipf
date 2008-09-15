@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -13,7 +13,7 @@
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 5 Oct 2004
+//	Last modified 01 March 2008
 //
 //	To use this Tab Manager, you need to create a "tab list" of each tab (";" delineated), where 
 //	each list item consists of the tab name, followed by a comma (","), followed by a tab prefix
@@ -124,9 +124,15 @@ Function ChangeTab(fromTab, toTab, tabList) // change to new tab window
 	else
 	
 		if (fromTab != toTab)
+		
 			tName = TabName(fromTab, tabList)
 			EnableTab(fromTab, tabList, 0) // disable controls if they exist
 			Execute /Z tName + "(0)" // run specific disable tab function
+			
+			if (V_Flag == 2003)
+				Execute /Z tName + "Tab(0)" // try with another name
+			endif
+			
 		endif
 		
 		tName = TabName(toTab, tabList)
@@ -134,7 +140,13 @@ Function ChangeTab(fromTab, toTab, tabList) // change to new tab window
 		Execute /Z tName + "(1)" // run specific enable tab function
 
 		if (V_Flag == 2003)
-			DoAlert 0, "Failed to find function " + tName + "(enable). Make sure the Igor procedure file for this tab is open."
+		
+			Execute /Z tName + "Tab(1)" // try with another name
+		
+			if (V_Flag == 2003)
+				DoAlert 0, "Failed to find function " + tName + "(enable) or " + tName + "Tab(enable). Make sure the Igor procedure file for this tab is open."
+			endif
+			
 		endif
 		
 	endif

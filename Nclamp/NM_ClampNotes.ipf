@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -166,6 +166,41 @@ End // CheckNotes
 //****************************************************************
 //****************************************************************
 
+Function NotesConfigs()
+	String fname = "Notes"
+
+	//
+	// Header Notes: use name prefix "H_"
+	// File Notes: use name prefix "F_"
+	// Create your own by copying and pasting
+	//
+	
+	// Header Strings:
+	
+	NMConfigStr(fname, "H_Name", "Jason Rothman", "Your name")
+	NMConfigStr(fname, "H_Lab", "Silver Lab, UCL Physiology", "Your lab/address")
+	NMConfigStr(fname, "H_Title", "LTP", "Experiment title")
+		
+	// Header Variables:
+	
+	//NMConfigVar(fname, "H_Age", Nan, "Age")
+	
+	// File Variables:
+	
+	NMConfigVar(fname, "F_Temp", Nan, "Temperature")
+	NMConfigVar(fname, "F_Ra", Nan, "Access resistance")
+	NMConfigVar(fname, "F_Cm", Nan, "Cell capacitance")
+	
+	// File Strings:
+	
+	//NMConfigStr(fname, "F_Drug", "", "Experimental drugs")
+
+End // NotesConfigs
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function NotesTable(update) // create table to edit note vars
 	Variable update // (0) dont update table values (1) update existing table values
 	
@@ -207,9 +242,7 @@ Function NotesTable(update) // create table to edit note vars
 	
 	if (WinType(tName) == 0)
 	
-		Edit /K=1/W=(0,0,0,0) VarName, NumValue, StrValue
-		DoWindow /C $tName
-		DoWindow /T $tName, tTitle
+		Edit /K=1/N=$tName/W=(0,0,0,0) VarName, NumValue, StrValue as tTitle
 		SetCascadeXY(tName)
 		Execute "ModifyTable title(Point)= \"Entry\""
 		Execute "ModifyTable alignment(" + cdf + "VarName)=0, alignment(" + cdf + "StrValue)=0"

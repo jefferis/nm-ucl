@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -14,7 +14,6 @@
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last modified 02 April 2007
 //
 //****************************************************************
 //****************************************************************
@@ -24,6 +23,10 @@ Function NMFolderCall(select)
 	String select
 	
 	strswitch(select)
+	
+		case "Edit This List":
+			NMFolderListEdit()
+			break
 	
 		case "New":
 			NMFolderNewCall()
@@ -47,14 +50,14 @@ Function NMFolderCall(select)
 			break
 		
 		case "Merge":
-			NMFolderMerge()
+			NMFoldersMerge()
 			break
 			
 		case "Save":
 			NMFolderSave()
 			break
 			
-		case "Save":
+		case "Save All":
 			NMFolderSaveAll()
 			break
 		
@@ -456,6 +459,16 @@ End // NMCurrentChan
 //****************************************************************
 //****************************************************************
 
+Function /S NMCurrentChanStr()
+
+	return ChanNum2Char(NumVarOrDefault("CurrentChan", 0))
+
+End // NMCurrentChanStr
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function NMNumWaves()
 
 	return NumVarOrDefault("NumWaves", 0)
@@ -476,6 +489,188 @@ End // NMCurrentWave
 //****************************************************************
 //****************************************************************
 
+Function /S NMCurrentWavePrefix()
+
+	return StrVarOrDefault("CurrentPrefix", StrVarOrDefault("WavePrefix", ""))
+
+End // NMCurrentWavePrefix
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMXwave()
+
+	return StrVarOrDefault("Xwave", "")
+
+End // NMXwave
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMXwaveSet(wName)
+	String wName
+	
+	Variable npnts = numpnts($NMWaveSelected(0, 0))
+	
+	if (StringMatch(wName, "No Xwave") == 1)
+		wName = ""
+	endif
+	
+	if ((WaveExists($wName) == 0) || (npnts != numpnts($wName)))
+		wName = ""
+	endif
+	
+	SetNMstr("Xwave", wName)
+	
+	ChanGraphsReset()
+	ChanGraphsUpdate()
+	
+	return wName
+	
+End // NMXwaveSet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMLeftX(ywave)
+	String ywave
+	
+	String xwave = NMXwave()
+	
+	if (strlen(ywave) == 0)
+		ywave = CurrentWaveName()
+	endif
+	
+	if (WaveExists($ywave) == 0)
+		return Nan
+	endif
+	
+	if (WaveExists($xwave) == 0)
+		return leftx($ywave)
+	endif
+	
+	WaveStats /Q $xwave
+	
+	return V_min
+	
+End // NMLeftX
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMRightX(ywave)
+	String ywave
+	
+	String xwave = NMXwave()
+	
+	if (strlen(ywave) == 0)
+		ywave = CurrentWaveName()
+	endif
+	
+	if (WaveExists($ywave) == 0)
+		return Nan
+	endif
+	
+	if (WaveExists($xwave) == 0)
+		return rightx($ywave)
+	endif
+	
+	WaveStats /Q $xwave
+	
+	return V_max
+	
+End // NMRightX
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMXvalueTransform(ywave, xvalue, direction, lessORgreater)
+	String ywave
+	Variable xvalue
+	Variable direction
+	Variable lessORgreater // (-1) less than (1) greater than
+	
+	Variable npnts, dx, xv, icnt
+	String xwave = NMXwave()
+	
+	if (strlen(ywave) == 0)
+		ywave = CurrentWaveName()
+	endif
+	
+	if ((numtype(xvalue) > 0) || (WaveExists($ywave) == 0) || (WaveExists($xwave) == 0))
+		return xvalue
+	endif
+	
+	npnts = numpnts($ywave)
+	
+	Make /O/N=(npnts) NM_xWaveTemp
+	
+	WaveStats /Q $xwave
+	
+	dx = (V_max - V_min) / (npnts - 1)
+	
+	Setscale /P x V_min, dx, NM_xWaveTemp
+	
+	Wave xtemp = $xwave
+	
+	if (direction == 1)
+	
+		xv = x2pnt($ywave, xvalue)
+		xv = xtemp[xv]
+		
+	else
+	
+		FindLevel /P/Q xtemp, xvalue
+		
+	 	xv = pnt2x($ywave, V_LevelX)
+	 	
+	 	if ((xv >= 0) && (xv < numpnts(xtemp)))
+	 		
+	 		switch(lessORgreater)
+	 		
+	 			case -1: // less than
+	 			
+	 				for (icnt = xv + 1; icnt < xv - 5; icnt -= 1)
+	 					if ((icnt >= 0) && (icnt < numpnts(xtemp)) && (xtemp[icnt] <= xvalue))
+	 						xv = icnt
+	 						break
+	 					endif
+	 				endfor
+	 				
+	 				break
+	 				
+	 			case 1: // greater than
+	 			
+	 				for (icnt = xv - 1; icnt < xv + 5; icnt += 1)
+	 					if ((icnt >= 0) && (icnt < numpnts(xtemp)) && (xtemp[icnt] >= xvalue))
+	 						xv = icnt
+	 						break
+	 					endif
+	 				endfor
+	 				
+	 				break
+	 		
+	 		endswitch
+	 		
+	 	endif
+	 	
+	endif
+	
+	KillWaves /Z NM_xWaveTemp
+	 
+	 return xv
+	
+End // NMXvalueTransform
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function NMFolderGlobalsReset()
 
 	if (WavesExist("Set1;Set2;SetX;Group;") == 1)
@@ -490,6 +685,7 @@ Function NMFolderGlobalsReset()
 	SetNMvar("CurrentWave", 0)
 	SetNMvar("CurrentGrp", 0)
 	SetNMvar("WaveSkip", 1)
+	SetNMstr("Xwave", "")
 	
 	NMWaveSelect("All")
 
@@ -502,8 +698,8 @@ End // NMFolderGlobalsReset
 Function NMFolderGlobalsSave(wPrefix) // save globals to a folder. called when switching between wave prefixes
 	String wPrefix // wave prefix name
 	
-	Variable icnt
-	String setList, setName
+	Variable icnt, nchan
+	String setList, setName, fName, fname2
 	
 	if (WavesExist("Set1;Set2;SetX;Group;WavSelect;ChanSelect;") == 0)
 		return 0
@@ -515,14 +711,18 @@ Function NMFolderGlobalsSave(wPrefix) // save globals to a folder. called when s
 		return 0
 	endif
 	
+	nchan = NMNumChannels()
+	
 	NewDataFolder /O $wPrefix // create folder to save globals
 	
-	SetNMvar(df + wPrefix + ":NumChannels", NumVarOrDefault("NumChannels", 0))
+	SetNMvar(df + wPrefix + ":NumChannels", nchan)
 	SetNMvar(df + wPrefix + ":NumGrps", NumVarOrDefault("NumGrps", 0))
+	SetNMstr(df + wPrefix + ":Xwave", StrVarOrDefault("Xwave", ""))
 	
 	Duplicate /O Group $(df + wPrefix + ":Group")
 	Duplicate /O WavSelect $(df + wPrefix + ":WavSelect")
 	Duplicate /O ChanSelect $(df + wPrefix + ":ChanSelect")
+	Duplicate /O ChanWaveList $(df + wPrefix + ":ChanWaveList")
 	
 	setList = NMSetsList(1) // strict Set list
 	NMSetsTable(-1) // remove Set waves
@@ -531,8 +731,12 @@ Function NMFolderGlobalsSave(wPrefix) // save globals to a folder. called when s
 	for (icnt = 0; icnt < ItemsInlist(setList); icnt += 1)
 		setName = StringFromList(icnt, setList)
 		Duplicate /O $setName $(df + wPrefix + ":" + setName)
-		KillWaves /Z $setName
+		//KillWaves /Z $setName
 	endfor
+	
+	// save channel graph configurations
+	
+	ChanFolderCopy(-1, df, df + wPrefix + ":", 1)
 
 End // NMFolderGlobalsSave
 
@@ -543,12 +747,10 @@ End // NMFolderGlobalsSave
 Function NMFolderGlobalsGet(wPrefix) // get saved globals from folder
 	String wPrefix // wave prefix name
 	
-	//Variable killFolder = 0 // kill folder when finished
-	
-	Variable ocnt
+	Variable ocnt, icnt
 	String objName, oList
 	
-	String setList, setName, oldSet
+	String setList, setName, oldSet, fName, fName2
 	
 	String df = GetDataFolder(1)
 	String subFolder = df + wPrefix + ":"
@@ -578,9 +780,9 @@ Function NMFolderGlobalsGet(wPrefix) // get saved globals from folder
 		SetNMstr(objName, StrVarOrDefault(subFolder+objName, ""))
 	endfor
 	
-	//if (killFolder == 1)
-	//	KillDataFolder $(df + wPrefix)
-	//endif
+	// get channel graph configurations
+	
+	ChanFolderCopy(-1, df + wPrefix + ":", df, 1)
 	
 	return 0
 
@@ -629,14 +831,13 @@ Function /S NMFolderNew(folder) // create a new NM data folder
 	if (DataFolderExists(folder) == 1)
 		return "" // already exists
 	endif
-	
+
 	NMSetsTable(-1) // remove Set waves
 	NMGroupsTable(-1) // remove Group waves
 	
 	NewDataFolder /S $LastPathColon(folder, 0)
 	
 	SetNMstr(NMDF() + "CurrentFolder", GetDataFolder(1))
-	
 	CheckNMDataFolder()
 	NMFolderListAdd(folder)
 	ChanGraphsReset()
@@ -719,7 +920,7 @@ Function /S NMFolderChange(folder) // change the active folder
 	
 	SetNMstr(df+"CurrentFolder", GetDataFolder(1))
 	ChanGraphsReset()
-	ChanWaveListSet(0) // check channel wave names
+	ChanWaveListSet(-1, 0) // check channel wave names
 	UpdateNM(1)
 	
 	return folder
@@ -756,6 +957,8 @@ Function NMFolderCloseAll()
 		return 0
 	endif
 	
+	flist = RemoveFromList("nm_folder0", flist) // remove default folder if it still exists
+	
 	for (icnt = 0; icnt < ItemsInlist(flist); icnt += 1)
 		NMFolderClose(StringFromList(icnt,flist))
 	endfor
@@ -784,7 +987,7 @@ Function /S NMFolderCloseCurrent()
 		return ""
 	endif
 	
-	nfolder = StringFromList(inum+1, flist)
+	nfolder = StringFromList(inum-1, flist)
 	
 	txt = "Are you sure you want to kill the current NeuroMatic data folder?"
 	txt += " This will kill all graphs, tables and waves associated with this folder."
@@ -1177,21 +1380,138 @@ End // NMDataReload
 //****************************************************************
 //****************************************************************
 
+Function /S NMFoldersMerge()
+
+	Variable fcnt, numfolders
+	String fname, newprefix, wlist
+	String f1 = GetDataFolder(0), f2 = "", flist = NMDataFolderList(), df = NMDF()
+	String cprefix = NMCurrentWavePrefix()
+	String newfolder = FolderNameNext("")
+	
+	for (fcnt = 0; fcnt < ItemsInList(flist); fcnt += 1)
+		
+		if ((StringMatch(f1, StringFromList(fcnt, flist)) == 1) && (fcnt + 1 < ItemsInList(flist)))
+			f2 = StringFromList(fcnt+1, flist)
+			break
+		endif
+		
+	endfor
+	
+	Prompt newfolder, "new folder name:"
+	Prompt cprefix, "prefix of waves to copy to new folder:"
+	Prompt f1, "first folder:", popup flist
+	Prompt f2, "second folder:", popup flist
+	
+	DoPrompt "Merge Folders", newfolder, cprefix, f1, f2
+	
+	if (V_flag == 1)
+		return ""  // cancel
+	endif
+	
+	NMPrefixAdd( "DF" )
+	
+	NMFolderNew( newfolder )
+	
+	NMFolderChange( f1 )
+	
+	wlist = WaveList(cprefix + "*",";","")
+	
+	if (ItemsInList(wlist) > 0)
+	
+		NMPrefixSelectSilent( cprefix )
+	
+		newprefix = "D"+ NMFolderPrefix( f1 )
+	
+		NMCopyWavesTo("root:" + newfolder, newprefix, -inf, inf, 0, 0)
+		
+	endif
+	
+	NMFolderChange( f2 )
+	
+	wlist = WaveList(cprefix + "*",";","")
+	
+	if (ItemsInList(wlist) > 0)
+	
+		NMPrefixSelectSilent( cprefix )
+	
+		newprefix = "D"+ NMFolderPrefix( f2 )
+	
+		NMCopyWavesTo("root:" + newfolder, newPrefix, -inf, inf, 0, 0)
+		
+	endif
+	
+	flist = RemoveFromList(f1, flist)
+	flist = RemoveFromList(f2, flist)
+	
+	f2 = ""
+	
+	numfolders = ItemsInList(flist)
+	
+	for (fcnt = 0; fcnt < numfolders; fcnt += 1)
+	
+		fname = StringFromList(0, flist)
+		
+		if (strlen(fname) == 0)
+			break
+		endif
+		
+		wlist = WaveListFolder("root:" + fname, cprefix + "*", ";", "")
+		
+		if (ItemsInList(wlist) == 0)
+			flist = RemoveFromList(fname, flist)
+		endif
+	
+	endfor
+	
+	numfolders = ItemsInList(flist)
+	
+	for (fcnt = 0; fcnt < numfolders; fcnt += 1)
+	
+		if (ItemsInList(flist) <= 0)
+			break
+		endif
+	
+		Prompt f2, "next folder:", popup flist
+	
+		DoPrompt "Merge Folders", f2
+		
+		if (V_flag == 1)
+			break // cancel
+		endif
+		
+		NMFolderChange( f2 )
+		
+		wlist = WaveList(cprefix + "*",";","")
+		
+		if (ItemsInList(wlist) > 0)
+		
+			NMPrefixSelectSilent( cprefix )
+	
+			newprefix = "D"+ NMFolderPrefix( f2 )
+	
+			NMCopyWavesTo("root:" + newfolder, newPrefix, -inf, inf, 0, 0)
+		
+			flist = RemoveFromList(f2, flist)
+			
+		endif
+	
+	endfor
+	
+	NMFolderChange( newfolder )
+	
+	NMPrefixSelect( "DF" )
+	
+End // NMFoldersMerge
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function NMFolderAppend()
 
 	DoAlert 0, "Alert: NMFolderAppend has been deprecated."
 
 End // NMFolderAppend
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function NMFolderMerge()
-
-	DoAlert 0, "Alert: NMFolderMerge has been deprecated."
-
-End // NMFolderMerge
 
 //****************************************************************
 //****************************************************************
@@ -1280,8 +1600,13 @@ End // NMFolderList
 //****************************************************************
 
 Function /S NMDataFolderList()
+	String flist = Wave2List(NMDF()+"FolderList")
 
-	return NMFolderList("root:","NMData")
+	if (ItemsInlist(flist) == 0)
+		return NMFolderList("root:","NMData")
+	endif
+	
+	return flist
 	
 End // NMDataFolderList
 
@@ -1292,7 +1617,7 @@ End // NMDataFolderList
 Function /S NMDataFolderListLong() // includes Folder list name (i.e. "F0")
 	Variable icnt
 	
-	String fname, flist2 = "", flist = NMFolderList("root:","NMData")
+	String fname, flist2 = "", flist = NMDataFolderList()
 	
 	for (icnt = 0; icnt < ItemsInList(flist); icnt += 1)
 		fname = StringFromList(icnt, flist)
@@ -1322,6 +1647,29 @@ Function /S NMLogFolderListLong()
 	return flist2
 	
 End // NMLogFolderListLong
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMFolderListEdit()
+
+	String df = NMDF()
+	String tName = "NM_FolderList"
+	
+	String wName = df + "FolderList"
+	
+	if (WaveExists($wName) == 0)
+		return -1
+	endif
+	
+	if (WinType(tName) > 0)
+		DoWindow /F $tName
+	else
+		Edit /K=1/N=$tName $wName as "NM Data Folder List"
+	endif
+
+end // NMFolderListEdit
 
 //****************************************************************
 //****************************************************************
@@ -1452,7 +1800,7 @@ Function NMFolderListNum(folder)
 	endif
 	
 	if (strlen(folder) == 0)
-		folder = StrVarOrDefault(df+"CurrentFolder", "")
+		folder = NMCurrentFolder()
 	endif
 	
 	if (IsNMDataFolder(folder) == 0)
@@ -1484,7 +1832,7 @@ Function /S NMFolderListName(folder)
 	String prefix = "F"
 	
 	if (strlen(folder) == 0)
-		folder = StrVarOrDefault(NMDF() + "CurrentFolder", "")
+		folder = NMCurrentFolder()
 	endif
 	
 	Variable id = NMFolderListNum(folder)
@@ -1584,12 +1932,12 @@ Function /S FolderNameCreate(file) // create a folder name based on a given file
 	file = FileExtCheck(file, ".*", 0) // remove extension if it exists
 	
 	if (numtype(str2num(file[0,0])) == 0)
-		file = "nm_" + file // begin file name with "nm_" if name begins with number
+		file = "nm" + file // begin file name with "nm" if name begins with number
 	endif
 	
 	file = CheckFolderNameChar(file)
 	
-	return file
+	return file[0,30]
 
 End // FolderNameCreate
 
@@ -1628,7 +1976,7 @@ Function /S FolderNameNext(folder) // return next unused folder name
 
 	KillVariables /Z iSeqBgn, iSeqEnd
 	
-	return rname
+	return rname[0,30]
 	
 End // FolderNameNext
 
@@ -1699,7 +2047,7 @@ Function /S CheckFolderNameChar(name)
 		name = name[0, icnt - 1]
 	endif
 	
-	return name
+	return name[0,30]
 
 End // CheckFolderNameChar
 

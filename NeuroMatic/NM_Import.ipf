@@ -1,6 +1,6 @@
 #pragma rtGlobals=1		// Use modern global access method.
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -13,7 +13,7 @@
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 11 May 2007
+//	Last modified 25 Feb 2008
 //
 //	Import data file types currently supported:
 //		1) Axograph
@@ -281,8 +281,8 @@ Function NMImport(file, newFolder) // main load data function
 	String file
 	Variable newFolder // (0) no (1) yes
 	
-	Variable success
-	String wPrefix, seq, folder, df = ImportDF()
+	Variable success, amode
+	String acqMode, wPrefix, wList, seq, folder, df = ImportDF()
 	
 	Variable importPrompt = NumVarOrDefault(NMDF()+"ImportPrompt", 1)
 	String saveWavePrefix = StrVarOrDefault("WavePrefix", "Record")
@@ -357,6 +357,31 @@ Function NMImport(file, newFolder) // main load data function
 		NMSetsDataNew()
 	endif
 	
+	acqMode = StrVarOrDefault(df+"AcqMode", "")
+	
+	amode = str2num(acqMode[0])
+	
+	if ((numtype(amode) == 0) && (amode == 3)) // gap free
+	
+		if (NumVarOrDefault(df+"ConcatWaves", 0) == 1)
+		
+			wList = NMConcatWaves( "C_Record" )
+			
+			if (ItemsInList(wList) == NumVarOrDefault("NumWaves", 0))
+				SetNMvar(NMDF()+"NMDeleteWavesNoAlert", 1)
+				NMDeleteWaves()
+			else
+				DoAlert 0, "Alert: waves were not properly concatenated."
+			endif
+			
+			NMPrefixSelect( "C_Record" )
+			
+		else
+			NMTimeScaleMode(1) // make continuous
+		endif
+		
+	endif
+	
 	if (strlen(seq) > 0) // file sequence to read
 		return NMImportFileSeq(file, Seq2List(seq))
 	endif
@@ -373,8 +398,8 @@ Function NMImportFileSeq(fileName, ImportSeqStr)
 	String fileName
 	String ImportSeqStr
 	
-	Variable icnt, jcnt, success, newfolder
-	String setList, file, seq, ext = "", wlist, wprefix, folder, df = ImportDF()
+	Variable icnt, jcnt, success, newfolder, amode
+	String acqMode, setList, file, seq, ext = "", wlist, wprefix, folder, df = ImportDF()
 	
 	String saveCurrentFile = StrVarOrDefault("CurrentFile", "")
 	String saveWavePrefix = StrVarOrDefault("WavePrefix", "Record")
@@ -467,6 +492,31 @@ Function NMImportFileSeq(fileName, ImportSeqStr)
 			NMSetsDataNew()
 		endif
 		
+		acqMode = StrVarOrDefault(df+"AcqMode", "")
+	
+		amode = str2num(acqMode[0])
+		
+		if ((numtype(amode) == 0) && (amode == 3)) // gap free
+		
+			if (NumVarOrDefault(df+"ConcatWaves", 0) == 1)
+			
+				wList = NMConcatWaves( "C_Record" )
+				
+				if (ItemsInList(wList) == NumVarOrDefault("NumWaves", 0))
+					SetNMvar(NMDF()+"NMDeleteWavesNoAlert", 1)
+					NMDeleteWaves()
+				else
+					DoAlert 0, "Alert: waves were not properly concatenated."
+				endif
+				
+				NMPrefixSelect( "C_Record" )
+				
+			else
+				NMTimeScaleMode(1) // make continuous
+			endif
+			
+		endif
+		
 	endfor
 	
 	//Duplicate /O saveYLabel yLabel
@@ -544,6 +594,10 @@ Function NMImportPanel(showSeq) // Bring up "Load File Panel" to request user in
 	Variable xPixels = NumVarOrDefault(NMDF() + "xPixels", 1000)
 	Variable newFolder = NumVarOrDefault(df+"NewFolder", 1)
 	Variable waveEnd = NumVarOrDefault(df+"WaveEnd", 0)
+	Variable concat = NumVarOrDefault(df+"ConcatWaves", 0)
+	String acqmode = StrVarOrDefault(df+"AcqMode", "")
+	
+	Variable amode = str2num(acqMode[0])
 	
 	String fileType = StrVarOrDefault(df+"DataFileType", "UNKNOWN")
 	
@@ -561,8 +615,7 @@ Function NMImportPanel(showSeq) // Bring up "Load File Panel" to request user in
 	seqstr = "file seq (e.g. " + num2str(seq) + "-" + num2str(seq+2) + ", " + num2str(seq+4) + ", " + num2str(seq+7) + ") "
 	
 	DoWindow /K ImportPanel
-	NewPanel /W=(x1,y1,x2,y2) as "Import " + fileType + " File"
-	DoWindow /C ImportPanel
+	NewPanel /N=ImportPanel/W=(x1,y1,x2,y2) as "Import " + fileType + " File"
 	
 	x1 = 20
 	y1 = 45
@@ -575,6 +628,11 @@ Function NMImportPanel(showSeq) // Bring up "Load File Panel" to request user in
 	SetVariable NM_SampIntSet, title="sample interval (ms):  ", limits={0,10,0}, pos={x1,y1+1*yinc}, size={250,50}, frame=0, value=$(df+"SampleInterval"), win=ImportPanel
 	SetVariable NM_SPSSet, title="samples:  ", limits={0,inf,0}, pos={x1,y1+2*yinc}, size={250,50}, frame=0, value=$(df+"SamplesPerWave"), win=ImportPanel
 	SetVariable NM_AcqModeSet, title="acquisition mode: ", pos={x1,y1+3*yinc}, size={250,50}, frame=0, value=$(df+"AcqMode"), win=ImportPanel
+	
+	if ((numtype(amode) == 0) && (amode == 3)) // gap free
+		CheckBox NM_ConcatWaves, title="concatenate waves", pos={x1+50,y1+4*yinc}, size={16,18}, value=(concat), proc=NMImportCheckBox, win=ImportPanel
+		y1 += 15
+	endif
 	
 	yinc = 28
 	
@@ -609,7 +667,10 @@ Function NMImportCheckBox(ctrlName, checked) : CheckBoxControl
 	strswitch(ctrlName)
 		case "NM_NewFolder":
 			SetNMvar(df+"NewFolder", checked)
-			break	
+			break
+		case "NM_ConcatWaves":
+			SetNMvar(df+"ConcatWaves", checked)
+			break
 	endswitch
 	
 End // NMImportCheckBox

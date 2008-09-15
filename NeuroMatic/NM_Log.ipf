@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -295,10 +295,8 @@ Function LogTable(ldf) // create a log table from a log data folder
 	LogUpdateWaves(ldf)
 	
 	if (WinType(tName) == 0) // make table
-		Edit /K=1/W=(0,0,0,0)
-		DoWindow /C $tName
+		Edit /K=1/N=$tName/W=(0,0,0,0) as "Clamp Log : " + GetPathName(ldf,0)
 		SetCascadeXY(tName)
-		DoWindow /T $tName, "Clamp Log : " + GetPathName(ldf,0)
 		Execute "ModifyTable title(Point)= \"Entry\""
 	endif
 	
@@ -348,8 +346,7 @@ Function LogNotebook(ldf) // create a log notebook from a log data folder
 	endif
 	
 	DoWindow /K $nbName
-	NewNotebook /K=1/F=0/N=trythis/W=(0,0,0,0) as "Clamp Notebook : " + GetPathName(ldf,0)
-	DoWindow /C $nbName
+	NewNotebook /K=1/F=0/N=$nbName/W=(0,0,0,0) as "Clamp Notebook : " + GetPathName(ldf,0)
 	
 	SetCascadeXY(nbName)
 	

@@ -1,6 +1,6 @@
 #pragma rtGlobals=1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -88,14 +88,22 @@ Function /S ClampDataFolderName(next)
 	Variable icnt
 	String fname = "", suffix = ""
 	
-	String cdf = ClampDF()
-	
-	String prefix = StrVarOrDefault(cdf+"FolderPrefix", ClampDateName())
-	String stimtag = StrVarOrDefault(cdf+"StimTag", "")
+	String cdf = ClampDF(), sdf = StimDF()
+	String path = ClampSavePathStr()
+	String datePrefix = ClampDateName()
+	String userPrefix = StrVarOrDefault(cdf+"UserFolderPrefix", "")
+	String prefix = StrVarOrDefault(cdf+"FolderPrefix", "")
+	String stag = StimTag("")
 	
 	Variable first = 0
 	Variable cell = ClampDataFolderCell()
 	Variable seq = ClampDataFolderSeq()
+	
+	if ((strlen(userPrefix) == 0) && (StringMatch(prefix, datePrefix) == 0))
+		prefix = datePrefix
+		SetNMstr(cdf+"FolderPrefix", prefix)
+		SetNMstr(cdf+"UserFolderPrefix", prefix)
+	endif
 	
 	if (numtype(seq) > 0)
 		seq = 0
@@ -110,6 +118,10 @@ Function /S ClampDataFolderName(next)
 	endif
 	
 	for (icnt = seq; icnt <= 999; icnt += 1)
+	
+		if (strlen(path) == 0)
+			break
+		endif
 
 		suffix = "_"
 	
@@ -125,8 +137,8 @@ Function /S ClampDataFolderName(next)
 			continue // ext file already exists
 		endif
 		
-		if (strlen(stimtag) > 0)
-			fname += "_" + stimtag
+		if (strlen(stag) > 0)
+			fname += "_" + stag
 		endif
 		
 		if (ClampSaveTest(fname) == -1) // final check
@@ -172,8 +184,7 @@ Function ClampDataFolderCheck()
 	String thisFolder = GetDataFolder(0)
 	String currentFile = StrVarOrDefault("CurrentFile", "")
 	
-	Variable nwaves = NumVarOrDefault("NumWaves", 0)
-	Variable lastMode = NumVarOrDefault("CT_Record", 0)
+	Variable lastMode = NumVarOrDefault("CT_RecordMode", 0)
 	
 	if (IsNMDataFolder(thisFolder) == 1)
 	
@@ -185,7 +196,7 @@ Function ClampDataFolderCheck()
 			
 		else
 		
-			if ((nwaves == 0) && (strlen(currentFile) == 0))
+			if ((lastMode == 0) && (strlen(currentFile) == 0))
 			
 				thisFolder = NMFolderRename(thisFolder, fname)
 				
@@ -210,20 +221,26 @@ End // ClampDataFolderCheck
 Function ClampDataFolderNew() // create a new data folder
 	String cdf = ClampDF()
 
+	String df
 	String newfolder = ClampDataFolderName(1) // folder name
 	String oldfolder = StrVarOrDefault(cdf+"CurrentFolder", "")
+	
 	String extfile = StrVarOrDefault("CurrentFile", "")
 	
 	Variable autoClose = NumVarOrDefault(cdf+"AutoCloseFolder", 0)
 	Variable saveWhen = NumVarOrDefault(cdf+"SaveWhen", 0)
 	
-	if ((autoClose == 1) && (SaveWhen > 0) && (IsNMDataFolder(oldfolder) == 1) && (strlen(extfile) > 0))
-		SetNMvar(NMDF()+"ChanGraphCloseBlock", 1) // block closing chan graphs
-		ClampGraphsUpdate(0)
-		ClampStatsRemoveWaves(0)
-		SetNMvar(NMDF()+"ChanGraphCloseBlock", 1) // block closing chan graphs
-		NMFolderClose(oldfolder) // close current folder before opening new one
-		ClampDataFolderCloseEmpty()
+	if ((autoClose == 1) && (SaveWhen > 0) && (IsNMDataFolder(oldfolder) == 1))
+	
+		if (strlen(extfile) > 0)
+			SetNMvar(NMDF()+"ChanGraphCloseBlock", 1) // block closing chan graphs
+			ClampGraphsUpdate(0)
+			ClampStatsRemoveWaves(0)
+			SetNMvar(NMDF()+"ChanGraphCloseBlock", 1) // block closing chan graphs
+			NMFolderClose(oldfolder) // close current folder before opening new one
+			ClampDataFolderCloseEmpty()
+		endif
+		
 	endif
 	
 	SetNMvar(NMDF()+"UpdateNMBlock", 1) // block update
@@ -280,37 +297,38 @@ Function ClampDataFolderUpdate(nwaves, mode)
 	Variable nwaves
 	Variable mode // (0) preview (1) record
 	
-	Variable config, icnt, npnts
-	String wlist, item
+	Variable config, icnt, npnts, nchans
+	String wPrefix, wlist, item
 	
-	String cdf = ClampDF(), sdf = StimDF(), ndf = NotesDF(), gdf = cdf+"Temp:"
+	String cdf = ClampDF(), sdf = StimDF(), ndf = NotesDF(), gdf = cdf+"Temp:", bdf = StimBoardDF(sdf)
 
 	Variable CopyStim2Folder = NumVarOrDefault(cdf+"CopyStim2Folder", 1)
 	String CurrentStim = StimCurrent()
 	
-	NVAR NumChannels, NumWaves
+	if (WaveExists($bdf+"ADCname") == 1)
 
-	Wave ADCon = $(sdf+"ADCon")
-	Wave ADCmode = $(sdf+"ADCmode")
-	Wave /T ADCname = $(sdf+"ADCname")
-	Wave /T ADCunits = $(sdf+"ADCunits")
+		Wave /T ADCname = $(bdf+"ADCname")
+		Wave /T ADCunits = $(bdf+"ADCunits")
+		Wave /T ADCmode = $(bdf+"ADCmode")
+		
+		Wave /T yLabel
+		
+		nchans = StimBoardNumADCchan("")
+		
+		Redimension /N=(nchans) yLabel
+		
+		npnts = numpnts(ADCname)
+		
+		for (config = 0; config < npnts; config += 1)
+			if ((strlen(ADCname[config]) > 0) && (strlen(ADCmode[config]) == 0))
+				yLabel[icnt] = ADCname[config] + " (" + ADCunits[config] + ")"
+				icnt += 1
+			endif
+		endfor
+		
+	endif
 	
-	Wave /T yLabel
-	
-	Variable nchans = StimNumChannels(sdf)
-	
-	Redimension /N=(nchans) yLabel
-	
-	npnts = numpnts(ADCon)
-	
-	for (config = 0; config < npnts; config += 1)
-		if ((ADCon[config] == 1) && (ADCmode[config] <= 0))
-			yLabel[icnt] = ADCname[config] + " (" + ADCunits[config] + ")"
-			icnt += 1
-		endif
-	endfor
-	
-	String wPrefix = StimWavePrefix()
+	wPrefix = StimWavePrefix("")
 
 	SetNMVar("NumChannels", icnt)
 	SetNMVar("NumWaves", nwaves)
@@ -321,7 +339,7 @@ Function ClampDataFolderUpdate(nwaves, mode)
 	SetNMVar("SampleInterval", NumVarOrDefault(sdf+"SampleInterval", 0))
 	SetNMvar("NumGrps", NumVarOrDefault(sdf+"NumStimWaves", 1))
 	SetNMvar ("FirstGrp", NMGroupFirstDefault())
-	SetNMvar("CT_Record", mode)
+	SetNMvar("CT_RecordMode", mode)
 
 	SetNMstr("WavePrefix", wPrefix)
 	SetNMstr("CurrentPrefix", wPrefix)
@@ -394,11 +412,46 @@ End // ClampDataFolderUpdate
 //****************************************************************
 //****************************************************************
 
+Function ClampDataFolderSaveCheckAll()
+
+	Variable icnt, mode
+	String df, folder, file, cdf = ClampDF(), flist = NMDataFolderList()
+	
+	String currentFolder = StrVarOrDefault(cdf+"CurrentFolder", "")
+	
+	Variable saveWhen = NumVarOrDefault(cdf+"SaveWhen", 0)
+	
+	flist = RemoveFromList(currentFolder, flist)
+	
+	if (SaveWhen == 0)
+		return 0 // nothing to do
+	endif
+	
+	for (icnt = 0; icnt < ItemsInlist(flist); icnt += 1)
+	
+		folder = StringFromList(icnt, flist)
+		df = "root:" + folder + ":"
+		
+		mode = NumVarOrDefault(df+"CT_RecordMode", 0)
+		file = StrVarOrDefault(df+"CurrentFile", "")
+		
+		if ((WaveExists($df+"CT_TimeStamp") == 1) && (mode == 1) && (strlen(file) == 0))
+			ClampSaveFinish(df)
+		endif
+	
+	endfor
+
+End // ClampDataFolderSaveCheckAll
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function /S ClampSaveSubPath()
 
 	String subStr, cdf = ClampDF()
 	String ClampPathStr = StrVarOrDefault(cdf+"ClampPath", "")
-	String prefix = StrVarOrDefault(cdf+"FolderPrefix", "")
+	String prefix = StrVarOrDefault(cdf+"FolderPrefix", ClampDateName())
 	
 	Variable saveSub = NumVarOrDefault(cdf+"SaveInSubfolder", 1)
 	Variable cell = NumVarOrDefault(cdf+"DataFileCell", Nan)
@@ -491,7 +544,8 @@ End // ClampSaveBegin
 //****************************************************************
 //****************************************************************
 
-Function ClampSaveFinish()
+Function ClampSaveFinish(folder)
+	String folder // ("") for current
 
 	String file, cdf = ClampDF()
 	String path = ClampSavePathGet()
@@ -504,7 +558,7 @@ Function ClampSaveFinish()
 	
 		if (saveWhen == 1) // save after recording (Igor 4)
 		
-			file = FileBinSave(ask, 1, "", path, "", 1, 0) // NM_FileManager.ipf
+			file = FileBinSave(ask, 1, folder, path, "", 1, 0) // NM_FileManager.ipf
 			
 		elseif (saveWhen == 2) // save while recording (Igor 4 and 5)
 		
@@ -518,22 +572,22 @@ Function ClampSaveFinish()
 	endif
 	
 	if ((SaveFormat == 2) || (SaveFormat == 3)) // Igor binary
-		file = FileBinSave(ask, 1, "", path, "", 1, 1) // NM_FileManager.ipf
+		file = FileBinSave(ask, 1, folder, path, "", 1, 1) // NM_FileManager.ipf
 	endif
 	
 	path = GetPathName(file, 1)
 	
-	PathInfo /S ClampPath
+	PathInfo /S ClampSaveDataPath
 	
 	if (strlen(S_path) > 0)
 		SetNMStr(cdf+"ClampPath", S_path)
 	elseif ((strlen(file) > 0) && (strlen(path) > 0))
 		SetNMStr(cdf+"ClampPath", path)
-		NewPath /Z/Q/O ClampPath path
+		NewPath /Z/Q/O ClampSaveDataPath path
 	endif
 	
 	if (strlen(file) == 0)
-		SetNMstr("CurrentFile", "not saved")
+		SetNMstr(LastPathColon(folder, 1) + "CurrentFile", "")
 	endif
 
 End // ClampSaveFinish
@@ -580,7 +634,7 @@ Function ClampSaveTestStr(folderName)
 	Variable icnt
 	String file, slist = "", cdf = ClampDF()
 	
-	PathInfo /S ClampPath
+	PathInfo /S ClampSaveDataPath
 	
 	if (strlen(S_path) == 0)
 		return 0
@@ -594,7 +648,7 @@ Function ClampSaveTestStr(folderName)
 	endif
 	
 	if (strlen(slist) == 0)
-		slist = IndexedFile(ClampPath,-1,"????")
+		slist = IndexedFile(ClampSaveDataPath,-1,"????")
 	endif
 	
 	for (icnt = 0; icnt < ItemsInList(slist); icnt += 1)

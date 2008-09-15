@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -14,7 +14,7 @@
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last Modified 08 Nov 2005
+//	Last Modified 10 March 2008
 //
 //****************************************************************
 //****************************************************************
@@ -32,95 +32,160 @@ End // MakeNMpanelCall
 //****************************************************************
 //****************************************************************
 
+Function NMPanelTabY()
+
+	return 170
+
+End // NMPanelTabY
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMPanelWidth()
+	
+	return 300
+	
+End // NMPanelWidth
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMPanelHeight()
+	
+	return 640 + 0
+	
+End // NMPanelHeight
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMPanelFsize()
+
+	return 11
+
+End // NMPanelFsize
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMPanelRGB(rgb)
+	String rgb
+	
+	strswitch(rgb)
+		case "r":
+			return 43690
+		case "g":
+			return 43690
+		case "b":
+			return 43690
+	endswitch
+
+End // NMPanelRGB
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function MakeNMpanel()
-	
-	Variable x1, y1, x2, y2, lineheight = 100
-	Variable pw = 300, ph = 640
-	
+
 	String df = NMDF()
+
+	if (DataFolderExists(df) == 0)
+		CheckNMVersionNum()
+	endif
+	
+	Variable x0, y0, x1, y1, yinc, lineheight, fs = NMPanelFsize()
+	Variable pwidth = NMPanelWidth(), pheight = NMPanelHeight(), taby = NMPanelTabY()
+	
 	String tabList = NMTabListGet()
 	
 	Variable xPixels = NumVarOrDefault(df+"xPixels", 1000)
+	Variable r = NMPanelRGB("r")
+	Variable g = NMPanelRGB("g")
+	Variable b = NMPanelRGB("b")
 	
-	CheckCurrentFolder()
+	//CheckCurrentFolder()
 	
-	x1 = xPixels - pw - 10
-	y1 = 43
-	x2 = x1 + pw
-	y2 = y1 + ph
+	x0 = xPixels - pwidth - 10
+	y0 = 43
+	x1 = x0 + pwidth
+	y1 = y0 + pheight
 	
 	DoWindow /K NMpanel
-	NewPanel /K=1/W=(x1, y1, x2, y2)
-	DoWindow /C NMpanel
+	NewPanel /K=1/N=NMpanel/W=(x0, y0, x1, y1) as "  NeuroMatic v" + NMVersionStr()
 	
 	SetWindow NMpanel, hook=NMPanelHook
 	
-	ModifyPanel cbRGB = (43690,43690,43690) // set background color
+	ModifyPanel cbRGB = (r, g, b)
 	
-	PopupMenu NM_FolderMenu, title="F", pos={40,6}, size={0,0}, bodyWidth=20, help={"data folders"}
-	PopupMenu NM_FolderMenu, mode=1, value = "", proc=NMPopupFolder
+	x0 = 40
+	y0 = 6
+	yinc = 29
+	lineheight = y0 + 94
 	
-	PopupMenu NM_PrefixMenu, pos={195,6}, size={0,0}, bodyWidth=140, help={"wave prefix select"}
-	PopupMenu NM_PrefixMenu, mode=1, value="Prefix", proc=NMPopupPrefix
+	PopupMenu NM_FolderMenu, title=" ", pos={x0+240, y0+0*yinc}, size={0,0}, bodyWidth=260, help={"data folders"}, win=NMpanel
+	PopupMenu NM_FolderMenu, mode=1, value = "", proc=NMPopupFolder, fsize=fs, win=NMpanel
 	
-	PopupMenu NM_SetsMenu, pos={285,6}, size={0,0}, bodyWidth=75, proc=NMPopupSets, help={"Set functions"}
-	PopupMenu NM_SetsMenu, value = "Sets ;---;Define;Equation;Invert;Clear;0 > Nan;Nan > 0;---;New;Copy;Rename;Kill;---;Table;Panel;---;Exclude SetX?;Auto Advance;Display;"
+	PopupMenu NM_PrefixMenu, title=" ", pos={x0+140, y0+1*yinc}, size={0,0}, bodyWidth=130, help={"wave prefix select"}, win=NMpanel
+	PopupMenu NM_PrefixMenu, mode=1, value="Prefix", proc=NMPopupPrefix, fsize=fs, win=NMpanel
 	
-	//Button NM_SetsEdit, title="Sets", pos={210,6}, size={75,20}, proc=NMButton, help={"Sets panel"}
+	PopupMenu NM_SetsMenu, pos={x0+240, y0+1*yinc}, size={0,0}, bodyWidth=85, proc=NMPopupSets, help={"Set functions"}, win=NMpanel
+	PopupMenu NM_SetsMenu, value = NMSetsMenu(), fsize=fs, win=NMpanel
 	
-	PopupMenu NM_GroupMenu, title="G", pos={40,35}, size={0,0}, bodyWidth=20, proc=NMPopupGroups, help={"Groups"}
-	PopupMenu NM_GroupMenu, mode=1, value = "Groups;---;Define;Clear;Table;Panel;On/Off;"
+	PopupMenu NM_GroupMenu, title="G", pos={x0, y0+2*yinc}, size={0,0}, bodyWidth=20, proc=NMPopupGroups, help={"Groups"}, win=NMpanel
+	PopupMenu NM_GroupMenu, mode=1, value = "", fsize=fs, win=NMpanel
 	
-	SetVariable NM_SetWaveNum, title= " ", pos={70,36}, size={50,50}, limits={0,inf,0}, value=CurrentWave
-	SetVariable NM_SetWaveNum, frame=1, fsize=12, proc=NMSetVariable, help={"current wave number"}
+	SetVariable NM_SetWaveNum, title= " ", pos={x0+20, y0+2*yinc+2}, size={55,50}, limits={0,inf,0}, value=CurrentWave, win=NMpanel
+	SetVariable NM_SetWaveNum, frame=1, fsize=fs, proc=NMSetVariable, help={"current wave"}, win=NMpanel
 	
-	SetVariable NM_SetGrpNum, title="Grp", pos={125,36}, size={55,50}, limits={0,inf,0}, value=CurrentGrp
-	SetVariable NM_SetGrpNum, frame=1, fsize=12, proc=NMSetVariable, help={"current group number"}
+	SetVariable NM_SetGrpNum, title="Grp", pos={x0+80, y0+2*yinc+3}, size={55,50}, limits={0,inf,0}, value=CurrentGrp, win=NMpanel
+	SetVariable NM_SetGrpNum, frame=1, fsize=fs, proc=NMSetVariable, help={"current group"}, win=NMpanel
 	
-	Button NM_JumpBck, title="<", pos={70,64}, size={20,20}, proc=NMButton, help={"jump backward"}
-	Button NM_JumpFwd, title=">", pos={160,64}, size={20,20}, proc=NMButton, help={"jump forward"}
+	Button NM_JumpBck, title="<", pos={x0+21, y0+3*yinc}, size={20,20}, proc=NMButton, help={"last wave"}, win=NMpanel, fsize=14
+	Button NM_JumpFwd, title=">", pos={x0+112, y0+3*yinc}, size={20,20}, proc=NMButton, help={"next wave"}, win=NMpanel, fsize=14
 	
-	Slider NM_WaveSlide, pos={95,64}, size={60,50}, limits={0,0,1}, vert=0, side=2, ticks=0, variable = CurrentWave, proc=NMWaveSlide
+	Slider NM_WaveSlide, pos={x0+45, y0+3*yinc}, size={61,50}, limits={0,0,1}, vert=0, side=2, ticks=0, variable = CurrentWave, proc=NMWaveSlide, win=NMpanel
 	
-	PopupMenu NM_SkipMenu, title="+", pos={40,64}, size={0,0}, bodyWidth=20, help={"wave increment value"}, proc=NMPopupSkip
-	PopupMenu NM_SkipMenu, mode=1, value=" ;Wave Increment = 1;Wave Increment > 1;As Wave Select;", fsize=14
+	PopupMenu NM_SkipMenu, title="+", pos={x0, y0+3*yinc-1}, size={0,0}, bodyWidth=20, help={"wave increment"}, proc=NMPopupSkip, win=NMpanel
+	PopupMenu NM_SkipMenu, mode=1, value=" ;Wave Increment = 1;Wave Increment > 1;As Wave Select;", fsize=14, win=NMpanel
 	
-	CheckBox NM_Set1Check, title="Set1", pos={215,34}, size={16,18}, value=0, proc=NMSetsCheckBox, help={"include in Set1"}
-	CheckBox NM_Set2Check, title="Set2", pos={215,52}, size={16,18}, value=0, proc=NMSetsCheckBox, help={"include in Set2"}
-	CheckBox NM_SetXCheck, title="SetX", pos={215,70}, size={16,18}, value=0, proc=NMSetsCheckBox, help={"exclude from all analyses"}
+	yinc = 31.5
 	
-	SetVariable NM_Set1Cnt, title=":", pos={260,34}, size={45,50}, limits={0,inf,0}, help={"number of Set1 waves"}
-	SetVariable NM_Set1Cnt, value=SumSet1, frame=0, noedit=1, help={"number of Set1 waves"}
+	GroupBox NM_ChanWaveGroup, title = "", pos={0,y0+4*yinc-9}, size={pwidth, 39}, win=NMpanel, labelBack=(43520,48896,65280)
 	
-	SetVariable NM_Set2Cnt, title=":", pos={260,52}, size={45,50}, limits={0,inf,0}, help={"number of Set2 waves"}
-	SetVariable NM_Set2Cnt, value=SumSet2, frame=0, noedit=1, help={"number of Set2 waves"}
+	PopupMenu NM_ChanMenu, title="Ch", pos={x0-19, y0+4*yinc}, bodywidth=45, value="A;", mode=1, proc=NMPopupChan, help={"limit channels to analyze"}, fsize=fs, win=NMpanel
 	
-	SetVariable NM_SetXCnt, title=":", pos={260,70}, size={45,50}, limits={0,inf,0}, help={"number of SetX waves"}
-	SetVariable NM_SetXCnt, value=SumSetX, frame=0, noedit=1, help={"number of SetX waves"}
+	PopupMenu NM_WaveMenu, title="Waves", value ="All", mode=1, pos={x0+160, y0+4*yinc}, bodywidth=130, proc=NMPopupWaveSelect, help={"limit waves to analyze"}, fsize=fs, win=NMpanel
 	
-	CheckBox NM_WriteCheck, title="OverWrite Mode", pos={20,615}, size={16,18}, value=NumVarOrDefault(df+"OverWrite", 1)
-	CheckBox NM_WriteCheck, proc=NMOverWriteCheckBox, help={"overwrite waves and graphs"}
+	SetVariable NM_WaveCount, title=" ", pos={x0+215, y0+4*yinc+2}, size={40,50}, limits={0,inf,0}, value=NumActiveWaves, fsize=fs, win=NMpanel
+	SetVariable NM_WaveCount, frame=0, help={"number of currently selected waves"}, win=NMpanel, labelBack=(43520,48896,65280)
 	
-	SetDrawLayer UserBack
-	SetDrawEnv dash=3, linefgc= (0,0,26112)
-	DrawLine 1,lineheight,100,lineheight
+	y0 += yinc
 	
-	SetDrawEnv textrgb= (0,0,26112)
-	SetDrawEnv fsize= 12
-	DrawText 116,lineheight+7,"Wave Select"
-	SetDrawEnv dash=3, linefgc= (0,0,26112)
-	DrawLine 200,lineheight,pw,lineheight
+	SetVariable NM_Set1Cnt, title=" ", pos={x0+215, y0+28-2}, size={40,50}, limits={0,inf,0}, help={"number of Set1 waves"}, win=NMpanel
+	SetVariable NM_Set1Cnt, value=SumSet1, frame=0, help={"number of Set1 waves"}, fsize=fs, win=NMpanel
 	
-	SetDrawEnv textrgb= (0,0,26112)
-	SetDrawEnv fsize= 12
-	DrawText 235,631,"NM v" + num2str(NMversion())
+	SetVariable NM_Set2Cnt, title=" ", pos={x0+215, y0+46-2}, size={40,50}, limits={0,inf,0}, help={"number of Set2 waves"}, win=NMpanel
+	SetVariable NM_Set2Cnt, value=SumSet2, frame=0, help={"number of Set2 waves"}, fsize=fs, win=NMpanel
 	
-	PopupMenu NM_ChanMenu, title="Chan", pos={35,115}, bodywidth=45, value="A;", mode=1, proc=NMPopupChan, help={"limit channels to analyze"}
-	PopupMenu NM_WaveMenu, title="Waves", value ="All", mode=1, pos={205,115}, bodywidth=115, proc=NMPopupWaveSelect, help={"limit waves to analyze"}
-	SetVariable NM_WaveCount, title=":", pos={260,117}, size={45,50}, limits={0,inf,0}, value=NumActiveWaves
-	SetVariable NM_WaveCount, frame=0, noedit=1, help={"number of currently selected waves"}
+	SetVariable NM_SetXCnt, title=" ", pos={x0+215, y0+64-2}, size={40,50}, limits={0,inf,0}, help={"number of SetX waves"}, win=NMpanel
+	SetVariable NM_SetXCnt, value=SumSetX, frame=0, help={"number of SetX waves"}, fsize=fs, win=NMpanel
 	
-	TabControl NM_Tab, win=NMpanel, pos={0,150}, size={pw,ph}, proc=NMTabControl // position the tab control
+	CheckBox NM_Set1Check, title="Set0 :", pos={x0+165, y0+28}, value=0, proc=NMSetsCheckBox, help={"include in Set1"}, fsize=fs, win=NMpanel
+	CheckBox NM_Set2Check, title="Set2 :", pos={x0+165, y0+46}, value=0, proc=NMSetsCheckBox, help={"include in Set2"}, fsize=fs, win=NMpanel
+	CheckBox NM_SetXCheck, title="SetX :", pos={x0+165, y0+64}, value=0, proc=NMSetsCheckBox, help={"exclude from all analyses"}, fsize=fs, win=NMpanel
+	
+	//CheckBox NM_WriteCheck, title="OverWrite Mode", pos={20,615}, size={16,18}, value=NumVarOrDefault(df+"OverWrite", 1), win=NMpanel
+	//CheckBox NM_WriteCheck, proc=NMOverWriteCheckBox, help={"overwrite waves and graphs"}, fsize=fs, win=NMpanel
+	
+	//CheckBox NM_NMOK, title="NeuroMatic v"+NMVersionStr(), pos={20+160,615}, size={16,18}, value=NumVarOrDefault(df+"NMOK", 0), win=NMpanel
+	//CheckBox NM_NMOK, proc=NMAboutCheckBox, help={"About NeuroMatic"}, fsize=fs, win=NMpanel
+	
+	TabControl NM_Tab, win=NMpanel, pos={0, taby}, size={pwidth, pheight}, labelBack=(r, g, b), proc=NMTabControl, fsize=fs, win=NMpanel
 	
 	NMTabsMake(1)
 	
@@ -155,8 +220,22 @@ End // NMPanelHook
 //****************************************************************
 //****************************************************************
 
+Function /S NMmenuDivider()
+
+	//return "---;"
+	return " ;---; ;"
+
+End // NMmenuDivider
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function UpdateNMPanel(updateTab)
 	Variable updateTab
+	
+	Variable fs = NMPanelFsize()
+	String df = NMDF()
 
 	if (WinType("NMpanel") == 0)
 		return 0
@@ -164,6 +243,7 @@ Function UpdateNMPanel(updateTab)
 	
 	UpdateNMPanelTitle()
 	UpdateNMFolderMenu()
+	UpdateNMGroupMenu()
 	UpdateNMSetVar()
 	UpdateNMPrefixMenu()
 	UpdateNMChanSelect()
@@ -176,6 +256,15 @@ Function UpdateNMPanel(updateTab)
 	
 	NMSetsPanelSelect("") // update Sets panel
 	NMGroupsPanelUpdate() // new Groups panel
+	
+	CheckBox NM_WriteCheck, title="OverWrite Mode", pos={20,615}, size={16,18}, value=NumVarOrDefault(df+"OverWrite", 1), win=NMpanel
+	CheckBox NM_WriteCheck, proc=NMOverWriteCheckBox, help={"overwrite waves and graphs"}, fsize=fs, win=NMpanel
+	
+	CheckBox NM_NMOK, title="NeuroMatic v"+NMVersionStr(), pos={20+140,615}, size={16,18}, value=NumVarOrDefault(df+"NMOK", 0), win=NMpanel
+	CheckBox NM_NMOK, proc=NMAboutCheckBox, help={"About NeuroMatic"}, fsize=fs, win=NMpanel
+	
+	//CheckBox NM_WriteCheck, win=NMpanel, value = NumVarOrDefault(df+"OverWrite", 1)
+	//CheckBox NM_NMOK, win=NMpanel, value = NumVarOrDefault(df+"NMOK", 0)
 
 End // UpdateNMPanel
 
@@ -218,11 +307,15 @@ Function UpdateNMSetVar()
 	Variable numGrps = NumVarOrDefault("NumGrps",0)
 	Variable currentGrp = NumVarOrDefault("CurrentGrp",0)
 	
+	Variable x0 = 40
+	Variable y0 = 6
+	Variable yinc = 29
+	
 	if (groupsOn == 1)
-		SetVariable NM_SetWaveNum, win=NMpanel, value=currentWave, pos={70,36}
+		SetVariable NM_SetWaveNum, win=NMpanel, value=currentWave, pos={x0+20, y0+2*yinc+3}
 		SetVariable NM_SetGrpNum, win=NMpanel, value=currentGrp, disable = 0, limits={0,numGrps,0}
 	else
-		SetVariable NM_SetWaveNum, win=NMpanel, value=CurrentWave, pos={100,36}
+		SetVariable NM_SetWaveNum, win=NMpanel, value=CurrentWave, pos={x0+49, y0+2*yinc+3}
 		SetVariable NM_SetGrpNum, win=NMpanel, value=currentGrp, disable = 1
 	endif
 	
@@ -241,7 +334,7 @@ End // UpdateNMSetVar
 
 Function UpdateNMChanSelect()
 	Variable cmode, csum
-	String cselect, cmenu = "A;"
+	String cselect, cmenu = "Channel;---;A;"
 	
 	if (WaveExists(ChanSelect) == 0)
 		return 0
@@ -264,7 +357,7 @@ Function UpdateNMChanSelect()
 
 	if (numChannels > 1)
 	
-		cmenu = "All;" + ChanCharList(numChannels, ";")
+		cmenu = "Channel;---;All;" + ChanCharList(numChannels, ";")
 		
 		if (csum == numChannels)
 			cselect = "All"
@@ -287,12 +380,13 @@ Function UpdateNMWaveSelect()
 	String wmenu = UpdateNMWaveSelectStr()
 	String slist = StrVarOrDefault("WavSelectList", "")
 	String wselect = NMWaveSelectGet()
+	String df = CurrentNMFolder(1)
 	
 	Variable modenum = WhichListItemLax(wselect, wmenu, ";")
 
 	if (modenum == -1) // not in list
 		slist = AddListItem(wselect,slist, ";", inf) // add to list
-		SetNMstr("WavSelectList", slist)
+		SetNMstr(df+"WavSelectList", slist)
 		wmenu = UpdateNMWaveSelectStr()
 		modenum = WhichListItemLax(wselect, wmenu, ";")
 	endif
@@ -352,7 +446,7 @@ End // UpdateNMFolderMenu
 
 Function /S UpdateNMFolderMenuStr()
 
-	String txt = "---;New;Open;Save;Close;Duplicate;Rename;---;Open All;Save All;Close All;---;Import Waves;Reload Waves;Rename Waves;"
+	String txt = "---;Edit This List;---;New;Open;Save;Close;Duplicate;Rename;Merge;---;Open All;Save All;Close All;---;Import Waves;Reload Waves;Rename Waves;"
 	
 	String folderList = NMDataFolderListLong()
 	
@@ -378,6 +472,41 @@ End // UpdateNMFolderMenuStr
 //****************************************************************
 //****************************************************************
 
+Function UpdateNMGroupMenu()
+
+	PopupMenu NM_GroupMenu, mode=1, value=UpdateNMGroupMenuStr(), win=NMpanel
+
+End // UpdateNMGroupMenu
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S UpdateNMGroupMenuStr()
+
+	String df = NMDF(), subStim =  SubStimDF()
+	String mList = "Groups;---;Define;Clear;Table;Panel;"
+	Variable numStimWaves
+	
+	if (NumVarOrDefault(df+"GroupsOn", 0) == 0)
+		mList = AddListItem("On", mList, ";", inf)
+	else
+		mList = AddListItem("Off", mList, ";", inf)
+	endif
+	
+	if (strlen(subStim) > 0)
+		numStimWaves = NumVarOrDefault(subStim+"NumStimWaves", NumVarOrDefault("NumWaves", 0))
+		mList += ";---;Groups=" + num2str(numStimWaves) + ";Blocks="+num2str(numStimWaves)
+	endif
+	
+	return mList
+
+End // UpdateNMGroupMenuStr
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function UpdateNMPrefixMenu()
 	String df = NMDF()
 	
@@ -385,7 +514,7 @@ Function UpdateNMPrefixMenu()
 		return 0
 	endif
 	
-	String cPrefix = StrVarOrDefault("CurrentPrefix", "")
+	String cPrefix = NMCurrentWavePrefix()
 	String pList = NMPrefixList()
 	
 	if ((strlen(cPrefix) > 0) && (WhichListItemLax(cPrefix, pList, ";") == -1))
@@ -393,7 +522,7 @@ Function UpdateNMPrefixMenu()
 		SetNMstr(df+"PrefixList", pList)
 	endif
 	
-	PopupMenu NM_PrefixMenu, win=NMpanel, mode=1, value=NMPrefixMenuStr(), popvalue=StrVarOrDefault("CurrentPrefix", "")
+	PopupMenu NM_PrefixMenu, win=NMpanel, mode=1, value=NMPrefixMenuStr(), popvalue=NMCurrentWavePrefix()
 
 End // UpdateNMPrefixMenu
 
@@ -413,7 +542,7 @@ End // NMPrefixMenuStr
 
 Function /S NMPrefixMenuStr()
 	
-	return "Wave Prefix;---;" + NMPrefixList() + ";---;Add to List;Remove from List;Clear List;Prompt On/Off;"
+	return "Wave Prefix;---;" + NMPrefixList() + ";---;Other;Remove from List;Clear List;Prompt On/Off;Order Waves Preference;"
 
 End // NMPrefixMenuStr
 
@@ -438,9 +567,9 @@ Function UpdateNMSets(recount) // udpate Sets display
 	Wave Set2 = $s2
 	Wave Set3 = $s3
 	
-	CheckBox NM_Set1Check, title=s1, win=NMpanel, value=BinaryCheck(Set1[wNum])
-	CheckBox NM_Set2Check, title=s2, win=NMpanel, value=BinaryCheck(Set2[wNum])
-	CheckBox NM_SetXCheck, title=s3, win=NMpanel, value=BinaryCheck(Set3[wNum])
+	CheckBox NM_Set1Check, title=s1 + " :", win=NMpanel, value=BinaryCheck(Set1[wNum])
+	CheckBox NM_Set2Check, title=s2 + " :", win=NMpanel, value=BinaryCheck(Set2[wNum])
+	CheckBox NM_SetXCheck, title=s3 + " :", win=NMpanel, value=BinaryCheck(Set3[wNum])
 	
 	if (recount == 1)
 		UpdateNMSetsCount()
@@ -523,6 +652,7 @@ Function NMPopupFolder(ctrlName, popNum, popStr) : PopupMenuControl
 		case "---":
 			break
 			
+		case "Edit This List":
 		case "New":
 		case "Open":
 		case "Save":
@@ -592,10 +722,10 @@ Function NMPopupGroups(ctrlName, popNum, popStr) : PopupMenuControl
 	
 	PopupMenu NM_GroupMenu, win=NMpanel, mode=1
 	
-	if (NumVarOrDefault("NumWaves", 0) == 0)
-		DoAlert 0, "Data waves have not been selected for this folder."
-		return 0
-	endif
+	//if (NumVarOrDefault("NumWaves", 0) == 0)
+		//DoAlert 0, "Data waves have not been selected for this folder."
+		//return 0
+	//endif
 	
 	NMGroupsCall(popStr, "")
 	
@@ -726,6 +856,19 @@ Function NMOverWriteCheckBox(ctrlName, checked) : CheckBoxControl
 	NMOverWriteOn(checked)
 
 End // NMOverWriteCheckBox
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMAboutCheckBox(ctrlName, checked) : CheckBoxControl
+	String ctrlName; Variable checked
+	
+	CheckBox NM_NMOK, win=NMpanel, value = NumVarOrDefault(NMDF()+"NMOK", 0)
+	
+	NMwebpage()
+
+End // NMAboutCheckBox
 
 //****************************************************************
 //****************************************************************
@@ -952,6 +1095,8 @@ Function NMTab(tName) // change NMpanel tab
 	
 	Variable lastTab = NumVarOrDefault(df+"CurrentTab", 0)
 	
+	CheckCurrentFolder()
+	
 	if (tab != lastTab)
 		SetNMvar(df+"CurrentTab", tab)
 		ChangeTab(lastTab, tab, tabList) // NM_TabManager.ipf
@@ -1021,11 +1166,11 @@ Function NMTabKill(tabName)
 	
 	Execute /Z "Kill" + tabName + "(\"globals\")" // execute user-defined kill function, if it exists
 	
-	DoAlert 1, "Kill \"" + tabName + "\" controls?"
+	//DoAlert 1, "Kill \"" + tabName + "\" controls?"
 	
-	if (V_Flag == 1)
-		KillControls(TabWinName(tlist), prefix) // kill controls
-	endif
+	//if (V_Flag == 1)
+	//	KillControls(TabWinName(tlist), prefix) // kill controls
+	//endif
 	
 	return 0
 
@@ -1078,32 +1223,7 @@ End // NMTabAddCall
 Function AddNMTab(tabName) // called from old Preference files
 	String tabName
 	
-	String tabprefix = NMTabPrefix(tabname)
-	
-	Variable ilast
-	String tempstr, templist, item, df = NMDF()
-	
-	if ((strlen(tabname) == 0) || (strlen(tabprefix) == 0))
-		return -1
-	endif
-	
-	String TabList = StrVarOrDefault(df+"TabList", "Main,MN_;NMpanel,NM_Tab;")
-	
-	item = tabname + "," + tabprefix
-	
-	if (WhichListItemLax(item, TabList, ";") == -1)
-		
-		ilast = ItemsInList(TabList, ";") - 1
-		tempstr = StringFromList(ilast, TabList, ";")
-		templist = RemoveListItem(ilast, TabList, ";")
-		templist = AddListItem(item, templist, ";",inf)
-		templist = AddListItem(tempstr, templist, ";", inf)
-		
-		SetNMstr(df+"TabList", templist)
-	
-	endif
-	
-	return 0
+	return NMTabAdd(tabName, "")
 
 End // AddNMTab
 
@@ -1125,11 +1245,9 @@ Function NMTabAdd(tabName, tabprefix)
 	endif
 	
 	if (WhichListItemLax(tabName, tabList, ";") == -1)
-		
 		tabList = AddListItem(tabName, tabList, ";", inf)
 		SetNMstr(df+"NMTabList", tabList)
 		UpdateNMTab()
-	
 	endif
 	
 	return 0
@@ -1199,13 +1317,13 @@ Function /S NMTabsAvailable()
 	Variable icnt
 	String tname, aList = ""
 
-	String tabList = "Main;Stats;Spike;Event;Clamp;MyTab;RiseT;PairP;MPFA;Art;"
+	String tabList = "Main;Stats;Spike;Event;Clamp;MyTab;RiseT;PairP;MPFA;Art;Fit;"
 	
 	for (icnt = 0; icnt < ItemsInList(tabList); icnt += 1)
 	
 		tname = StringFromList(icnt, tabList)
 		
-		if (exists(tname) == 6)
+		if ((exists(tname) == 6) || (exists(tname+"Tab") == 6))
 			aList = AddListItem(tname, aList, ";", inf)
 		endif
 		
@@ -1214,6 +1332,16 @@ Function /S NMTabsAvailable()
 	return aList
 
 End // NMTabsAvailable
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMTabsExisting()
+	
+	return TabNameList(NMTabListGet())
+
+End // NMTabsExisting
 
 //****************************************************************
 //****************************************************************
@@ -1248,7 +1376,7 @@ End // IsCurrentNMTab
 Function NMCurrentWaveCall(waveNum)
 	Variable waveNum
 	
-	NMCmdHistory("NMCurrentWave", NMCmdNum(waveNum,""))
+	NMCmdHistory("NMCurrentWaveSet", NMCmdNum(waveNum,""))
 	
 	return NMCurrentWaveSet(waveNum)
 	
@@ -1298,34 +1426,37 @@ Function NMNextWave(direction) // set next wave number
 	
 	Variable next, found = -1
 	String df = NMDF()
-
-	NVAR CurrentWave, NumWaves, WaveSkip
 	
-	if (NumWaves == 0)
+	Variable current = NumVarOrDefault("CurrentWave", 0)
+	Variable nwaves = NumVarOrDefault("NumWaves", 0)
+	Variable wskip = NumVarOrDefault("WaveSkip", 1)
+	
+	if (nwaves == 0)
 		DoAlert 0, "No waves to display."
 		return -1
 	endif
 	
-	if (WaveSkip < 0)
-		WaveSkip = 1
+	if (wskip < 0)
+		wskip = 1
+		SetNMvar("WaveSkip", wskip)
 	endif
 
-	if (WaveSkip > 0)
+	if (wskip > 0)
 	
-		next = CurrentWave + direction*WaveSkip
+		next = current + direction*wskip
 		
-		if ((next >= 0) && (next < NumWaves))
+		if ((next >= 0) && (next < nwaves))
 			found = next
 		endif
 		
-	elseif (WaveSkip == 0)
+	elseif (wskip == 0)
 	
-		found = NextWaveItem("WavSelect", 1, CurrentWave, direction) // NM_Utility.ipf
+		found = NextWaveItem("WavSelect", 1, current, direction) // NM_Utility.ipf
 		
 	endif
 
-	if ((found >= 0) && (found != CurrentWave))
-		CurrentWave = found
+	if ((found >= 0) && (found != current))
+		SetNMvar("CurrentWave", found)
 		UpdateCurrentWave()
 	endif
 	
@@ -1412,7 +1543,10 @@ Function NMPrefixCall(fxn)
 	
 		case "Wave Prefix":
 		case "---":
-			return UpdateNMPrefixMenu()
+			break
+		
+		case "Other":
+			return NMPrefixOtherCall()
 			
 		case "Add to List":
 			return NMPrefixAddCall()
@@ -1425,11 +1559,17 @@ Function NMPrefixCall(fxn)
 			
 		case "Prompt On/Off":
 			return NMPrefixPromptCall()
+			
+		case "Order Waves Preference":
+			NMOrderWavesPrefCall()
+			break
 		
 		default:
 			return NMPrefixSelectCall(fxn)
 			
 	endswitch
+	
+	UpdateNMPrefixMenu()
 
 End // NMPrefixCall
 
@@ -1474,6 +1614,26 @@ End // NMPrefixPrompt
 //****************************************************************
 //****************************************************************
 
+Function NMPrefixOtherCall()
+	String getprefix
+	
+	Prompt getprefix, "enter prefix string:"
+	DoPrompt "Other Wave Prefix", getprefix
+	
+	if (V_flag == 1)
+		return -1 // cancel
+	endif
+	
+	NMCmdHistory("NMPrefixSelect", NMCmdStr(getprefix,""))
+	
+	return NMPrefixSelect(getprefix)
+
+End // NMPrefixOtherCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function NMPrefixAddCall()
 	String getprefix
 	
@@ -1486,7 +1646,9 @@ Function NMPrefixAddCall()
 	
 	NMCmdHistory("NMPrefixAdd", NMCmdStr(getprefix,""))
 	
-	return NMPrefixAdd(getprefix)
+	NMPrefixAdd(getprefix)
+	
+	return NMPrefixSelect(getprefix)
 
 End // NMPrefixAddCall
 
@@ -1498,7 +1660,7 @@ Function NMPrefixAdd(addList) // add prefix name to NM PrefixList
 	String addList // prefix list
 	String df = NMDF()
 	
-	Variable icnt
+	Variable icnt, added
 	String prefix
 	
 	if (strlen(addList) == 0)
@@ -1513,12 +1675,16 @@ Function NMPrefixAdd(addList) // add prefix name to NM PrefixList
 	
 		if (WhichListItemLax(prefix, pList, ";") == -1)
 			pList = AddListItem(prefix, pList, ";", inf)
+			added = 1
 		endif
 		
 	endfor
 	
 	SetNMstr(df+"PrefixList", pList)
-	UpdateNMPrefixMenu()
+	
+	if (added == 1)
+		UpdateNMPrefixMenu()
+	endif
 	
 	return 0
 
@@ -1532,7 +1698,7 @@ Function NMPrefixRemoveCall()
 
 	String df = NMDF()
 	String pList = StrVarOrDefault(df+"PrefixList", "")
-	String CurrentPrefix = StrVarOrDefault("CurrentPrefix", StrVarOrDefault("WavePrefix", ""))
+	String CurrentPrefix = NMCurrentWavePrefix()
 
 	String getprefix = RemoveFromList(CurrentPrefix, pList)
 	Prompt getprefix, "remove:", popup getprefix
@@ -1552,7 +1718,7 @@ End // NMPrefixRemoveCall
 //****************************************************************
 //****************************************************************
 
-Function NMPrefixRemove(removeList) // add prefix name to NM PrefixList
+Function NMPrefixRemove(removeList) // remove prefix name from NM PrefixList
 	String removeList // prefix list
 	
 	String df = NMDF()
@@ -1635,18 +1801,20 @@ End // NMPrefixSelectSilent
 Function NMPrefixSelect(prefix) // change to a new wave prefix
 	String prefix // wave prefix name, or ("") for current prefix
 	
-	Variable ccnt, nchan, found, nmax, prmt, nwaves
-	String wlist, df = NMDF()
+	Variable ccnt, wcnt, nchan, found, nmax, prmt, nwaves, newPrefix = 1
+	Variable oldNumChan, oldNumWaves, oldWaveListExists
+	String wlist, olist, wname, sdf, df = NMDF()
 	
 	String opstr = WaveListText0()
-			
-	NVAR NumWaves, NumChannels, CurrentWave, WaveSkip
 	
-	String currentPrefix = StrVarOrDefault("CurrentPrefix", StrVarOrDefault("WavePrefix", ""))
+	String currentPrefix = NMCurrentWavePrefix()
 	
 	if (strlen(prefix) == 0)
 		prefix = currentPrefix
+		newPrefix = 0
 	endif
+	
+	NMPrefixAdd( prefix )
 	
 	wlist = WaveList(prefix + "*", ";", opstr)
 	nwaves = ItemsInList(wlist)
@@ -1656,7 +1824,15 @@ Function NMPrefixSelect(prefix) // change to a new wave prefix
 		return -1
 	endif
 	
-	Variable oldnchan = NumVarOrDefault(GetDataFolder(1)+prefix+":NumChannels", -1)
+	sdf = GetDataFolder(1)+prefix+":"
+	
+	oldNumChan = NumVarOrDefault(sdf+"NumChannels", -1)
+	oldNumWaves = NumVarOrDefault(sdf+"NumWaves", -1)
+	
+	if (WaveExists($sdf+"ChanWaveList") == 1)
+		oldWaveListExists = 1
+		Wave /T chanWaveList = $sdf+"ChanWaveList"
+	endif
 	
 	for (ccnt = 0; ccnt < 10; ccnt += 1) // detect multiple channels (up to 10)
 	
@@ -1670,6 +1846,35 @@ Function NMPrefixSelect(prefix) // change to a new wave prefix
 			if (found > nmax)
 				nmax = found
 			endif
+			
+			if (oldWaveListExists == 1)
+			
+				olist = chanWaveList[ccnt]
+				
+				if (ItemsInList(olist) == ItemsInList(wlist))
+			
+					for (wcnt = 0; wcnt < ItemsInList(olist); wcnt += 1)
+					
+						wname = StringFromList(wcnt, olist)
+						
+						if (WhichListItem(wname, wlist) < 0)
+							oldWaveListExists = 0
+							
+						endif
+						
+					endfor
+					
+				else
+				
+					oldWaveListExists = 0
+				
+				endif
+					
+			endif
+			
+		else
+		
+			oldWaveListExists = 0
 			
 		endif
 		
@@ -1689,7 +1894,7 @@ Function NMPrefixSelect(prefix) // change to a new wave prefix
 	
 	nwaves = ceil(nwaves)
 	
-	if ((NumVarOrDefault(df+"ChangePrefixPrompt", 1) == 1) && (nchan > 1) && (nchan != oldnchan))
+	if ((NumVarOrDefault(df+"ChangePrefixPrompt", 1) == 1) && (nchan > 1) && (nchan != oldNumChan))
 	
 		Prompt nchan, "number of channels:"
 		Prompt nwaves, "waves per channel:"
@@ -1712,17 +1917,33 @@ Function NMPrefixSelect(prefix) // change to a new wave prefix
 	NMFolderGlobalsReset()
 	NMFolderGlobalsGet(prefix) // get old global variables if they exist
 	
-	SetNMvar("CurrentWave", 0)
+	if (DataFolderExists(GetDataFolder(1)+prefix+":") == 0)
+		ChanSubFolderDefaultsSet(-1)
+	endif
+	
 	SetNMvar("NumWaves", nwaves)
 	SetNMvar("NumChannels", nchan)
+	SetNMvar("TotalNumWaves", nchan*nwaves)
 	
-	ChanWaveListSet(1)
+	if ((nwaves > 0) && (oldWaveListExists == 0))
+		ChanWaveListSet(-1, 1)
+	endif
+	
+	if (StringMatch(prefix, "Pulse*") == 1)
+		ChanUnits2Labels()
+	endif
+	
 	CheckNMDataFolderWaves()
-	UpdateCurrentWave()
-	UpdateNMPanel(0)
-	ChanGraphClose(-2, 0) // close unecessary windows
+	ChanGraphsReset()
+	ChanGraphsUpdate()
+	//UpdateNMPanel(0)
+	UpdateNM(1)
+	
+	//ChanGraphClose(-2, 0) // close unecessary windows
+	
 	//ChanGraphsToFront()
-	NMWaveSelect( "All" )  
+	
+	NMWaveSelect( "All" ) 
 	
 	return 0
 
@@ -1838,12 +2059,12 @@ Function NMWaveSelect(fxn)
 	String fxn // wave select function (i.e. "All" or "Set1" or "Group1")
 	// ("" or "update") to update current selection
 	
+	Variable sumvar, grpNum, and = -1, or = -1, error = 1, update = 1
+	String wname, df = NMDF()
+	
 	if (WavesExist("WavSelect;SetX;Group;") == 0)
 		return -1
 	endif
-
-	Variable sumvar, grpNum, and = -1, or = -1, error = 1, update = 1
-	String wname, df = NMDF()
 	
 	Wave WavSelect, SetX, Group
 	
@@ -1887,22 +2108,22 @@ End // NMWaveSelect
 //****************************************************************
 
 Function NMWaveSelectCount()
-	
-	if (WavesExist("WavSelect;SetX;Group;") == 0)
-		return Nan
-	endif
 
-	Variable sumvar, wavNum, grpNum, and = -1, or = -1, error = 1
+	Variable nwaves, nchan, wavNum, grpNum, and = -1, or = -1, error = 1
 	String wname, df = NMDF()
 	String fxn = NMWaveSelectGet()
 	
-	Wave WavSelect, SetX, Group
+	if (WavesExist("ChanSelect;WavSelect;SetX;Group;") == 0)
+		SetNMvar("NumActiveWaves", Nan)
+		return Nan
+	endif
+	
+	Wave ChanSelect, WavSelect, SetX, Group
 	
 	if (numpnts(WavSelect) == 0)
 		return Nan
 	endif
 	
-	Variable NumActiveWaves = NumVarOrDefault("NumActiveWaves", 0)
 	Variable GroupsOn = NumVarOrDefault(df+"GroupsOn", 0)
 	
 	and = strsearch(fxn, " x ", 0)
@@ -1978,7 +2199,7 @@ Function NMWaveSelectCount()
 		
 	endif
 	
-	WaveStats /Q SetX
+	WaveStats /Q/Z SetX
 	
 	if ((NMSetXType() == 1) && (StringMatch(fxn, "SetX") == 0) && (V_max == 1))
 		
@@ -1986,16 +2207,18 @@ Function NMWaveSelectCount()
 		
 	endif
 	
-	sumvar = sum(WavSelect)
+	nwaves = sum(WavSelect)
 	
-	if (numtype(sumvar) == 0)
-		SetNMvar("NumActiveWaves", sumvar)
+	nchan = WaveCountValue("ChanSelect", 1)
+	
+	if (numtype(nwaves) == 0)
+		SetNMvar("NumActiveWaves", nwaves * nchan)
 	else
-		sumvar = WaveCountValue("WavSelect", 1)
-		SetNMvar("NumActiveWaves", sumvar)
+		nwaves = WaveCountValue("WavSelect", 1)
+		SetNMvar("NumActiveWaves", nwaves * nchan)
 	endif
 	
-	return sumvar
+	return nwaves
 
 End // NMWaveSelectCount
 
@@ -2106,7 +2329,7 @@ End // NMWaveSelectDefaults
 
 Function /S NMWaveSelectStr()
 
-	String wselect = StrVarOrDefault("CurrentPrefix", "") + NMWaveSelectGet()
+	String wselect = NMCurrentWavePrefix() + NMWaveSelectGet()
 	
 	wselect = StringReplace(wselect, "This Wave", num2str(NumVarOrDefault("CurrentWave", 0)))
 	

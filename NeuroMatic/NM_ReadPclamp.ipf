@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -208,6 +208,7 @@ Function ReadPClampHeader(file, df) // read pClamp file header
 	
 	if (amode == 3) // gap free
 		TotalNumWaves = ceil(AcqLength / SamplesPerWave)
+		SetNMvar(df+"TotalNumWaves", TotalNumWaves)
 	endif
 	
 	//if (strlen(xLabel) == 0)
@@ -472,7 +473,7 @@ Function ReadPClampDataXOP(file, df) // read pClamp file (need to read header be
 	
 	SetDataFolder $saveDF // back to original folder
 	
-	CallProgress(1) // bring up progress window
+	CallProgress(1) // kill progress window
 	
 End // ReadPClampDataXOP
 

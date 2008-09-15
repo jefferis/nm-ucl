@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -144,6 +144,40 @@ End // CheckChanSubFolder
 //****************************************************************
 //****************************************************************
 
+Function ChanSubFolderDefaultsSet(chanNum)
+	Variable chanNum // (-1) for all
+	
+	Variable ccnt, cbgn = chanNum, cend = chanNum
+	String df, pdf = PackDF("Chan")
+	
+	if (chanNum == -1)
+		cbgn = 0; cend = NMNumChannels() - 1;
+	endif
+	
+	for (ccnt = cbgn; ccnt <= cend; ccnt += 1)
+	
+		df = ChanDF(ccnt)
+		
+		if (DataFolderExists(df) == 0)
+			NewDataFolder $LastPathColon(df, 0)
+		endif
+		
+		SetNMvar(df+"SmoothN", 0)
+		SetNMstr(df+"SmoothA", "")
+		SetNMvar(df+"Overlay", 0)
+		SetNMvar(df+"Ft", 0)
+		SetNMvar(df+"AutoScale", 1)
+		SetNMvar(df+"AutoScaleX", 0)
+		SetNMvar(df+"AutoScaleY", 0)
+	
+	endfor
+
+End // ChanSubFolderDefaultsSet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function ChanFolderCopy(chanNum, fromDF, toDF, saveScales)
 	Variable chanNum // (-1) for all
 	String fromDF, toDF
@@ -192,6 +226,10 @@ Function ChanGraphMake(chanNum) // create channel display graph
 	Variable scale, grid, y0 = 5
 	Variable gx0, gy0, gx1, gy1
 	
+	Variable r = NMPanelRGB("r")
+	Variable g = NMPanelRGB("g")
+	Variable b = NMPanelRGB("b")
+	
 	chanNum = ChanNumCheck(chanNum)
 	
 	String cc = num2str(chanNum), df = ChanDF(chanNum)
@@ -200,6 +238,7 @@ Function ChanGraphMake(chanNum) // create channel display graph
 	
 	String gName = ChanGraphName(chanNum)
 	String wName = ChanDisplayWave(chanNum)
+	String xWave = NMXwave()
 	
 	String tcolor = StrVarOrDefault(df+"TraceColor", "0,0,0")
 	
@@ -221,13 +260,17 @@ Function ChanGraphMake(chanNum) // create channel display graph
 	// kill waves that conflict with graph name
 	
 	DoWindow /K $gName
-	Display /W=(gx0,gy0,gx1,gy1)/K=1 $wName
-	DoWindow /C $gName
+	
+	if (WaveExists($Xwave) == 1)
+		Display /N=$gName/W=(gx0,gy0,gx1,gy1)/K=1 $wName vs $xWave
+	else
+		Display /N=$gName/W=(gx0,gy0,gx1,gy1)/K=1 $wName
+	endif
 		
-	ModifyGraph standoff(left)=0, standoff(bottom)=0
-	ModifyGraph margin(left)=55, margin(right)=0, margin(top)=19, margin(bottom)=0
-	Execute /Z "ModifyGraph rgb=(" + tcolor + ")"
-	ModifyGraph wbRGB = (43690,43690,43690), cbRGB = (43690,43690,43690) // set margins gray
+	ModifyGraph /W=$gName standoff(left)=0, standoff(bottom)=0
+	ModifyGraph /W=$gName margin(left)=55, margin(right)=0, margin(top)=19, margin(bottom)=0
+	Execute /Z "ModifyGraph /W=" + gName + " rgb=(" + tcolor + ")"
+	ModifyGraph /W=$gName wbRGB = (r, g, b), cbRGB = (r, g, b) // set margins gray
 	
 	if (StringMatch(computer, "mac") == 1)
 		y0 = 3
@@ -363,14 +406,8 @@ Function /S ChanGraphUpdate(chanNum, makeWave) // update channel display graphs
 			Label /W=$gName left "normalized"
 			break
 		case 5:
-			Label /W=$gName left "normalized"
-			break
-		case 6:
-			Label /W=$gName left "normalized"
-			break
-		case 7:
 			Label /W=$gName left "dF/Fo"
-			break
+			break 
 	endswitch
 	
 	grid = NumVarOrDefault(df+"GridFlag", 1)
@@ -385,6 +422,89 @@ Function /S ChanGraphUpdate(chanNum, makeWave) // update channel display graphs
 	return gName
 
 End // ChanGraphsUpdate
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanGraphsUpdateWaves()
+
+	ChanGraphsRemoveWaves()
+	ChanGraphsAppendDisplayWave()
+
+End // ChanGraphsUpdateWaves
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanGraphsRemoveWaves()
+	Variable ccnt, numChannels = NMNumChannels()
+	
+	for (ccnt = 0; ccnt < numChannels; ccnt+=1)
+		ChanGraphRemoveWaves(ccnt)
+	endfor
+
+End // ChanGraphsRemoveWaves
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanGraphRemoveWaves(chanNum)
+	Variable chanNum
+	
+	Variable wcnt
+	String gName = ChanGraphName(chanNum)
+	
+	String wName, wList = TraceNameList(gName, ";", 1)
+	
+	for (wcnt = 0; wcnt < ItemsInlist(wList); wcnt += 1)
+		wName = StringFromList(wcnt, wList)
+		RemoveFromGraph /W=$gName $wName
+	endfor
+
+End // ChanGraphRemoveWaves
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanGraphsAppendDisplayWave()
+	Variable ccnt, numChannels = NMNumChannels()
+	
+	for (ccnt = 0; ccnt < numChannels; ccnt+=1)
+		ChanGraphAppendDisplayWave(ccnt)
+	endfor
+
+End // ChanGraphsAppendDisplayWave
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanGraphAppendDisplayWave(chanNum)
+	Variable chanNum
+	
+	String cdf = ChanDF(chanNum)
+	String gName = ChanGraphName(chanNum)
+	String wName = ChanDisplayWave(chanNum)
+	String xWave = NMXWave()
+	String tcolor = StrVarOrDefault(cdf+"TraceColor", "0,0,0")
+	
+	if ((WinType(gName) == 0) || (WaveExists($wName) == 0))
+		return -1
+	endif
+	
+	if (WaveExists($xWave) == 1)
+		AppendToGraph /W=$gName $wName vs $xWave
+	else
+		AppendToGraph /W=$gName $wName
+	endif
+	
+	Execute /Z "ModifyGraph /W=" + gName + " rgb=(" + tcolor + ")"
+
+End // ChanGraphAppendDisplayWave
 
 //****************************************************************
 //****************************************************************
@@ -406,7 +526,7 @@ Function ChanGraphControlsUpdate(chanNum)
 		return 0
 	endif
 	
-	ChanControlsDisable(chanNum, "000000") // turn controls back on
+	//ChanControlsDisable(chanNum, "000000") // turn controls back on
 		
 	SetVariable $("Overlay"+cc), value=$(df+"Overlay"), win=$gName, proc=ChanSetVariable
 	
@@ -428,6 +548,7 @@ Function ChanGraphsReset()
 	ChanGraphClose(-2, 0) // close unecessary windows
 	ChanOverlayKill(-1) // kill unecessary waves
 	ChanGraphClear(-1)
+	ChanGraphsUpdateWaves()
 	ChanGraphTagsKill(-1)
 	SetNMvar(NMDF()+"ChanScaleSaveBlock", 1)
 
@@ -826,7 +947,7 @@ End // ChanPopupList
 
 Function /S ChanPopupListDefault()
 	
-	return " ;Grid;XLabel;YLabel;FreezeX;FreezeY;"
+	return " ;Grid;XLabel;YLabel;FreezeX;FreezeY;Off;"
 
 End // ChanPopupList
 
@@ -957,8 +1078,8 @@ Function ChanCall(fxn, chanNum, select)
 		case "FreezeY":
 			return ChanAutoScaleX(chanNum, 1)
 
-		//case "Off":
-		//	return ChanOnCall(chanNum, 0)
+		case "Off":
+			return ChanOnCall(chanNum, 0)
 			
 		case "Overlay":
 			return ChanOverlayCall(chanNum, snum)
@@ -1018,7 +1139,7 @@ Function ChanFuncAsk(chanNum) // request chan F(t) function
 	
 	Variable ft =ChanFuncGet(chanNum)
 	
-	Prompt ft, "choose function:", popup "d/dt;dd/dt*dt;integral;norm2max;norm2min;norm2avg;dF/Fo;"
+	Prompt ft, "choose function:", popup "d/dt;dd/dt*dt;integral;norm;dF/Fo;baseline;"
 	DoPrompt "Channel Function", ft
 	
 	if (V_flag == 1)
@@ -1035,7 +1156,7 @@ End // ChanFuncAsk
 
 Function ChanFuncCall(chanNum, ft)
 	Variable chanNum // channel number
-	Variable ft // (0) none (1) d/dt (2) dd/dt*dt (3) integral (4) norm2max (5) norm2min (6) norm2avg (7) dF/Fo
+	Variable ft
 	
 	Variable rvalue
 	String vlist = ""
@@ -1062,19 +1183,22 @@ End // ChanFuncCall
 
 Function ChanFunc(chanNum, ft) // set chan F(t) function
 	Variable chanNum // channel number
-	Variable ft // (0) none (1) d/dt (2) dd/dt*dt (3) integral (4) norm2max (5) norm2min (6) norm2avg (7) dF/Fo
+	Variable ft // (0) none (1) d/dt (2) dd/dt*dt (3) integral (4) norm (5) dF/Fo (6) baseline
 	
 	chanNum = ChanNumCheck(chanNum)
 	
 	switch(ft)
 		case 4:
-		case 5:
-		case 6:
 			if (ChanFuncNormAsk(chanNum) < 0)
 				ft = 0
 			endif
 			break
-		case 7:
+		case 5:
+			if (ChanFuncDFOFAsk(chanNum) < 0)
+				ft = 0
+			endif
+			break
+		case 6:
 			if (ChanFuncDFOFAsk(chanNum) < 0)
 				ft = 0
 			endif
@@ -1100,46 +1224,54 @@ Function ChanFuncNormAsk(chanNum)
 	String mdf = MainDF()
 	String cdf = ChanDF(chanNum)
 	
-	Variable bbgn = NumVarOrDefault(mdf+"Bsln_Bgn", 0)
-	Variable bend = NumVarOrDefault(mdf+"Bsln_End", 5)
-
-	Variable tbgn = NumVarOrDefault(mdf+"Norm_Tbgn", -inf)
-	Variable tend = NumVarOrDefault(mdf+"Norm_Tend", inf)
+	Variable bbgn = NumVarOrDefault(cdf+"Norm_Bgn", NumVarOrDefault(mdf+"Bsln_Bgn", 0))
+	Variable bend = NumVarOrDefault(cdf+"Norm_End", NumVarOrDefault(mdf+"Bsln_End", 5))
 	
-	tbgn = NumVarOrDefault(cdf+"Norm_Tbgn", tbgn)
-	tend = NumVarOrDefault(cdf+"Norm_Tend", tend)
+	String fxn1 = StrVarOrDefault(cdf+"Norm_Fxn1", "avg")
 	
-	if (numtype(tbgn * tend) > 0)
-		tbgn = -inf
-		tend = inf
+	Variable tbgn1 = NumVarOrDefault(cdf+"Norm_Tbgn1", bbgn)
+	Variable tend1 = NumVarOrDefault(cdf+"Norm_Tend1", bend)
+	
+	String fxn2 = StrVarOrDefault(cdf+"Norm_Fxn2", StrVarOrDefault(mdf+"Norm_Fxn", "max"))
+	
+	Variable tbgn2 = NumVarOrDefault(cdf+"Bsln_Bgn2", NumVarOrDefault(mdf+"Norm_Tbgn", -inf))
+	Variable tend2 = NumVarOrDefault(cdf+"Bsln_End2", NumVarOrDefault(mdf+"Norm_Tbgn", inf))
+	
+	if (numtype(tbgn1) == 2)
+		tbgn1 = 0
 	endif
 	
-	bbgn = NumVarOrDefault(mdf+"Norm_Bbgn", bbgn)
-	bend = NumVarOrDefault(mdf+"Norm_Bend", bend)
-	
-	bbgn = NumVarOrDefault(cdf+"Norm_Bbgn", bbgn)
-	bend = NumVarOrDefault(cdf+"Norm_Bend", bend)
-	
-	if (numtype(bbgn * bend) > 0)
-		bbgn = 0
-		bend = 5
+	if (numtype(tend1) == 2)
+		tend2 = 5
 	endif
 	
-	Prompt tbgn, "peak detection from (ms):"
-	Prompt tend, "peak detection to (ms):"
-	Prompt bbgn, "compute baseline from (ms):"
-	Prompt bend, "compute baseline to (ms):"
+	if (numtype(tbgn2) == 2)
+		tbgn2 = -inf
+	endif
 	
-	DoPrompt NMPromptStr("Normalize"), tbgn, tend, bbgn, bend
+	if (numtype(tend2) == 2)
+		tend2 = -inf
+	endif
+	
+	Prompt fxn1, "y-min measurement - window 1:", popup "max;min;avg;"
+	Prompt tbgn1, "window 1 time begin (ms):"
+	Prompt tend1, "window 1 time end (ms):"
+	Prompt fxn2, "y-max measurement - window 2:", popup "max;min;avg;"
+	Prompt tbgn2, "window 2 time begin (ms):"
+	Prompt tend2, "window 2 time end (ms):"
+	
+	DoPrompt NMPromptStr("Normalize"), fxn1, fxn2, tbgn1, tbgn2, tend1, tend2
 	
 	if (V_flag == 1)
 		return -1 // cancel
 	endif
 	
-	SetNMvar(cdf+"Norm_Tbgn", tbgn)
-	SetNMvar(cdf+"Norm_Tend", tend)
-	SetNMvar(cdf+"Norm_Bbgn", bbgn)
-	SetNMvar(cdf+"Norm_Bend", bend)
+	SetNMstr(cdf+"Norm_Fxn1", fxn1)
+	SetNMvar(cdf+"Norm_Tbgn1", tbgn1)
+	SetNMvar(cdf+"Norm_Tend1", tend1)
+	SetNMstr(cdf+"Norm_Fxn2", fxn2)
+	SetNMvar(cdf+"Norm_Tbgn2", tbgn2)
+	SetNMvar(cdf+"Norm_Tend2", tend2)
 	
 	return 0
 
@@ -1163,11 +1295,6 @@ Function ChanFuncDFOFAsk(chanNum)
 	bbgn = NumVarOrDefault(cdf+"DFOF_Bbgn", bbgn)
 	bend = NumVarOrDefault(cdf+"DFOF_Bend", bend)
 	
-	if (numtype(bbgn * bend) > 0)
-		bbgn = 0
-		bend = 5
-	endif
-	
 	Prompt bbgn, "compute baseline from (ms):"
 	Prompt bend, "compute baseline to (ms):"
 	
@@ -1183,6 +1310,39 @@ Function ChanFuncDFOFAsk(chanNum)
 	return 0
 
 End // ChanFuncDFOFAsk
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanFuncBslnAsk(chanNum)
+	Variable chanNum
+	
+	chanNum = ChanNumCheck(chanNum)
+	
+	String mdf = MainDF()
+	String cdf = ChanDF(chanNum)
+	
+	Variable bbgn = NumVarOrDefault(mdf+"Bsln_Bgn", 0)
+	Variable bend = NumVarOrDefault(mdf+"Bsln_End", 5)
+	
+	bbgn = NumVarOrDefault(cdf+"Bsln_Bbgn", bbgn)
+	bend = NumVarOrDefault(cdf+"Bsln_Bend", bend)
+	
+	Prompt bbgn, "compute baseline from (ms):"
+	Prompt bend, "compute baseline to (ms):"
+	
+	DoPrompt NMPromptStr("Baseline"), bbgn, bend
+	
+	if (V_flag == 1)
+		return -1 // cancel
+	endif
+	
+	SetNMvar(cdf+"Bsln_Bbgn", bbgn)
+	SetNMvar(cdf+"Bsln_Bend", bend)
+	
+	return 0
+
+End // ChanFuncBslnAsk
 
 //****************************************************************
 //****************************************************************
@@ -1229,16 +1389,13 @@ Function ChanFuncUpdate(chanNum)
 			t = "integral"
 			break
 		case 4:
-			t = "norm2max"
+			t = "norm"
 			break
 		case 5:
-			t = "norm2min"
+			t = "dF/Fo"
 			break
 		case 6:
-			t = "norm2avg"
-			break
-		case 7:
-			t = "dF/Fo"
+			t = "baseline"
 			break
 		default:
 			v = 0
@@ -1835,6 +1992,7 @@ Function ChanOverlayUpdate(chanNum)
 	if (IsChanGraph(chanNum) == 0)
 		return -1
 	endif
+	String xWave = NMXWave()
 	
 	String cdf = ChanDF(chanNum)
 	
@@ -1871,7 +2029,12 @@ Function ChanOverlayUpdate(chanNum)
 	
 	if (WhichListItemLax(oName, wList, ";") < 0)
 	
-		AppendToGraph /W=$gName $odName
+		if (WaveExists($xWave) == 1)
+			AppendToGraph /W=$gName $odName vs $xWave
+		else
+			AppendToGraph /W=$gName $odName
+		endif
+	
 		Execute /Z "ModifyGraph /W=" + gName + " rgb(" + oName + ")=(" + ocolor + ")"
 		
 		oName = ChanDisplayWaveName(0, chanNum, 0)
@@ -1879,7 +2042,12 @@ Function ChanOverlayUpdate(chanNum)
 		
 		RemoveFromGraph /W=$gName/Z $oName
 		
-		AppendToGraph /W=$gName $odName
+		if (WaveExists($xWave) == 1)
+			AppendToGraph /W=$gName $odName vs $xWave
+		else
+			AppendToGraph /W=$gName $odName
+		endif
+		
 		Execute /Z "ModifyGraph /W=" + gName + " rgb(" + oName + ")=(" + tcolor + ")"
 		
 	endif
@@ -2018,8 +2186,8 @@ Function ChanWaveMake(chanNum, srcName, dstName) // create channel waves, based 
 	String srcName, dstName // source and destination wave names
 	
 	Variable ccnt, cbgn = chanNum, cend = chanNum
-	Variable ft, smthNum, tbgn, tend
-	String df, smthAlg, peak
+	Variable ft, smthNum, tbgn1, tend1, tbgn2, tend2
+	String df, smthAlg, fxn1, fxn2
 	
 	Variable bbgn = NumVarOrDefault(MainDF()+"Bsln_Bgn", 0)
 	Variable bend = NumVarOrDefault(MainDF()+"Bsln_End", 2)
@@ -2069,30 +2237,23 @@ Function ChanWaveMake(chanNum, srcName, dstName) // create channel waves, based 
 				DiffWaves(dstName, ft)
 				break
 			case 4:
-				tbgn = NumVarOrDefault(df+"Norm_Tbgn", -inf)
-				tend = NumVarOrDefault(df+"Norm_Tend", inf)
-				bbgn = NumVarOrDefault(df+"Norm_Bbgn", bbgn)
-				bend = NumVarOrDefault(df+"Norm_Bend", bend)
-				NormWaves("max", tbgn, tend, bbgn, bend, dstName)
+				fxn1 = StrVarOrDefault(df+"Norm_Fxn1", "avg")
+				tbgn1 = NumVarOrDefault(df+"Norm_Tbgn1", -inf)
+				tend1 = NumVarOrDefault(df+"Norm_Tend1", inf)
+				fxn2 = StrVarOrDefault(df+"Norm_Fxn2", "max")
+				tbgn2 = NumVarOrDefault(df+"Norm_Tbgn2", bbgn)
+				tend2 = NumVarOrDefault(df+"Norm_Tend2", bend)
+				NormalizeWaves(fxn1, tbgn1, tend1, fxn2, tbgn2, tend2, dstName)
 				break
 			case 5:
-				tbgn = NumVarOrDefault(df+"Norm_Tbgn", -inf)
-				tend = NumVarOrDefault(df+"Norm_Tend", inf)
-				bbgn = NumVarOrDefault(df+"Norm_Bbgn", bbgn)
-				bend = NumVarOrDefault(df+"Norm_Bend", bend)
-				NormWaves("min", tbgn, tend, bbgn, bend, dstName)
-				break
-			case 6:
-				tbgn = NumVarOrDefault(df+"Norm_Tbgn", -inf)
-				tend = NumVarOrDefault(df+"Norm_Tend", inf)
-				bbgn = NumVarOrDefault(df+"Norm_Bbgn", bbgn)
-				bend = NumVarOrDefault(df+"Norm_Bend", bend)
-				NormWaves("avg", tbgn, tend, bbgn, bend, dstName)
-				break
-			case 7:
 				bbgn = NumVarOrDefault(df+"DFOF_Bbgn", bbgn)
 				bend = NumVarOrDefault(df+"DFOF_Bend", bend)
 				DFOFWaves(bbgn, bend, dstName)
+				break
+			case 6:
+				bbgn = NumVarOrDefault(df+"Bsln_Bbgn", bbgn)
+				bend = NumVarOrDefault(df+"Bsln_Bend", bend)
+				BaselineWaves(1, bbgn, bend, dstName)
 				break
 		endswitch
 		
@@ -2235,20 +2396,16 @@ Function /S AvgChanWaves(chanNum, wList)
 			Note U_Sdv, "F(t):integrate;"
 			break
 		case 4:
-			Note U_Avg, "F(t):norm2max;"
-			Note U_Sdv, "F(t):norm2max;"
+			Note U_Avg, "F(t):norm;"
+			Note U_Sdv, "F(t):norm;"
 			break
 		case 5:
-			Note U_Avg, "F(t):norm2min;"
-			Note U_Sdv, "F(t):norm2min;"
-			break
-		case 6:
-			Note U_Avg, "F(t):norm2avg;"
-			Note U_Sdv, "F(t):norm2avg;"
-			break
-		case 7:
 			Note U_Avg, "F(t):dF/Fo;"
 			Note U_Sdv, "F(t):dF/Fo;"
+			break
+		case 5:
+			Note U_Avg, "F(t):baseline;"
+			Note U_Sdv, "F(t):baseline;"
 			break
 	endswitch
 	

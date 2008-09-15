@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -46,6 +46,7 @@ Function MyTab(enable)
 	if (enable == 1)
 		CheckPackage("MyTab", 0) // declare globals if necessary
 		MakeMyTab() // create tab controls if necessary
+		ChanControlsDisable(-1, "000000")
 		AutoMyTab()
 	endif
 
@@ -101,17 +102,32 @@ Function CheckMyTab() // declare global variables
 		return -1 // folder doesnt exist
 	endif
 	
-	CheckNMvar(df+"MyVar", 33) // create variable (also see Configurations.ipf)
+	CheckNMvar(df+"MyVar", 11) // create variable (also see Configurations.ipf)
 	
 	CheckNMstr(df+"MyStr", "Anything") // create string
 	
 	CheckNMwave(df+"MyWave", 5, 22) // numeric wave
 	
-	CheckNMtwave(df+"MyText", 5, "Anything") // text wave
+	CheckNMtwave(df+"MyTxtWave", 5, "Anything") // text wave
 	
 	return 0
 	
 End // CheckMyTab
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function MyTabConfigs()
+	String fname = "MyTab"
+
+	NMConfigVar(fname, "MyVar", 11, "My Variable")
+	NMConfigStr(fname, "MyStr", "Anything", "My Text Variable")
+	
+	NMConfigWave(fname, "MyWave", 5, 22, "My Wave")
+	NMConfigTWave(fname, "MyTxtWave", 5, "Anything", "My Text Wave")
+
+End // MyTabConfigs
 	
 //****************************************************************
 //****************************************************************
@@ -119,7 +135,10 @@ End // CheckMyTab
 
 Function MakeMyTab() // create controls that will begin with appropriate prefix
 
-	Variable x0 = 60, y0 = 250, xinc, yinc = 60
+	Variable x0 = 60, y0 = 250, xinc, yinc = 60, fs = NMPanelFsize()
+	Variable taby = NMPanelTabY()
+	
+	y0 = taby + 80
 	
 	String df = MyTabDF()
 
@@ -131,13 +150,13 @@ Function MakeMyTab() // create controls that will begin with appropriate prefix
 
 	DoWindow /F NMPanel
 	
-	Button $MyTabPrefix("Function0"), pos={x0,y0+0*yinc}, title="Your button can go here", size={200,20}, proc=MyTabButton
-	Button $MyTabPrefix("Demo"), pos={x0,y0+1*yinc}, title="Demo Function", size={200,20}, proc=MyTabButton
-	Button $MyTabPrefix("Function1"), pos={x0,y0+2*yinc}, title="My Function 1", size={200,20}, proc=MyTabButton
+	Button $MyTabPrefix("Function0"), pos={x0,y0+0*yinc}, title="Your button can go here", size={200,20}, proc=MyTabButton, fsize=fs
+	Button $MyTabPrefix("Demo"), pos={x0,y0+1*yinc}, title="Demo Function", size={200,20}, proc=MyTabButton, fsize=fs
+	Button $MyTabPrefix("Function1"), pos={x0,y0+2*yinc}, title="My Function 1", size={200,20}, proc=MyTabButton, fsize=fs
 	Button $MyTabPrefix("Function2"), pos={x0,y0+3*yinc}, title="My Function 2", size={200,20}, proc=MyTabButton
 	
 	SetVariable $MyTabPrefix("Function3"), title="my variable", pos={x0,y0+4*yinc}, size={200,50}, limits={-inf,inf,1}
-	SetVariable $MyTabPrefix("Function3"), value=$(df+"MyVar"), proc=MyTabSetVariable
+	SetVariable $MyTabPrefix("Function3"), value=$(df+"MyVar"), proc=MyTabSetVariable, fsize=fs
 
 End // MakeMyTab
 
@@ -180,7 +199,7 @@ Function MyTabCall(fxn, select)
 	strswitch(fxn)
 	
 		case "Demo":
-			NMDemoLoop() // see NM_MainTab.ipf
+			Execute /Z "NMDemoLoop()" // see NM_MainTab.ipf
 			return 0
 	
 		case "Function0":
@@ -213,7 +232,7 @@ Function MyFunction0()
 	SVAR MyStr = $(df+"MyStr")
 	
 	Wave MyWave = $(df+"MyWave")
-	Wave /T MyText = $(df+"MyText")
+	Wave /T MyTxtWave = $(df+"MyTxtWave")
 
 End // MyFunction0
 

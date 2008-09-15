@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -106,12 +106,12 @@ function KSTest(wName1, wName2, dsply)
 	Sort temp1 temp1
 	Sort temp2 temp2
 	
-	WaveStats /Q temp1
+	WaveStats /Q/Z temp1
 	npnts1 = V_npnts
 	
 	Redimension /N=(npnts1) temp1 // remove Nans
 	
-	WaveStats /Q temp2
+	WaveStats /Q/Z temp2
 	npnts2 = V_npnts
 	
 	Redimension /N=(npnts2) temp2 // remove Nans
@@ -264,15 +264,15 @@ Function KSPlotCumulatives(wName1, wName2)
 	Note $oName1, "KSTest Results:" + txt
 	Note $oName2, "KSTest Results:" + txt
 	
-	WaveStats /Q $wName1
+	WaveStats /Q/Z $wName1
 	params[0] = V_min-2
 	params[1]=V_max+2
 	
-	WaveStats /Q $wName2
+	WaveStats /Q/Z $wName2
 	params[2] = V_min-2
 	params[3]=V_max+2
 	
-	WaveStats /Q params
+	WaveStats /Q/Z params
 	
 	Histogram /B={V_min,((V_max-V_min)/bins),bins} $wName1, $oName1
 	KSMakeCumulative(oName1)
@@ -282,16 +282,15 @@ Function KSPlotCumulatives(wName1, wName2)
 	
 	Wave wtemp = $oName1
 	
-	WaveStats /Q wtemp
+	WaveStats /Q/Z wtemp
 	wtemp /= V_max // normalize
 	
 	Wave wtemp = $oName2
 	
-	WaveStats /Q wtemp
+	WaveStats /Q/Z wtemp
 	wtemp /= V_max // normalize
 	
-	Display /K=1 $oName1, $oName2 as gtitle
-	Dowindow /C $gName
+	Display /K=1/N=$gName $oName1, $oName2 as gtitle
 	Label bottom xl
 	Label left yl
 	ModifyGraph mode=3,marker($oName1)=8,marker($oName2)=6,rgb($oName2)=(0,0,0)

@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -41,12 +41,109 @@ End // StimStatsDF
 //****************************************************************
 //****************************************************************
 
+Function StimStatsOn()
+	
+	return BinaryCheck(NumVarOrDefault(StimStatsDF()+"StatsOn", 0))
+	
+End // StimStatsOn
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimStatsOnSet(on)
+	Variable on // (0) no (1) yes
+	
+	String ssdf = StimStatsDF()
+	
+	on = BinaryCheck(on)
+	
+	if ((on == 1) && (DataFolderExists(ssdf) == 0))
+		NewDataFolder $LastPathColon(ssdf, 0)
+		SetNMvar(ssdf+"StatsOn", 1)
+		StimStatsUpdate()
+	endif
+	
+	SetNMvar(ssdf+"StatsOn", on)
+	
+	ClampStats(on)
+	
+	return on
+
+End // StimStatsOnSet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimStatsUpdateAsk()
+	
+	if (StatsTimeStampCompare(StatsDF(), StimStatsDF()) == 0)
+	
+		DoAlert 1, "Your Stats configuration has changed. Do you want to update the current stimulus configuration to reflect these changes?"
+		
+		if (V_flag == 1)
+			StimStatsUpdate()
+			return 1
+		endif
+	
+	endif
+	
+	return 0
+
+End // StimStatsUpdateAsk
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimStatsUpdate() // save Stats waves to stim folder
+	
+	String stdf = StatsDF()
+	String ssdf = StimStatsDF()
+	
+	if (StimStatsOn() == 1)
+		StatsWavesCopy(stdf, ssdf)
+		SetNMvar(ssdf+"AmpNV", NumVarOrDefault(stdf+"AmpNV", 0)) // copy current stats window
+	endif
+
+End // StimStatsUpdate
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampStatsRetrieveFromStim() // retrieve Stats waves from stim folder
+	String sdf // stim data folder
+	
+	String stdf = StatsDF()
+	String ssdf = StimStatsDF()
+	
+	if ((StimStatsOn() == 0) || (DataFolderExists(ssdf) == 0))
+		return -1
+	endif
+	
+	StatsWavesCopy(ssdf, stdf)
+	
+	if (WaveExists($(stdf+"ChanSelect")) == 1)
+		Wave chan = $(stdf+"ChanSelect")
+		CurrentChanSet(chan[0])
+	endif
+	
+	SetNMvar(stdf+"AmpNV", NumVarOrDefault(ssdf+"AmpNV", 0))
+		
+	return 0
+
+End // ClampStatsRetrieveFromStim
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function ClampStats(enable)
 	Variable enable // (0) no (1) yes
 	
-	String sdf = StimDF()
-	
-	if (DataFolderExists(sdf) == 0)
+	if (DataFolderExists(StimDF()) == 0)
 		return -1
 	endif
 	
@@ -67,33 +164,11 @@ End // ClampStats
 //****************************************************************
 //****************************************************************
 
-Function ClampStatsOn(on)
-	Variable on // (0) no (1) yes
-	
-	String df = StimStatsDF()
-	
-	on = BinaryCheck(on)
-	
-	if ((on == 1) && (DataFolderExists(df) == 0))
-		ClampStatsSaveToStim()
-	endif
-	
-	SetNMvar(df+"StatsOn", on)
-	
-	ClampStats(on)
-
-End // ClampStatsOn
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
 Function ClampStatsInit()
-	String sdf = StimDF()
 
 	if (StimStatsOn() == 1)
 	
-		if (ClampStatsSaveAsk() == 0)
+		if (StimStatsUpdateAsk() == 0)
 			ClampStatsRetrieveFromStim() // get Stats from new stim
 		endif
 		
@@ -178,70 +253,6 @@ Function ClampStatsFinish(currentWave)
 	SetNMvar(stdf+"AutoPlot", saveAuto)
 	
 End // ClampStatsFinish
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampStatsSaveAsk()
-	
-	if (StatsTimeStampCompare(StatsDF(), StimStatsDF()) == 0)
-	
-		DoAlert 1, "Your Stats configuration has changed. Do you want to update the current stimulus configuration to reflect these changes?"
-		
-		if (V_flag == 1)
-			ClampStatsSaveToStim()
-			return 1
-		endif
-	
-	endif
-	
-	return 0
-
-End // ClampStatsSaveAsk
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampStatsSaveToStim() // save Stats waves to stim folder
-	
-	String stdf = StatsDF()
-	String df = StimStatsDF()
-	
-	if (StimStatsOn() == 1)
-		StatsWavesCopy(stdf, df)
-		SetNMvar(df+"AmpNV", NumVarOrDefault(stdf+"AmpNV", 0)) // copy current stats window
-	endif
-
-End // ClampStatsSaveToStim
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampStatsRetrieveFromStim() // retrieve Stats waves from stim folder
-	String sdf // stim data folder
-	
-	String stdf = StatsDF()
-	String df = StimStatsDF()
-	
-	if ((StimStatsOn() == 0) || (DataFolderExists(df) == 0))
-		return -1
-	endif
-	
-	StatsWavesCopy(df, stdf)
-	
-	if (WaveExists($(stdf+"ChanSelect")) == 1)
-		Wave chan = $(stdf+"ChanSelect")
-		CurrentChanSet(chan[0])
-	endif
-	
-	SetNMvar(stdf+"AmpNV", NumVarOrDefault(df+"AmpNV", 0))
-		
-	return 0
-
-End // ClampStatsRetrieveFromStim
 
 //****************************************************************
 //****************************************************************
@@ -348,6 +359,7 @@ Function ClampStatsDisplay(enable)
 	wlist = WaveList("ST_*",";","")
 	
 	foundtau = (StringMatch(wlist, "*ST_RiseT*") == 1) || (StringMatch(wlist, "*ST_DcayT*") == 1)
+	foundtau = foundtau || (StringMatch(wlist, "*ST_FwhmT*") == 1)
 	
 	if ((gexists == 0) || (texists == 0))
 	
@@ -386,8 +398,7 @@ Function ClampStatsDisplay(enable)
 	if (gexists == 0)
 		Make /O/N=0 CT_DummyWave
 		DoWindow /K $gName
-		Display /K=1/W=(0,0,200,100) CT_DummyWave as "NClamp Stats"
-		DoWindow /C $gName
+		Display /K=1/N=$gName/W=(0,0,200,100) CT_DummyWave as "NClamp Stats"
 		RemoveFromGraph /Z CT_DummyWave
 		KillWaves /Z CT_DummyWave
 		ClampStatsDisplaySetPosition("amp")
@@ -402,8 +413,7 @@ Function ClampStatsDisplay(enable)
 		if (texists == 0)
 			Make /O/N=0 CT_DummyWave
 			DoWindow /K $gName2
-			Display /K=1/W=(20,50,220,150) CT_DummyWave as "Clamp Stats Time Constants"
-			DoWindow /C $gName2
+			Display /K=1/N=$gName2/W=(20,50,220,150) CT_DummyWave as "Clamp Stats Time Constants"
 			RemoveFromGraph /Z CT_DummyWave
 			KillWaves /Z CT_DummyWave
 			ClampStatsDisplaySetPosition("tau")
@@ -471,6 +481,26 @@ Function ClampStatsDisplay(enable)
 			elseif (tau == 2)
 				AppendToGraph /W=$gName2 $wname
 				tbox2 += "\rdecayT" + num2str(acnt) + " \\s(" + wname + ")"
+			endif
+			
+			ModifyGraph /W=$gName2 rgb($wname)=(red,green,blue)
+			ModifyGraph /W=$gName2 marker($wname)=ClampStatsMarker(acnt)
+			
+		elseif ((StringMatch(wname, "ST_FwhmT*") == 1) && (tau > 0))
+		
+			acnt = str2num(wname[8,8])
+				
+			red = str2num(StringFromList(0,riseColor,","))
+			green = str2num(StringFromList(1,riseColor,","))
+			blue = str2num(StringFromList(2,riseColor,","))
+			
+			if (tau == 1)
+				AppendToGraph /R=tau /W=$gName2 $wname
+				ModifyGraph axRGB(tau)=(red,green,blue)
+				tbox += "\rfwhm" + num2str(acnt) + " \\s(" + wname + ")"
+			elseif (tau == 2)
+				AppendToGraph /W=$gName2 $wname
+				tbox2 += "\rfwhm" + num2str(acnt) + " \\s(" + wname + ")"
 			endif
 			
 			ModifyGraph /W=$gName2 rgb($wname)=(red,green,blue)
@@ -582,25 +612,25 @@ Function ClampStatsDisplaySavePosition()
 	
 	String amp = ClampStatsDisplayAmp()
 	String tau = ClampStatsDisplayTau()
-	String df = StimStatsDF()
+	String ssdf = StimStatsDF()
 	
 	if (WinType(amp) == 1)
 		GetWindow $amp wsize	
-		SetNMvar(df+"CSA_X0", V_left)
-		SetNMvar(df+"CSA_Y0", V_top)
-		SetNMvar(df+"CSA_X1", V_right)
-		SetNMvar(df+"CSA_Y1", V_bottom)
+		SetNMvar(ssdf+"CSA_X0", V_left)
+		SetNMvar(ssdf+"CSA_Y0", V_top)
+		SetNMvar(ssdf+"CSA_X1", V_right)
+		SetNMvar(ssdf+"CSA_Y1", V_bottom)
 	endif
 	
 	if (WinType(tau) == 1)
 		GetWindow $tau wsize	
-		SetNMvar(df+"CST_X0", V_left)
-		SetNMvar(df+"CST_Y0", V_top)
-		SetNMvar(df+"CST_X1", V_right)
-		SetNMvar(df+"CST_Y1", V_bottom)
+		SetNMvar(ssdf+"CST_X0", V_left)
+		SetNMvar(ssdf+"CST_Y0", V_top)
+		SetNMvar(ssdf+"CST_X1", V_right)
+		SetNMvar(ssdf+"CST_Y1", V_bottom)
 	endif
 
-End // ClampStatsDisplaySavePosition
+End // ClampStatsDisplaySavePositionx
 
 //****************************************************************
 //****************************************************************
@@ -617,7 +647,7 @@ Function ClampStatsDisplaySetPosition(gType)
 
 	String amp = ClampStatsDisplayAmp()
 	String tau = ClampStatsDisplayTau()
-	String df =StimStatsDF()
+	String ssdf =StimStatsDF()
 	
 	Variable statsOn = StimStatsOn()
 	
@@ -628,10 +658,10 @@ Function ClampStatsDisplaySetPosition(gType)
 			if (WinType(amp) == 1)
 			
 				if (statsOn == 1)
-					x0 = NumVarOrDefault(df+"CSA_X0", xPixels * 0.1)
-					y0 = NumVarOrDefault(df+"CSA_Y0", yPixels * 0.5)
-					x1 = NumVarOrDefault(df+"CSA_X1", x0 + 260)
-					y1 = NumVarOrDefault(df+"CSA_Y1", y0 + 170)
+					x0 = NumVarOrDefault(ssdf+"CSA_X0", xPixels * 0.1)
+					y0 = NumVarOrDefault(ssdf+"CSA_Y0", yPixels * 0.5)
+					x1 = NumVarOrDefault(ssdf+"CSA_X1", x0 + 260)
+					y1 = NumVarOrDefault(ssdf+"CSA_Y1", y0 + 170)
 				else
 					x0 = 0
 					y0 = 0
@@ -652,10 +682,10 @@ Function ClampStatsDisplaySetPosition(gType)
 			if (WinType(tau) == 1)
 			
 				if (statsOn == 1)
-					x0 = NumVarOrDefault(df+"CST_X0", xPixels * 0.1 + 270)
-					y0 = NumVarOrDefault(df+"CST_Y0", yPixels * 0.5)
-					x1 = NumVarOrDefault(df+"CST_X1", x0 + 260)
-					y1 = NumVarOrDefault(df+"CST_Y1", y0 + 170)
+					x0 = NumVarOrDefault(ssdf+"CST_X0", xPixels * 0.1 + 270)
+					y0 = NumVarOrDefault(ssdf+"CST_Y0", yPixels * 0.5)
+					x1 = NumVarOrDefault(ssdf+"CST_X1", x0 + 260)
+					y1 = NumVarOrDefault(ssdf+"CST_Y1", y0 + 170)
 				else
 					x0 = 0
 					y0 = 0

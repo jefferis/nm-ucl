@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -14,7 +14,7 @@
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last Modified 28 Dec 2006
+//	Last Modified 02 Oct 2007
 //
 //	New Configurations
 //
@@ -51,194 +51,27 @@ End // NMConfig
 //****************************************************************
 //****************************************************************
 
+Function CheckNMConfigsAll()
+
+	Variable icnt
+	String fname, flist = NMConfigList()
+	
+	for (icnt = 0; icnt < ItemsInList(flist); icnt += 1)
+		CheckNMConfig(StringFromList(icnt, flist))
+	endfor
+
+End // CheckNMConfigsAll
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function CheckNMConfig(fname)
 	String fname // config folder name ("NeuroMatic", "Chan", "Stats"...)
 	
-	CheckNMConfigDF(fname) // check config folder exists
+	Execute /Z fname + "Configs()" // run particular configs function if it exists
 	
-	strswitch(fname)
-	
-		default:
-			return -1
-	
-		case "NeuroMatic": // Neuromatic Main Configurations
-		
-			NMConfigVar(fname, "AutoStart", 1, "Auto-start NM (0) no (1) yes")
-			NMConfigVar(fname, "AutoPlot", 1, "Auto plot data upon loading file (0) no (1) yes")
-			NMConfigVar(fname, "NameFormat", 1, "Wave name format (0) short (1) long")
-			//NMConfigVar(fname, "ProgFlag", 1, "Progress display (0) off (1) WinProg XOP of Kevin Boyce")
-			
-			NMConfigVar(fname, "WriteHistory", 1, "Analysis history (0) off (1) Igor History (2) notebook (3) both")
-			NMConfigVar(fname, "CmdHistory", 1, "Command history (0) off (1) Igor History (2) notebook (3) both")
-			
-			//NMConfigVar(fname, "xPixels", 1000, "Screen x-pixels") // auto-detected
-			//NMConfigVar(fname, "yPixels", 800, "Screen y-pixels") // auto-detected
-			//NMConfigStr(fname,"Computer", "mac", "Computer type (mac or pc)") // auto-detected
-			
-			NMConfigVar(fname, "ImportPrompt", 1, "Import prompt (0) off (1) on")
-			
-			NMConfigVar(fname, "OverWrite", 1, "Over-write (0) off (1) on")
-			
-			NMConfigStr(fname, "FolderPrefix", "nm", "NM folder prefix")
-			NMConfigStr(fname, "PrefixList", "Record;Avg_;ST_;", "List of wave prefix names")
-			NMConfigStr(fname, "NMTabList", "Main;Stats;Spike;MyTab;", "List of NM tabs")
-			
-			NMConfigStr(fname, "OpenDataPath", "", "Open data file path (i.e. C:Jason:TestData:)")
-			NMConfigStr(fname, "SaveDataPath", "", "Save data file path (i.e. C:Jason:TestData:)")
-		
-			break
-			
-		case "Main": // Main Tab Configurations
-		
-			NMConfigVar(fname, "Bsln_Method", 1, "(1) subtract wave's individual mean (2) subtract mean of all waves")
-			NMConfigVar(fname, "Bsln_Bgn", 0, "Baseline window begin (ms)")
-			NMConfigVar(fname, "Bsln_End", 10, "Baseline window end (ms)")
-			
-			break
-			
-		case "Stats": // Stats Tab Configurations
-		
-			Variable win, numwin = 10
-			
-			NMConfigVar(fname, "AutoPlot", 1, "Stats2 auto plot (0) off (1) on")
-			NMConfigVar(fname, "TablesOn", 1, "Display Stats1 results in tables? (0) no (1) yes")
-			
-			NMConfigStr(fname, "AmpColor", "65535,0,0", "Amp display rgb color")
-			NMConfigStr(fname, "BaseColor", "0,39168,0", "Baseline display rgb color")
-			NMConfigStr(fname, "RiseColor", "0,0,65535", "Rise/decay display rgb color")
-			
-			NMConfigTWave(fname, "AmpSlct", numwin, "Off", "Measurement")
-			NMConfigWave(fname, "AmpB", numwin, 0, "Window begin time (ms)")
-			NMConfigWave(fname, "AmpE", numwin, 0, "Window end time (ms)")
-			
-			NMConfigWave(fname, "Bflag", numwin, 0, "Compute baseline (0) no (1) yes")
-			NMConfigTWave(fname, "BslnSlct", numwin, "Avg", "Baseline measurement")
-			NMConfigWave(fname, "BslnB", numwin, 0, "Baseline begin time (ms)")
-			NMConfigWave(fname, "BslnE", numwin, 0, "Baseline end time (ms)")
-			NMConfigWave(fname, "BslnSubt", numwin, 0, "Baseline auto subtract (0) no (1) yes")
-			NMConfigWave(fname, "BslnRflct", numwin, Nan, "Baseline reflected window (0) off (1) on")
-			
-			NMConfigWave(fname, "Rflag", numwin, 0, "Compute rise-time (0) no (1) yes")
-			NMConfigWave(fname, "RiseBP", numwin, 10, "Rise-time begin %")
-			NMConfigWave(fname, "RiseEP", numwin, 90, "Rise-time end %")
-			
-			NMConfigWave(fname, "Dflag", numwin, 0, "Compute decay-time (0) no (1) yes")
-			NMConfigWave(fname, "DcayP", numwin, 37, "Decay %")
-			
-			NMConfigWave(fname, "dtFlag", numwin, 0, "F(t) (0) none (1) d/dt (2) dd/dt*dt (3) integral")
-			
-			NMConfigWave(fname, "SmthNum", numwin, 0, "Smooth number")
-			NMConfigTWave(fname, "SmthAlg", numwin, "binomial", "Smooth algorithm")
-			
-			NMConfigWave(fname, "ChanSelect", numwin, 0, "Channel to analyze")
-			
-			NMConfigTWave(fname, "OffsetW", numwin, "", "Offset wave name (/g for group num, /w for wave num)")
-			
-			break
-			
-		case "Event": // Event Tab Configurations
-		
-			NMConfigVar(fname, "Thrshld", 5, "Threshold or level value")
-			NMConfigVar(fname, "SearchBgn", 0, "Seach begin time (ms)")
-			NMConfigVar(fname, "SearchEnd", 100, "Search end time (ms)")
-			
-			NMConfigVar(fname, "BaseFlag", 1, "Compute baseline (0) no (yes) 1")
-			NMConfigVar(fname, "BaseWin", 2, "Baseline avg window (ms)")
-			NMConfigVar(fname, "BaseDT", 2, "Mid-base to threshold crossing (ms)")
-			
-			NMConfigVar(fname, "OnsetFlag", 1, "Compute onset (0) no (1) yes")
-			NMConfigVar(fname, "OnsetWin", 2, "Onset search limit (ms)")
-			NMConfigVar(fname, "OnsetAvg", 10, "Avg window (ms)")
-			NMConfigVar(fname, "OnsetNstdv", 1, "Num stdv's above avg")
-			
-			NMConfigVar(fname, "PeakFlag", 1, "Compute peak (0) no (1) yes")
-			NMConfigVar(fname, "PeakWin", 10, "Peak search limit (ms)")
-			NMConfigVar(fname, "PeakAvg", 10, "Avg window (ms)")
-			NMConfigVar(fname, "PeakNstdv", 1, "Num stdv's above avg")
-			
-			NMConfigVar(fname, "DsplyWin", 50, "Channel display window size (ms)")
-			
-			break
-			
-		case "Clamp": // Clamp Tab Configurations
-			
-			NMConfigVar(fname, "TestTimers", 1, "Test acquisition timers (0) no (1) yes")
-			
-			NMConfigVar(fname, "LogDisplay", 1, "Clamp log display (0) none (1) notebook (2) table")
-			NMConfigVar(fname, "LogAutoSave", 1, "Log folder auto save (0) no (1) yes")
-			
-			NMConfigVar(fname, "PulseDisplay", 1, "Pulse Gen graph display (0) off (1) on")
-			
-			NMConfigVar(fname, "BoardDriver", 0, "Board driver number (NIDAQ only)")
-			NMConfigStr(fname, "AcqBoard", "Demo", "Acquisition board (NIDAQ, ITC18, ITC16, Demo)")
-			NMConfigStr(fname, "DataPrefix", "Record", "Data wave prefix name")
-			
-			NMConfigStr(fname, "FolderPrefix", "", "Folder name prefix")
-			NMConfigStr(fname, "StimPath", "C:Jason:TestStims:", "Directory where stim protocols are saved")
-			NMConfigStr(fname, "OpenStimList", "iv;", "List of stim files to open")
-			
-			NMConfigStr(fname, "ClampPath", "C:Jason:TestData:", "Directory where data is to be saved")
-			
-			NMConfigVar(fname, "SeqAutoZero", 1, "Auto zero seq num after cell increment (0) no (1) yes")
-			
-			NMConfigVar(fname, "SaveFormat", 3, "Save data format (1) NM binary file (2) Igor binary file (3) both")
-			NMConfigVar(fname, "SaveWhen", 2, "Save data when (0) never (1) after recording (2) while recording")
-			NMConfigVar(fname, "SaveWithDialogue", 0, "Save with dialogue prompt? (0) no (1) yes")
-			NMConfigVar(fname, "SaveInSubfolder", 1, "Save data in subfolders? (0) no (1) yes")
-			NMConfigVar(fname, "AutoCloseFolder", 1, "Close previous data folder before creating new one? (0) no (1) yes")
-			
-			NMConfigVar(fname, "StatsBslnDsply", 1, "Display Stats baseline values? (0) no (1) yes")
-			NMConfigVar(fname, "StatsTauDsply", 2, "Display Stats time constants? (0) no (1) yes, same window (2) yes, seperate window")
-			
-			NMConfigStr(fname, "ClampInstrument", "", "Amplifier name (for telegraph functions)")
-			
-			NMConfigStr(fname, "TGainList", "", "Telegraph gain list string (ADC tgain chan, ADC input chan to scale")
-			
-			NMConfigVar(fname, "TModeChan", Nan, "ADC input channel for telegraph mode")
-			
-			NMConfigVar(fname, "TempChan", Nan, "ADC input channel for temperature")
-			NMConfigVar(fname, "TempSlope", 1, "Temp slope factor (100 degreesC/Volts)")
-			NMConfigVar(fname, "TempOffset", 0, "Temp offset (degreesC)")
-			
-			break
-			
-		case "Notes": // Clamp Notebook Variables (add as many as you wish)
-			
-			//
-			// Header Notes: use name prefix "H_"
-			// File Notes: use name prefix "F_"
-			// Create your own by copying and pasting
-			//
-			
-			// Header Strings:
-			
-			NMConfigStr(fname, "H_Name", "Jason Rothman", "Your name")
-			NMConfigStr(fname, "H_Lab", "Silver Lab, UCL Physiology", "Your lab/address")
-			NMConfigStr(fname, "H_Title", "LTP", "Experiment title")
-				
-			// Header Variables:
-			
-			//NMConfigVar(fname, "H_Age", Nan, "Age")
-			
-			// File Variables:
-			
-			NMConfigVar(fname, "F_Temp", Nan, "Temperature")
-			NMConfigVar(fname, "F_Ra", Nan, "Access resistance")
-			NMConfigVar(fname, "F_Cm", Nan, "Cell capacitance")
-			
-			// File Strings:
-			
-			//NMConfigStr(fname, "F_Drug", "", "Experimental drugs")
-		
-			break
-			
-		default:
-		
-			return -1
-				
-	endswitch
-	
-	return 0
+	//UpdateNMConfigMenu()
 	
 End // CheckNMConfig
 
@@ -272,40 +105,14 @@ Function /S NMConfigList()
 
 	String flist = FolderObjectList(ConfigDF(""), 4)
 	
-	flist = RemoveFromList("NeuroMatic", flist)
-	flist = AddListItem("NeuroMatic", flist, ";", 0)
-
+	if (FindListItem("NeuroMatic", flist) >= 0)
+		flist = RemoveFromList("NeuroMatic", flist)
+		flist = AddListItem("NeuroMatic", flist, ";", 0)
+	endif
+	
 	return flist
 	
 End // NMConfigList
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function NMConfigCall(select)
-	String select
-
-	strswitch(select)
-	
-		case "Edit":
-			return NMConfigEditCall("")
-			
-		case "Update":
-			return NMConfigKillCall("")
-		
-		case "Open":
-			return NMConfigOpenCall()
-		
-		case "Save":
-			return NMReturnStr2Num(NMConfigSaveCall(""))
-			
-		case "Kill":
-			return NMConfigKillCall("")
-	
-	endswitch
-
-End // NMConfigCall
 
 //****************************************************************
 //****************************************************************
@@ -572,6 +379,8 @@ Function NMConfigOpen(file)
 		
 		error = 0
 		
+		CheckNMConfigsAll()
+		
 	else
 	
 		DoAlert 0, "Open File Error: file is not a NeuroMatic configuration file."
@@ -581,6 +390,8 @@ Function NMConfigOpen(file)
 	if (DataFolderExists(folder) == 1)
 		KillDataFolder $folder
 	endif
+	
+	//UpdateNMConfigMenu()
 	
 	return error
 
@@ -636,6 +447,10 @@ Function NMConfigOpenAuto()
 		endif
 		
 	endfor
+	
+	//UpdateNMConfigMenu()
+	
+	CheckNMConfigsAll()
 	
 	PathInfo /S Igor // reset path to Igor
 
@@ -702,6 +517,8 @@ Function NMConfigKill(flist) // kill config folder
 	
 	endfor
 	
+	UpdateNM(1)
+	
 End // NMConfigKill
 
 //****************************************************************
@@ -716,6 +533,7 @@ Function NMConfigVar(fname, vName, value, infoStr)
 	String df = ConfigDF(fname)
 	String pf = PackDF(fname)
 	
+	CheckNMConfigDF(fname) // check config folder exists
 	CheckNMvar(df+vname, NumVarOrDefault(pf+vName, value))
 	CheckNMstr(df+"D_"+vName, infoStr)
 	
@@ -731,6 +549,7 @@ Function NMConfigStr(fname, vName, strValue, infoStr)
 	String df = ConfigDF(fname)
 	String pf = PackDF(fname)
 	
+	CheckNMConfigDF(fname) // check config folder exists
 	CheckNMstr(df+vName, StrVarOrDefault(pf+vName, strValue))
 	CheckNMstr(df+"D_"+vName, infoStr)
 	
@@ -748,6 +567,8 @@ Function NMConfigWave(fname, wName, npnts, value, infoStr)
 	
 	String cw = ConfigDF(fname) + wName
 	String pw = PackDF(fname) + wName
+	
+	CheckNMConfigDF(fname) // check config folder exists
 	
 	infoStr = NMNoteCheck(infoStr)
 	
@@ -773,6 +594,8 @@ Function NMConfigTWave(fname, wName, npnts, strValue, infoStr)
 	
 	String cw = ConfigDF(fname) + wName
 	String pw = PackDF(fname) + wName
+	
+	CheckNMConfigDF(fname) // check config folder exists
 	
 	infoStr = NMNoteCheck(infoStr)
 	
@@ -891,6 +714,15 @@ Function NMConfigEdit(flist) // create table to edit config vars
 	
 		fname = StringFromList(fcnt, flist)
 		df = ConfigDF(fname)
+		
+		Execute /Z fname + "ConfigEdit()" // run particular edit tab config if exists
+		
+	endfor
+	
+	for (fcnt = 0; fcnt < ItemsInList(flist); fcnt += 1)
+	
+		fname = StringFromList(fcnt, flist)
+		df = ConfigDF(fname)
 	
 		tName = "Config_" + fname
 		tTitle = fname + " Configurations"
@@ -926,19 +758,17 @@ Function NMConfigEdit(flist) // create table to edit config vars
 		
 		if (WinType(tName) == 0)
 		
-			Edit /K=1/W=(x1,y1,x2,y2) VarName
-			DoWindow /C $tName
-			DoWindow /T $tName, tTitle
+			Edit /K=1/W=(x1,y1,x2,y2)/N=$tName VarName as tTitle
 			
 			SetCascadeXY(tName)
 			
 			if (numItems > 0)
-				AppendToTable NumValue
+				AppendToTable /W=$tName NumValue
 				Execute /Z "ModifyTable width(" + df + "NumValue)=60"
 			endif
 			
 			if (strItems > 0)
-				AppendToTable StrValue
+				AppendToTable /W=$tName StrValue
 				Execute /Z "ModifyTable alignment(" + df + "StrValue)=0, width(" + df + "StrValue)=150"
 			endif
 			
@@ -976,8 +806,6 @@ Function NMConfigEdit(flist) // create table to edit config vars
 			Description[icnt] = StrVarOrDefault(df+"D_"+objName, "")
 			icnt += 1
 		endfor
-		
-		Execute /Z fname + "ConfigEdit()" // run particular edit tab config if exists
 		
 	endfor
 	

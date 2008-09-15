@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -88,8 +88,9 @@ Menu "NeuroMatic", dynamic // define main NeuroMatic drop-down menu
 	"Screen Size", NMCall("Computer")
 	"Reset Cascade", NMCall("Reset Cascade")
 	"Chan Graphs On", NMCall("Graphs On")
-	"Update NeuroMatic", NMCall("Update")
 	NMOnMenu(), NMCall("Off")
+	"Update NeuroMatic", NMCall("Update")
+	"NeuroMatic Webpage", NMCall("Webpage")
 	//AboutNM()
 	
 	"-"
@@ -111,7 +112,7 @@ End // NeuroMatic Menu
 Function /S AboutNM() // executes every time NM menu is accessed
 
 	CheckNM(0)
-	CheckNMversion()
+	CheckNMVersionNum()
 	
 	return ""
 	//return "About NeuroMatic"
@@ -328,12 +329,43 @@ Function NMCall(fxn)
 			
 		case "Off":
 			return NMOn(-1)
+			
+		case "Webpage":
+			return NMwebpage()
 	
 	endswitch
 	
 	return -1
 
 End // NMCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMConfigCall(select)
+	String select
+
+	strswitch(select)
+	
+		case "Edit":
+			return NMConfigEditCall("")
+			
+		case "Update":
+			return NMConfigKillCall("")
+		
+		case "Open":
+			return NMConfigOpenCall()
+		
+		case "Save":
+			return NMReturnStr2Num(NMConfigSaveCall(""))
+			
+		case "Kill":
+			return NMConfigKillCall("")
+	
+	endswitch
+
+End // NMConfigCall
 
 //****************************************************************
 //****************************************************************

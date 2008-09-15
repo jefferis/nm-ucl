@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -14,7 +14,7 @@
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last Modified 18 Nov 2004
+//	Last Modified 01 Dec 2007
 //
 //****************************************************************
 //****************************************************************
@@ -28,6 +28,14 @@ Function NMGroupsCall(fxn, select)
 
 	strswitch(fxn)
 	
+		case "On":
+			NMGroupsOn(1)
+			break
+			
+		case "Off":
+			NMGroupsOn(0)
+			break
+			
 		case "On/Off":
 			return NMGroupsToggle()
 			
@@ -44,6 +52,7 @@ Function NMGroupsCall(fxn, select)
 		
 		case "NumGroups":
 			NMGroupsNumCall(snum)
+			
 		case "FirstGroup":
 			return NMGroupsPanelSeq()
 	
@@ -65,6 +74,23 @@ Function NMGroupsCall(fxn, select)
 		
 		case "GroupsClose":
 			return NMGroupsPanelClose()
+			
+		default:
+		
+			if (StringMatch(fxn[0,6], "Groups=") == 1)
+				snum = str2num(fxn[7,inf])
+				if (numtype(snum) == 0)
+					SetNMvar("NumGrps", snum)
+					NMGroupSeqDefault()
+					NMGroupsOn(1)
+				endif
+			elseif (StringMatch(fxn[0,6], "Blocks=") == 1)
+				snum = str2num(fxn[7,inf])
+				if (numtype(snum) == 0)
+					NMGroupSeq("0,"+num2str(snum-1), 0, inf, snum)
+					NMGroupsOn(1)
+				endif
+			endif
 			
 	endswitch
 	
@@ -688,8 +714,7 @@ Function NMGroupsTableIgor4(option)
 	
 	if (WinType(pname) != 2)
 		DoWindow /K $tname
-		Edit /K=1/W=(x1, y1, x2, y2) as "Groups Table"
-		DoWindow /C $tname
+		Edit /K=1/n=$tname/W=(x1, y1, x2, y2) as "Groups Table"
 		Execute /Z "ModifyTable title(Point)= \"" + StrVarOrDefault("CurrentPrefix","") + "\""
 		SetWindow $tname hook=NMGroupsHook
 	endif
@@ -802,8 +827,7 @@ Function NMGroupsEdit()
 	endif
 	
 	DoWindow /K $tname
-	Edit /K=1/W=(0,0,0,0) Group as "Group Wave"
-	DoWindow /C $tname
+	Edit /K=1/N=$tname/W=(0,0,0,0) Group as "Group Wave"
 	Execute /Z "ModifyTable title(Point)= \"" + WavePrefix + "\""
 	SetCascadeXY(tname)
 	
@@ -881,8 +905,7 @@ Function NMGroupsPanel()
 	y2 = y1 + height
 	
 	DoWindow /K $pname
-	NewPanel /K=1/W=(x1,y1,x2,y2) as "Edit Groups"
-	DoWindow /C $pname
+	NewPanel /K=1/N=$pname/W=(x1,y1,x2,y2) as "Edit Groups"
 	
 	GroupBox $NMPrefix("GroupsBox"), title = "Sequence (01230123...)", pos={x0-20,y0-30}, size={245,270}
 	
@@ -949,7 +972,7 @@ Function NMGroupsPanelDefaults()
 	if (NMNoteExists(wname, "Groups Seq") == 1)
 	
 		seqStr = NMNoteStrByKey(wName, "Groups Seq")
-		seqStr = ChangeListSep(seqStr, ";")
+		//seqStr = ChangeListSep(seqStr, ";")
 		
 		first = 9999
 		
@@ -964,9 +987,9 @@ Function NMGroupsPanelDefaults()
 		
 	endif
 		
-	if ((numtype(ngrps) > 0) || (ngrps < 0))
+	//if ((numtype(ngrps) > 0) || (ngrps < 0))
 		ngrps = NumVarOrDefault("NumGrps", 0)
-	endif
+	//endif
 	
 	if ((numtype(first) > 0) || (first < 0))
 		first = NMGroupFirstDefault()

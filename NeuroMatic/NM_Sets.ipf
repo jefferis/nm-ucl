@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -155,6 +155,16 @@ Function NMSetsCall(fxn, select)
 	return -1
 
 End // NMSetsCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMSetsMenu()
+
+	return "Sets ;---;Define;Equation;Invert;Clear;0 > Nan;Nan > 0;---;New;Copy;Rename;Kill;---;Table;Panel;---;Exclude SetX?;Auto Advance;Display;"
+
+End // NMSetsMenu
 
 //****************************************************************
 //****************************************************************
@@ -1378,6 +1388,7 @@ Function /S NMSetsList(strict)
 	
 		wName = StringFromList(wcnt, wList)
 		
+		//if ((IsNMSet(wName, strict) == 0) || (StringMatch(wName[0,2], "ST_") == 1))
 		if (IsNMSet(wName, strict) == 0)
 			wList = RemoveFromList(wName, wList)
 		endif
@@ -1517,8 +1528,7 @@ Function NMSetsTableIgor4(option)
 	
 	if (WinType(tname) != 2)
 		DoWindow /K $tname
-		Edit /K=1/W=(x1, y1, x2, y2) as "Sets Table"
-		DoWindow /C $tName
+		Edit /K=1/N=$tName/W=(x1, y1, x2, y2) as "Sets Table"
 		Execute /Z "ModifyTable title(Point)= \"" + StrVarOrDefault("CurrentPrefix","") + "\""
 		SetWindow $tname hook=NMSetsHook
 	endif
@@ -1640,8 +1650,7 @@ Function NMSetsEdit()
 	endif
 	
 	DoWindow /K $tname
-	Edit /K=1/W=(0,0,0,0) Set1, Set2, SetX as "Set Waves"
-	DoWindow /C $tname
+	Edit /K=1/N=$tname/W=(0,0,0,0) Set1, Set2, SetX as "Set Waves"
 	Execute /Z "ModifyTable title(Point)= \"" + StrVarOrDefault("WavePrefix","") + "\""
 	SetCascadeXY(tname)
 	
@@ -1750,8 +1759,7 @@ Function NMSetsPanel()
 	NMSetsPanelDefaults(StrVarOrDefault(df+"SetsSelect", "Set1"))
 	
 	DoWindow /K$pname
-	NewPanel /K=1/W=(x1,y1,x2,y2) as "Edit Sets"
-	DoWindow /C $pname
+	NewPanel /K=1/N=$pname/W=(x1,y1,x2,y2) as "Edit Sets"
 	SetWindow $pname hook=NMSetsHook
 	
 	PopupMenu $NMPrefix("SetsMenu"), title=" ", pos={x0+215,y0}, size={0,0}, bodyWidth=160, fsize=14

@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -45,8 +45,7 @@ Function PulseGraphMake()
 	Make /O/N=0 PG_DumWave
 	
 	DoWindow /K $gName
-	Display /K=1/W=(x0,y0,x0+pw,y0+ph) PG_DumWave as "Pulse Generator"
-	DoWindow /C $gName
+	Display /K=1/N=$gName/W=(x0,y0,x0+pw,y0+ph) PG_DumWave as "Pulse Generator"
 	
 	Label /W=$gName bottom, "msec"
 	
@@ -176,7 +175,7 @@ Function /S PulseWavesMake(df, wPrefix, numWaves, npnts, dt, scale, ORflag)
 	String wPrefix // wave prefix
 	Variable numWaves, npnts, dt, scale
 	Variable ORflag // (0) add (1) OR
-
+	
 	Variable i, j, k, klmt
 	String wlist = ""
 
@@ -283,7 +282,8 @@ Function PulseCompute(df, npnts, dt, shape, onset, amp, tau1, tau2) // create pu
 				break
 				
 			case 4: // 2-exp
-				PG_PulseWave = (1 - exp((onset-x*dt)/tau1)) * exp((onset-x*dt)/tau2)
+				//PG_PulseWave = (1 - exp((onset-x*dt)/tau1)) * exp((onset-x*dt)/tau2)
+				PG_PulseWave = -exp((onset-x*dt)/tau1) + exp((onset-x*dt)/tau2)
 				break
 				
 			case 5: // other
@@ -307,7 +307,7 @@ Function PulseCompute(df, npnts, dt, shape, onset, amp, tau1, tau2) // create pu
 		
 	endif
 	
-	Wavestats /Q PG_PulseWave
+	Wavestats /Q/Z PG_PulseWave
 	
 	if (V_max != 0)
 		PG_PulseWave *= amp / V_max // set amplitude
@@ -396,7 +396,7 @@ End // PulseClear
 Function PulseTrain(df, wPrefix, wbgn, wend, winc, tbgn, tend, type, intvl, refrac, shape, amp, width, tau2, continuous, wName)
 	String df // data folder
 	String wPrefix // wave prefix
-
+	
 	Variable wbgn, wend // wave number begin, end
 	Variable winc // wave increment
 	Variable tbgn, tend // window begin/end time
@@ -413,58 +413,154 @@ Function PulseTrain(df, wPrefix, wbgn, wend, winc, tbgn, tend, type, intvl, refr
 	
 	Variable onset, tlast, wcnt, pcnt, hold, plimit = 99999
 	
-	if ((type == 3) && (WaveExists($wName) == 0))
-		return -1
-	endif
+	switch(type)
+		case 1:
+			return PulseTrainFixed(df, wPrefix, wbgn, wend, winc, tbgn, tend, intvl, shape, amp, width, tau2, continuous)
+		case 2:
+			return PulseTrainRandom(df, wPrefix, wbgn, wend, winc, tbgn, tend, intvl, refrac, shape, amp, width, tau2, continuous)
+		case 3:
+			return PulseTrainFromWave(df, wPrefix, wbgn, wend, winc, tbgn, tend, shape, amp, width, tau2, continuous, wName)
+	endswitch
 	
-	if (type == 3)
-		Wave wtemp = $wName
-		plimit = numpnts(wtemp)
-	endif
+	return -1
+
+End // PulseTrain
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function PulseTrainFixed(df, wPrefix, wbgn, wend, winc, tbgn, tend, intvl, shape, amp, width, tau2, continuous)
+	String df // data folder
+	String wPrefix // wave prefix
 	
-	for (wcnt = wbgn; wcnt <= wend; wcnt += 1)
+	Variable wbgn, wend // wave number begin, end
+	Variable winc // wave increment
+	Variable tbgn, tend // window begin/end time
+	Variable intvl // inter-pulse interval
+	Variable shape // pulse shape
+	Variable amp // pulse amplitude
+	Variable width // pulse width or time constant
+	Variable tau2 // decay time constant for 2-exp
+	Variable continuous // if waves are to be treated as continuous (0) no (1) yes
+	
+	Variable onset, wcnt, pcnt, plimit = 5 + ceil((tend - tbgn) / intvl)
+	
+	winc = max(winc, 1)
+	
+	for (wcnt = wbgn; wcnt <= wend; wcnt += winc)
+	
+		for (pcnt = 0; pcnt < plimit; pcnt += 1)
 		
-		if (continuous == 0)
-			tlast = tbgn
-		elseif (wcnt == wbgn)
-			tlast = tbgn
-		else
-			tlast = 0
-		endif
-	
-		do // add pulses
-	
-			if (hold > 0)
-				onset = tlast + hold
-				hold = 0
-			elseif (type == 1) // fixed intervals
-				onset = tbgn + intvl * (pcnt + 1)
-			elseif (type == 2) // random intervals
-				onset = tlast - ln(abs(enoise(1))) * intvl
-			elseif (type == 3) // user wave of intervals
-				if (numtype(wtemp[pcnt]) == 0)
-					onset = tlast + wtemp[pcnt]
-				else
-					pcnt = plimit
-					onset = tend
-				endif
-			endif
+			onset = tbgn + intvl * pcnt
 			
-			if (onset == tlast)
-				pcnt += 1
-			elseif ((onset > tlast + refrac) && (onset < tend))
+			if ((onset >= tbgn) && (onset < tend))
 				PulseSave(df, wPrefix, -1, shape, wcnt, winc, onset, 0, amp, 0, width, 0, tau2, 0)
-				tlast = onset
-				pcnt += 1
-			elseif (continuous == 1)
-				hold = onset - tend
 			endif
 			
-		while ((hold == 0) && (onset < tend) && (pcnt < plimit))
+		endfor
 	
 	endfor
 
-End // PulseTrain
+End // PulseTrainFixed
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function PulseTrainRandom(df, wPrefix, wbgn, wend, winc, tbgn, tend, intvl, refrac, shape, amp, width, tau2, continuous)
+	String df // data folder
+	String wPrefix // wave prefix
+	
+	Variable wbgn, wend // wave number begin, end
+	Variable winc // wave increment
+	Variable tbgn, tend // window begin/end time
+	Variable intvl // inter-pulse interval
+	Variable refrac // refractory period for random train
+	Variable shape // pulse shape
+	Variable amp // pulse amplitude
+	Variable width // pulse width or time constant
+	Variable tau2 // decay time constant for 2-exp
+	Variable continuous // if waves are to be treated as continuous (0) no (1) yes
+	
+	Variable onset, tlast, wcnt, pcnt, plimit = 99 + ((tend - tbgn) / intvl)
+	
+	winc = max(winc, 1)
+	
+	for (wcnt = wbgn; wcnt <= wend; wcnt += winc)
+		
+		tlast = tbgn
+		pcnt = 0
+		
+		do // add pulses
+	
+			onset = tlast - ln(abs(enoise(1))) * intvl
+			
+			if ((onset > tlast + refrac) && (onset < tend))
+				PulseSave(df, wPrefix, -1, shape, wcnt, winc, onset, 0, amp, 0, width, 0, tau2, 0)
+				tlast = onset
+				pcnt += 1
+			endif
+			
+		while ((onset < tend) && (pcnt < plimit))
+	
+	endfor
+
+End // PulseTrainRandom
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function PulseTrainFromWave(df, wPrefix, wbgn, wend, winc, tbgn, tend, shape, amp, width, tau2, continuous, wName)
+	String df // data folder
+	String wPrefix // wave prefix
+	
+	Variable wbgn, wend // wave number begin, end
+	Variable winc // wave increment
+	Variable tbgn, tend // window begin/end time
+	Variable shape // pulse shape
+	Variable amp // pulse amplitude
+	Variable width // pulse width or time constant
+	Variable tau2 // decay time constant for 2-exp
+	Variable continuous // if waves are to be treated as continuous (0) no (1) yes
+	
+	String wName // wave name, for type 3
+	
+	Variable onset, tlast, wcnt, pcnt, plimit
+	
+	if (WaveExists($wName) == 0)
+		return -1
+	endif
+	
+	Wave wtemp = $wName
+	
+	plimit = numpnts(wtemp) // wave of intervals
+	
+	winc = max(winc, 1)
+	
+	for (wcnt = wbgn; wcnt <= wend; wcnt += winc)
+		
+		tlast = tbgn
+		
+		for (pcnt = 0; pcnt < plimit; pcnt += 1)
+	
+			if (numtype(wtemp[pcnt]) == 0)
+			
+				onset = tlast + wtemp[pcnt]
+			
+				if ((onset > tlast) && (onset < tend))
+					PulseSave(df, wPrefix, -1, shape, wcnt, winc, onset, 0, amp, 0, width, 0, tau2, 0)
+					tlast = onset
+				endif
+				
+			endif
+			
+		endfor
+	
+	endfor
+
+End // PulseTrainFromWave
 
 //****************************************************************
 //****************************************************************

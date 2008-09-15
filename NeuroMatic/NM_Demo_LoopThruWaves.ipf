@@ -1,19 +1,19 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 //
-//	NeuroMatic Demo Loop 
+//	NeuroMatic Demo - Loop Through Waves
 //	To be run with NeuroMatic
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 16 May 2007
+//	Last modified 06 Aug 2007
 //
 //****************************************************************
 //****************************************************************
@@ -25,10 +25,11 @@ Function /S NMDemoLoop() // example function that loops thru all currently selec
 	String wName, cList = "", wList = ""
 	
 	Variable nwaves = NMNumWaves()
+	Variable nchans = NMNumChannels()
 	
 	NMProgressStr("My Demo Function...") // set progress title
 	
-	for (ccnt = 0; ccnt < NMNumChannels(); ccnt += 1) // loop thru channels
+	for (ccnt = 0; ccnt < nchans; ccnt += 1) // loop thru channels
 	
 		if (NMChanSelected(ccnt) != 1)
 			continue // channel not selected

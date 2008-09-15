@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 1.98
+#pragma version = 2.00
 
 //****************************************************************
 //****************************************************************
@@ -20,7 +20,6 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 9 April 2007
 //
 //	NM tab entry "Clamp"
 //
@@ -52,7 +51,7 @@ Menu "NeuroMatic", dynamic
 		"Auto Scale/7", ClampAutoScale()
 	End
 
-End
+End // Neuromatic menu
 
 //****************************************************************
 //****************************************************************
@@ -61,10 +60,9 @@ End
 Function /S ClampPrefix(objName) // tab prefix identifier
 	String objName
 
-	return "CT_" + objName
+	return "CT0_" + objName
 	
 End // ClampPrefix
-
 
 //****************************************************************
 //****************************************************************
@@ -80,12 +78,8 @@ End // ClampDF
 //****************************************************************
 //****************************************************************
 
-Function Clamp(enable)
+Function ClampTab(enable)
 	Variable enable // (0) disable (1) enable
-	
-	Variable statsOn, spikeOn
-	
-	Variable CurrentWave = NMCurrentWave()
 
 	if (enable == 1)
 	
@@ -95,13 +89,11 @@ Function Clamp(enable)
 		CheckPackage("Notes", 0) // create Notes folder
 		
 		//LogParentCheck()
-		StimParentCheck()
+		StimParentCheckDF()
 		
-		ClampSetPrefs() // set data paths, open stim files, test board config
+		ClampConfigsUpdate() // set data paths, open stim files, test board config
 		
-		//if (statsOn == 1)
-		//	StatsCompute("", -1, -1, -1, 0, 1)
-		//endif
+		ChanControlsDisable(-1, "000000")
 		
 		ClampStats(StimStatsOn())
 		ClampSpike(StimSpikeOn())
@@ -113,11 +105,11 @@ Function Clamp(enable)
 		
 	endif
 	
-	ClampTabEnable(enable) // (NM_ClampTab.ipf)
+	ClampTabEnable(enable) // NM_ClampTab.ipf
 	
-	SetNMVar(StimDF()+"CurrentChan", NMCurrentChan()) // update current channel
+	StimCurrentChanSet("", NMCurrentChan()) // update current channel
 
-End // Clamp
+End // ClampTab
 
 //****************************************************************
 //****************************************************************
@@ -143,10 +135,19 @@ End // KillClamp
 //****************************************************************
 //****************************************************************
 
+Function ClampExitHook()
+
+	// nothing to do
+
+End // ClampExitHook
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function CheckClamp()
 	
 	Variable saveformat = 1 // NM binary
-	Variable first = 0
 	
 	String cdf = ClampDF()
 
@@ -158,22 +159,16 @@ Function CheckClamp()
 		saveformat = 2 // Igor binary
 	endif
 	
-	CheckNMstr(cdf+"ClampErrorStr", "No Error")		// error message
+	CheckNMstr(cdf+"ClampErrorStr", "")				// error message
 	CheckNMvar(cdf+"ClampError", 0)					// error number (0) no error (-1) error
 	
-	// Config variables
-	
-	CheckNMstr(cdf+"AcqBoard", "Demo")				// interface board
-	CheckNMstr(cdf+"BoardList", "0, Demo;")			// acquisition board list
 	CheckNMvar(cdf+"BoardDriver", 0)					// main board driver number
 	
-	CheckNMvar(cdf+"AcqBackGrnd", 0)				// background acq flag (0) no (1) yes
-	
-	CheckNMvar(cdf+"LogDisplay", 1)					// auto save log notes flag
+	CheckNMvar(cdf+"LogDisplay", 1)					// log notes display flag
 	CheckNMvar(cdf+"LogAutoSave", 1)					// auto save log notes flag
 	
-	CheckNMstr(cdf+"TGainList", "")					// telegraph gain ADC channel list
-	CheckNMstr(cdf+"ClampInstrument", "")				// clamp instrument name
+	//CheckNMstr(cdf+"TGainList", "")					// telegraph gain ADC channel list // DEPRECATED
+	//CheckNMstr(cdf+"ClampInstrument", "")			// clamp instrument name // DEPRECATED
 	
 	// data folder variables
 	
@@ -181,14 +176,15 @@ Function CheckClamp()
 	
 	SetNMstr(cdf+"FolderPrefix", ClampDateName())		// data file prefix name
 	
-	CheckNMstr(cdf+"StimTag", "")						// stim tag name
 	CheckNMstr(cdf+"ClampPath", "")					// external save data path
 	CheckNMstr(cdf+"DataPrefix", "Record"	)			// default data prefix name
+	CheckNMstr(cdf+"WavePrecision", "D"	)			// wave precision ("D") double ("S") single
 	
-	CheckNMvar(cdf+"DataFileCell", first)				// data file cell number
-	CheckNMvar(cdf+"DataFileSeq", first)				// data file sequence number
+	CheckNMvar(cdf+"DataFileCell", 0)					// data file cell number
+	CheckNMvar(cdf+"DataFileSeq", 0)					// data file sequence number
 	CheckNMvar(cdf+"SeqAutoZero", 1)					// auto zero seq number after cell increment
 	
+	CheckNMvar(cdf+"Backup", 20)					// time to back up NM (minutes)
 	CheckNMvar(cdf+"SaveWhen", 1)					// (0) never (1) after recording (2) while recording
 	CheckNMvar(cdf+"SaveFormat", saveformat)			// (1) NM binary file (2) Igor binary file (3) both
 	CheckNMvar(cdf+"SaveWithDialogue", 0)			// (0) no dialogue (1) save with dialogue
@@ -202,6 +198,8 @@ Function CheckClamp()
 	CheckNMstr(cdf+"OpenStimList", "")				// external stim files to open
 	CheckNMstr(cdf+"CurrentStim", "") 					// current stimulus protocol
 	
+	ClampBoardWavesCheckAll()						// board configuration waves
+	
 	return 0
 	
 End // CheckClamp
@@ -210,7 +208,57 @@ End // CheckClamp
 //****************************************************************
 //****************************************************************
 
-Function ClampSetPrefs()
+Function ClampConfigs()
+	String fname = "Clamp"
+
+	//NMConfigVar(fname, "TestTimers", 1, "Test acquisition timers (0) no (1) yes")
+			
+	NMConfigVar(fname, "LogDisplay", 1, "Clamp log display (0) none (1) notebook (2) table")
+	NMConfigVar(fname, "LogAutoSave", 1, "Log folder auto save (0) no (1) yes")
+	
+	//NMConfigVar(fname, "PulseDisplay", 1, "Pulse Gen graph display (0) off (1) on")
+	
+	NMConfigVar(fname, "BoardDriver", 0, "Board driver number (NIDAQ only)")
+	NMConfigStr(fname, "DataPrefix", "Record", "Data wave prefix name")
+	NMConfigStr(fname, "WavePrecision", "D", "Data wave Precision (D) double (S) single")
+	
+	//NMConfigStr(fname, "FolderPrefix", "", "Folder name prefix")
+	NMConfigStr(fname, "StimPath", "C:Jason:TestStims:", "Directory where stim protocols are saved")
+	NMConfigStr(fname, "OpenStimList", "iv;", "List of stim files to open")
+	
+	NMConfigStr(fname, "ClampPath", "C:Jason:TestData:", "Directory where data is to be saved")
+	
+	NMConfigVar(fname, "SeqAutoZero", 1, "Auto zero seq num after cell increment (0) no (1) yes")
+	
+	NMConfigVar(fname, "Backup", 20, "backup time for current Igor experiment (minutes)")
+	NMConfigVar(fname, "SaveFormat", 3, "Save data format (1) NM binary file (2) Igor binary file (3) both")
+	NMConfigVar(fname, "SaveWhen", 2, "Save data when (0) never (1) after recording (2) while recording")
+	NMConfigVar(fname, "SaveWithDialogue", 0, "Save with dialogue prompt? (0) no (1) yes")
+	NMConfigVar(fname, "SaveInSubfolder", 1, "Save data in subfolders? (0) no (1) yes")
+	NMConfigVar(fname, "AutoCloseFolder", 1, "Close previous data folder before creating new one? (0) no (1) yes")
+	
+	NMConfigVar(fname, "StatsBslnDsply", 1, "Display Stats baseline values? (0) no (1) yes")
+	NMConfigVar(fname, "StatsTauDsply", 2, "Display Stats time constants? (0) no (1) yes, same window (2) yes, seperate window")
+	
+	//NMConfigStr(fname, "ClampInstrument", "", "Amplifier name (for telegraph functions)")
+	
+	//NMConfigStr(fname, "TGainList", "", "Telegraph gain list string (ADC tgain chan, ADC input chan to scale")
+	
+	NMConfigVar(fname, "TModeChan", Nan, "ADC input channel for telegraph mode")
+	
+	NMConfigVar(fname, "TempChan", Nan, "ADC input channel for temperature")
+	NMConfigVar(fname, "TempSlope", 1, "Temp slope factor (100 degreesC/Volts)")
+	NMConfigVar(fname, "TempOffset", 0, "Temp offset (degreesC)")
+	
+	ClampBoardConfigs()
+
+End // ClampConfigs
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampConfigsUpdate()
 
 	Variable test
 	String cdf = ClampDF()
@@ -223,25 +271,13 @@ Function ClampSetPrefs()
 	String StimPathStr = StrVarOrDefault(cdf+"StimPath", "")
 	String sList = StrVarOrDefault(cdf+"OpenStimList", "")
 	
-	if (strlen(ClampPathStr) > 0)
-		NewPath /Z/O/Q ClampPath ClampPathStr
-		if (V_flag != 0)
-			DoAlert 0, "Failed to create external path to: " + ClampPathStr
-			SetNMstr(cdf+"ClampPath", "")
-		endif
-	endif
-	
-	if (strlen(StimPathStr) > 0)
-		NewPath /Z/O/Q StimPath StimPathStr
-		if (V_flag != 0)
-			DoAlert 0, "Failed to create external path to: " + StimPathStr
-			SetNMstr(cdf+"StimPath", "")
-		endif
-	endif
+	ClampPathsCheck()
 	
 	if ((strlen(StimPathStr) > 0) && (strlen(sList) > 0))
-		StimOpenList(sList)
+		StimOpenList(StimPathStr, sList)
 	endif
+	
+	ClampConfigBoard()
 	
 	test = ClampAcquireManager(StrVarOrDefault(cdf+"AcqBoard","Demo"), -2, 0) // test configuration
 	
@@ -249,13 +285,144 @@ Function ClampSetPrefs()
 		SetNMstr(cdf+"AcqBoard","Demo")
 	endif
 	
-	ClampProgress() // make sure progress display is OK
+	ClampProgressInit() // make sure progress display is OK
 	
 	SetNMvar(cdf+"ClampSetPreferences", 1)
 	
+	ClampDataFolderName(0)
+	
 	SetIgorHook IgorQuitHook = ClampExitHook // runs this fxn before quitting Igor
 
-End // ClampSetPrefs
+End // ClampConfigsUpdate
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ClampConfigBoard()
+
+	String blist = "", board = "Demo", cdf = ClampDF()
+	
+	Variable driver = NumVarOrDefault(cdf+"BoardDriver", 0)
+	
+	Execute /Z "NidaqBoardList()"
+	
+	if (V_flag == 0)
+		blist = StrVarOrDefault(cdf+"BoardList", "")
+		board = "NIDAQ"
+		driver = ClampBoardDriverPrompt()
+	endif
+	
+	if (strlen(blist) == 0)
+	
+		Execute /Z "ITC16stopacq"
+		
+		if (V_flag == 0)
+			driver = 0
+			blist = "ITC16"
+			board = "ITC16"
+		endif
+		
+	endif
+	
+	if (strlen(blist) == 0)
+		
+		Execute /Z "ITC18stopacq"
+
+		if (V_flag == 0)
+			driver = 0
+			blist = "ITC18"
+			board = "ITC18"
+		endif
+	
+	endif
+	
+	if (strlen(blist) == 0)
+		blist = "None"
+	endif
+		
+	SetNMstr(cdf+"BoardList", blist)
+	SetNMstr(cdf+"AcqBoard", board)
+	SetNMstr(cdf+"BoardSelect", board)
+	SetNMvar(cdf+"BoardDriver", driver)
+	
+	return blist
+
+End // ClampConfigBoard
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampPathsCheck()
+
+	String cdf = ClampDF()
+	String ClampPathStr = StrVarOrDefault(cdf+"ClampPath", "")
+	String StimPathStr = StrVarOrDefault(cdf+"StimPath", "")
+	
+	PathInfo /S ClampSaveDataPath
+	
+	if ((strlen(S_path) == 0) && (strlen(ClampPathStr) > 0))
+	
+		NewPath /Z/O/Q ClampSaveDataPath ClampPathStr
+		
+		if (V_flag != 0)
+			DoAlert 0, "Failed to create external path to: " + ClampPathStr
+			SetNMstr(cdf+"ClampPath", "")
+		endif
+		
+	endif
+	
+	PathInfo ClampStimPath
+	
+	if ((strlen(S_path) == 0) && (strlen(StimPathStr) > 0))
+	
+		NewPath /Z/O/Q ClampStimPath StimPathStr
+		
+		if (V_flag != 0)
+			DoAlert 0, "Failed to create external path to: " + StimPathStr
+			SetNMstr(cdf+"StimPath", "")
+		endif
+		
+	endif
+
+End // ClampPathsCheck
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ClampPathSet(pathStr)
+	String pathStr
+	
+	if (strlen(pathStr) == 0)
+		pathStr = "c:x"
+	endif
+			
+	NewPath /Q/O ClampSaveDataPath pathStr
+	
+	if (V_flag == 0)
+		PathInfo ClampSaveDataPath
+		pathStr = S_path
+		SetNMstr(ClampDF()+"ClampPath", S_path)
+	else
+		ClampError("Failed to create external path to: " + pathStr)
+		pathStr = ""
+	endif
+	
+	return pathStr
+	
+End // ClampPathSet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ClampFolderPrefix()
+
+	return StrVarOrDefault(ClampDF()+"FolderPrefix", ClampDateName())
+
+End // ClampFolderPrefix
 
 //****************************************************************
 //****************************************************************
@@ -290,12 +457,29 @@ End // ClampDateName
 //****************************************************************
 //****************************************************************
 
+Function /S ClampFileNamePrefixSet(prefix)
+	String prefix
+	
+	if (strlen(prefix) == 0)
+		prefix = ClampDateName()
+	endif
+	
+	SetNMStr(ClampDF()+"FolderPrefix", prefix)
+	
+	return prefix
+	
+End // ClampFileNamePrefixSet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function ClampError(errorStr)
 	String errorStr
 	String cdf = ClampDF()
 	
 	if (strlen(errorStr) == 0)
-		SetNMstr(cdf+"ClampErrorStr", "No Error")
+		SetNMstr(cdf+"ClampErrorStr", "")
 		SetNMvar(cdf+"ClampError", 0)
 	else
 		SetNMstr(cdf+"ClampErrorStr", errorStr)
@@ -310,7 +494,7 @@ End // ClampError
 //****************************************************************
 //****************************************************************
 
-Function ClampProgress() // use ProgWin XOP display to allow cancel of acquisition
+Function ClampProgressInit() // use ProgWin XOP display to allow cancel of acquisition
 	String ndf = NMDF()
 
 	Variable pflag = NumVarOrDefault(ndf+"ProgFlag", 0)
@@ -346,1227 +530,323 @@ End // ClampProgress
 //****************************************************************
 //****************************************************************
 
-Function ClampBoardNum(boardListStr)
-	String boardListStr // such as "1,PCI-6052E"
+Function ClampFolderAutoCloseSet(on)
+	Variable on // (0) off (1) on
 	
-	return str2num(StringFromList(0, boardListStr, ","))
+	SetNMVar(ClampDF()+"AutoCloseFolder", on)
 	
-End // ClampBoardNum
+End // ClampFolderAutoCloseSet
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function /S ClampBoardName(boardListStr)
-	String boardListStr // such as "1,PCI-6052E"
+Function ClampLogAutoSaveSet(on)
+	Variable on // (0) off (1) on
 	
-	return StringFromList(1, boardListStr, ",")
-	
-End // ClampBoardName
+	SetNMvar(ClampDF()+"LogAutoSave", on)
+
+End // ClampLogAutoSaveSet
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ClampBoardListNum(boardNum) // return list number of given board
-	Variable boardNum
+Function ClampLogDisplaySet(selectStr)
+	String selectStr // "None", "Both", "Text" or "Table"
 	
-	String cdf = ClampDF()
+	Variable nb, table, select
 	
-	String boardList = StrVarOrDefault(cdf+"BoardList", "")
+	String cdf = ClampDF(), ldf = LogDF()
 	
-	Variable icnt
-	String item
+	String nbName = LogNoteBookName(ldf)
+	String tName = LogTableName(ldf)
 	
-	for (icnt = 0; icnt < ItemsInList(boardList); icnt += 1)
-		item = StringFromList(icnt, boardList, ";")
-		item = StringFromList(0, item, ",")
-		if (str2num(item) == boardNum)
-			return icnt
-		endif
-	endfor
+	strswitch(selectStr)
 	
-	return -1
-
-End // ClampBoardListNum
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-//
-//	Clamp aquisition/manager functions defined below
-//
-//
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampAcquireCall(mode)
-	Variable mode // (0) preview (1) record
-	
-	String cdf = ClampDF()
-	
-	String aboard = StrVarOrDefault(cdf+"AcqBoard", "")
-	
-	if (StimChainOn() == 1)
-		ClampAcquireChain(aboard, mode)
-	else
-		ClampAcquire(aboard, mode)
-	endif
-
-End // ClampAcquireCall
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampAcquire(AcqBoard, mode)
-	String AcqBoard
-	Variable mode // (0) preview (1) record
-	
-	Variable error
-	String cdf = ClampDF(), sdf = StimDF(), ldf = LogDF()
-	
-	Variable saveWhen = NumVarOrDefault(cdf+"SaveWhen", 0)
-	Variable AcqMode = NumVarOrDefault(sdf+"AcqMode", 0)
-	String path = StrVarOrDefault(cdf+ "ClampPath", "")
-	
-	Variable statsOn = StimStatsOn()
-	Variable spikeOn = StimSpikeOn()
-	
-	ClampError("")
-	
-	if (strlen(path) == 0)
-		ClampError("Please specify \"save to\" path on CF tab.")
-		return -1
-	endif
-	
-	ClampStatsInit()
-	ClampSpikeInit()
-	
-	if (WinType(NotesTableName()) == 2)
-		NotesTable(1) // update notes if table is open
-	endif
-	
-	ClampSaveSubPath()
-	
-	LogCheckFolder(ldf) // check Log folder is OK
-	
-	if (ClampConfigCheck() == -1)
-		return -1
-	endif
-	
-	if ((AcqMode == 1) && (saveWhen == 2) && (mode == 1))
-		ClampError("Save While Recording is not allowed with continuous acquisition.")
-		return -1
-	endif
-	
-	StimWavesCheck(sdf, 0)
-	
-	if (ClampDataFolderCheck() == -1)
-		return -1
-	endif
-	
-	if ((mode == 1) && (ClampSaveTest(GetDataFolder(0)) == -1))
-		return -1
-	endif
-	
-	ClampTgainUpdate()
-	
-	// no longer test timers
-	
-	//if (NumVarOrDefault(cdf+"TestTimers", 1) == 1)
-	//if (ClampAcquireManager(AcqBoard, -1, 0)  == -1) // test timers
-	//	return -1 
-	//endif
-	//endif
-	
-	SetNMvar("NumWaves", 0)
-	SetNMvar("NumActiveWaves", 0)
-	SetNMvar("CurrentWave", 0)
-	SetNMvar("CurrentGrp", NMGroupFirstDefault())
-
-	if ((mode == 1) && (ClampSaveBegin() == -1))
-		SetNMvar("NumWaves", 0)
-		return -1
-	endif
-	
-	DoUpdate
-	
-	error = ClampAcquireManager(acqboard, mode, saveWhen)
-	
-	if ((error == -1) || (NumVarOrDefault(cdf+"ClampError", -1) == -1))
-		SetNMvar("NumWaves", 0)
-		return -1
-	endif
-	
-	DoWindow /F NMPanel
-	
-	return 0
-	
-End // ClampAcquire
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampAcquireDemo(mode, savewhen, WaveLength, NumStimWaves, InterStimTime, NumStimReps, InterRepTime)
-	Variable mode // (0) preview (1) record (-1) test timers
-	Variable savewhen // (0) never (1) after (2) while
-	Variable WaveLength, NumStimWaves, InterStimTime, NumStimReps, InterRepTime // msec
-	
-	Variable nwaves, rcnt, wcnt, config, chan, chanCount, npnts
-	String wname, gdf, cdf = ClampDF(), sdf = StimDF()
-	
-	if (NumVarOrDefault(sdf+"AcqMode", 0) == 1) // continuous
-		InterStimTime = 0
-		InterRepTime = 0
-	endif
-	
-	NVAR CurrentWave
-	
-	Variable pulseOff = NumVarOrDefault(sdf+"PulseGenOff", 0)
-	Variable SampleInterval = NumVarOrDefault(sdf+"SampleInterval", 0)
-	Variable SamplesPerWave = WaveLength / SampleInterval
-	
-	Wave DACon = $(sdf+"DACon")
-	Wave TTLon = $(sdf+"TTLon")
-	Wave ADCon = $(sdf+"ADCon")
-	Wave ADCscale = $(sdf+"ADCscale")
-	Wave ADCmode = $(sdf+"ADCmode")
-	
-	Make /O/N=(SamplesPerWave) CT_OutTemp
-	Setscale /P x 0, SampleInterval, CT_OutTemp
-	
-	nwaves = NumStimWaves * NumStimReps // total number of waves
-
-	ClampAcquireStart(mode, nwaves)
-	
-	for (rcnt = 0; rcnt < NumStimReps; rcnt += 1) // loop thru reps
-	
-	ClampWait(InterRepTime) // inter-rep time
-
-	for (wcnt = 0; wcnt < NumStimWaves; wcnt += 1) // loop thru stims
-	
-		ClampWait(InterStimTime) // inter-wave time
-		
-		CT_OutTemp = 0
-		npnts = numpnts(DACon)
-		
-		for (config = 0; config < npnts; config += 1)
-		
-			if (DACon[config] == 1)
-			
-				chan = StimWaveVar(sdf, "DAC", "chan", config)
-			
-				//if (pulseOff == 0)
-					wname = sdf + StimWaveName("DAC", config, wcnt)
-				//else
-				//	wname = sdf + StimWaveName("MyDAC", config, wcnt)
-				//endif
-				
-				if (WaveExists($wname) == 1)
-					Wave wtemp = $wname
-					CT_OutTemp += wtemp
-				endif
-				
-			endif
-			
-		endfor
-		
-		npnts = numpnts(TTLon)
-		
-		for (config = 0; config < npnts; config += 1)
-		
-			if (TTLon[config] == 1)
-			
-				chan = StimWaveVar(sdf, "TTL", "chan", config)
-				
-				//if (pulseOff == 0)
-					wname = sdf + StimWaveName("TTL", config, wcnt)
-				//else
-				//	wname = sdf + StimWaveName("MyTTL", config, wcnt)
-				//endif
-				
-				if (WaveExists($wname) == 1)
-					Wave wtemp = $wname
-					CT_OutTemp += wtemp
-				endif
-				
-			endif
-			
-		endfor
-		
-		ClampWait(WaveLength) // simulates delay in acquisition
-		
-		chanCount = 0
-		npnts = numpnts(ADCon)
-
-		for (config = 0; config < npnts; config += 1)
-		
-			if ((ADCon[config] == 1) && (ADCmode[config] == 0)) // stim/samp
-			
-				gdf = ChanDF(chanCount)
-				
-				if (NumVarOrDefault(gdf+"overlay", 0) > 0)
-					ChanOverlayUpdate(chanCount)
-				endif
-				
-				if (mode == 1) // record
-					wname = GetWaveName("default", chanCount, CurrentWave)
-				else // preview
-					wname = GetWaveName("default", chanCount, 0)
-				endif
-				
-				CT_OutTemp /= ADCscale[config]
-				
-				Duplicate /O CT_OutTemp $wname
-
-				ChanWaveMake(chanCount, wName, ChanDisplayWave(chanCount)) // make display wave
-		
-				if ((mode == 1) && (saveWhen == 2))
-					ClampNMbinAppend(wname) // update waves in saved folder
-				endif
-				
-				chanCount += 1
-				
-			endif
-			
-		endfor
-		
-		ClampAcquireNext(mode, nwaves)
-		
-		if (ClampAcquireCancel() == 1)
-			break
-		endif
-
-	endfor
-	
-		if (ClampAcquireCancel() == 1)
-			break
-		endif
-		
-	endfor
-	
-	KillWaves /Z CT_OutTemp
-	
-	ClampAcquireFinish(mode, savewhen)
-	
-	return 0
-
-End // ClampAcquireDemo
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampAcquireStart(mode, nwaves) // update folders and graphs, start timers
-	Variable mode, nwaves
-	
-	String cdf = ClampDF()
-	String gtitle = "Clamp Acquire"
-	String wPrefix = StrVarOrDefault("WavePrefix", "Record")
-	String currentStim = StimCurrent()
-
-	ClampDataFolderUpdate(nwaves, mode)
-	ClampGraphsUpdate(mode)
-	UpdateNMPanel(0)
-	ClampButtonDisable(mode)
-	
-	ClampStatsStart()
-	ClampSpikeStart()
-	
-	if (mode >= 0)
-		ClampFxnExecute("pre") // compute pre-stim analyses
-	endif
-	
-	if (NumVarOrDefault(cdf+"ClampError", -1) == -1)
-		return -1
-	endif
-	
-	CallProgress(0)
-	
-	DoUpdate
-	
-	Variable tref = stopMSTimer(0)
-	
-	SetNMvar(cdf+"TimerRef", startMSTimer)
-	
-	return 0
-
-End // ClampAcquireStart
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampAcquireNext(mode, nwaves) // increment counters, online analyses
-	Variable mode, nwaves
-	
-	Variable tstamp, tintvl, cancel, ccnt, chan
-	
-	String cdf = ClampDF()
-	
-	NVAR CurrentChan, CurrentWave, CurrentGrp, NumGrps, NumChannels
-	
-	Wave CT_TimeStamp, CT_TimeIntvl
-	
-	Variable firstGrp = NMGroupFirstDefault()
-	Variable tref = NumVarOrDefault(cdf+"TimerRef", 0)
-	
-	String gtitle = StrVarOrDefault(cdf+"ChanTitle", "Clamp Acquire")
-	
-	if (WinType("ChanA") == 1)
-		gtitle = NMFolderListName("") + " : Ch A : " + num2str(CurrentWave)
-		DoWindow /T ChanA, gtitle
-	endif
-	
-	for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
-		if (NumVarOrDefault(ChanDF(ccnt)+"AutoScale", 1) == 0)
-			ChanGraphAxesSet(ccnt)
-		endif
-	endfor
-	
-	
-	ClampStatsCompute(mode, CurrentWave, nwaves)
-	ClampSpikeCompute(mode, CurrentWave, nwaves)
-	
-	if (mode >= 0)
-		ClampFxnExecute("inter")
-	endif
-	
-	tintvl = stopMSTimer(tref)/1000
-	tref = startMSTimer
-	tstamp = tintvl
-	
-	SetNMvar(cdf+"TimerRef", tref)
-	
-	if (CurrentWave == 0)
-		tintvl = Nan
-	else
-		tstamp += CT_TimeStamp[CurrentWave-1]
-	endif
-	
-	CT_TimeStamp[CurrentWave] = tstamp
-	CT_TimeIntvl[CurrentWave] = tintvl
-	
-	CurrentWave += 1
-	CurrentGrp += 1
-	
-	if (CurrentGrp - firstGrp == NumGrps)
-		CurrentGrp = firstGrp
-	endif
-	
-	cancel = CallProgress(CurrentWave/nwaves)
-	
-	DoUpdate
-	
-	return cancel
-
-End // ClampAcquireNext
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampAcquireFinish(mode, savewhen)
-	Variable mode // (0) preview (1) record (-1) test timers (-2) error
-	Variable savewhen // (0) never (1) after (2) while
-	
-	String file, cdf = ClampDF()
-	
-	NVAR NumWaves, CurrentWave, NumActiveWaves
-	
-	SetNMstr("FileFinish", time())
-	
-	CallProgress(1) // close progress window
-	
-	ClampStatsFinish(currentWave)
-	
-	NumWaves = CurrentWave
-	CurrentWave = 0
-	
-	ClampGraphsFinish()
-	CheckNMDataFolder()
-	ChanWaveListSet(1) // set channel wave names
-	NMGroupSeqDefault()
-	UpdateNMPanel(0)
-	ClampTgainConvert()
-	
-	if (mode >= 0)
-		ClampFxnExecute("post") // compute post-stim analyses
-	endif
-	
-	if (mode <= 0) // preview, test, error
-	
-		NumWaves = 0 // back to zero
-		NumActiveWaves = 0
-		
-	elseif (mode == 1) // record and update Notes and Log variables
-	
-		if (strlen(StrVarOrDefault(NotesDF()+"H_Name", "")) == 0)
-			NotesEditHeader()
-		endif
-		
-		NotesBasicUpdate()
-		NotesCopyVars(LogDF(),"H_") // update header Notes
-		NotesCopyFolder(GetDataFolder(1)+"Notes") // copy Notes to data folder
-		ClampAcquireNotes()
-		ClampSaveFinish() // save data folder
-		NotesBasicUpdate() // do again, this includes new external file name
-		NotesCopyFolder(LogDF()+StrVarOrDefault(cdf+"CurrentFolder","nofolder")) // save log notes
-		
-		if (NumVarOrDefault(cdf+"LogAutoSave", 1) == 1)
-			LogSave()
-		endif
-		
-		LogDisplay2(LogDF(), NumVarOrDefault(cdf+"LogDisplay", 1))
-		
-		NotesClearFileVars() // clear file note vars before next recording
-		
-	endif
-	
-	ClampButtonDisable(-1)
-	
-	ClampAvgInterval()
-	
-	//if ((mode == 1) && (NumVarOrDefault(NMDF()+"AutoPlot", 0) == 1))
-	//	ResetCascade()
-	//	NMPlot( "" )
-	//endif
-	
-	return 0
-
-End // ClampAcquireFinish
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampAcquireCancel()
-	
-	return (NumVarOrDefault("V_Progress", 0) == 1)
-
-End // ClampAcquireCancel
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampAcquireChain(AcqBoard, mode)
-	String AcqBoard
-	Variable mode // (0) preview (1) record (-1) test timers
-	
-	Variable scnt, npnts
-	String sname, cdf = ClampDF(), sdf = StimDF()
-
-	if (WaveExists($(sdf+"Stim_Name")) == 0)
-		return -1
-	endif
-	
-	String aboard = StrVarOrDefault(cdf+"AcqBoard", "")
-	String saveStim = StimCurrent()
-	
-	Wave /T Stim_Name = $(sdf+"Stim_Name")
-	Wave Stim_Wait = $(sdf+"Stim_Wait")
-	
-	if (numpnts(Stim_Name) == 0)
-		ClampError("Alert: no stimulus protocols in Run Stim List.")
-		return -1
-	endif
-	
-	npnts = numpnts(Stim_Name)
-	
-	for (scnt = 0; scnt < npnts; scnt += 1)
-	
-		sname = Stim_Name[scnt]
-		
-		if (strlen(sname) == 0)
-			continue
-		endif
-		
-		if (IsStimFolder(StimParent(), sname) == 0)
-			DoAlert 0, "Alert: stimulus protocol \"" + sname + "\" does not appear to exist."
-			continue
-		endif
-		
-		if (StimCurrentSet(sname) == 0)
-			ClampTabUpdate()
-			ClampAcquire(AcqBoard, mode)
-			ClampWait(Stim_Wait[scnt]) // delay in acquisition
-		endif
-		
-		if (ClampAcquireCancel() == 1)
-			break
-		endif
-		
-	endfor
-	
-	StimCurrentSet(saveStim)
-	ClampTabUpdate()
-
-End // ClampAcquireChain
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampAcquireNotes()
-	Variable ccnt, wcnt
-	String wName, wNote, yl, type = "NMData"
-	
-	String stim = StimCurrent()
-	String folder = GetDataFolder(0)
-	String fdate = StrVarOrDefault("FileDate", "")
-	String ftime = StrVarOrDefault("FileTime", "")
-	String xl = StrVarOrDefault("xLabel", "")
-	
-	NVAR NumChannels, NumWaves
-	
-	Wave CT_TimeStamp
-	Wave /T yLabel
-	
-	for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
-	
-		yl = yLabel[ccnt]
-	
-		for (wcnt = 0; wcnt < NumWaves; wcnt += 1)
-	
-			wName = GetWaveName("default", ccnt, wcnt)
-			
-			wNote = "Stim:" + stim
-			wNote += "\rFolder:" + folder
-			wNote += "\rDate:" + NMNoteCheck(fdate)
-			wNote += "\rTime:" + NMNoteCheck(ftime)
-			wNote += "\rTime Stamp:" + num2strLong(CT_TimeStamp[wcnt], 3) + " msec"
-			wNote += "\rChan:" + ChanNum2Char(ccnt)
-			
-			NMNoteType(wName, type, xl, yl, wNote)
-		
-		endfor
-		
-	endfor
-	
-End // ClampAcquireNotes
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampAvgInterval()
-	Variable rcnt, wcnt, we, wn, re, rn, dr, icnt, isi
-	String txt, sdf = StimDF()
-	
-	Variable amode = NumVarOrDefault(sdf + "AcqMode", -1)
-	Variable WaveLength = NumVarOrDefault(sdf+"WaveLength", 0)
-	Variable NumStimWaves = NumVarOrDefault(sdf+"NumStimWaves", 0)
-	Variable interStimTime = NumVarOrDefault(sdf+"InterStimTime", 0)
-	Variable NumStimReps = NumVarOrDefault(sdf+"NumStimReps", 0)
-	Variable interRepTime = NumVarOrDefault(sdf+"InterRepTime", 0)
-	
-	if ((amode != 2) || (WaveExists(CT_TimeIntvl) == 0))
-		return 0
-	endif
-	
-	Wave CT_TimeIntvl
-	
-	for (rcnt = 0; rcnt < NumStimReps; rcnt += 1) // loop thru reps
-	
-		for (wcnt = 0; wcnt < NumStimWaves; wcnt += 1) // loop thru stims
-			
-			//dw = WaveLength + interStimTime + dr
-			isi = CT_TimeIntvl[icnt]
-			
-			if (numtype(isi) == 0)
-				if (dr == 0) // clock controlling inter-stim times
-					we += isi
-					wn += 1
-				else // clock controlling inter-rep times
-					re += isi
-					rn += 1
-				endif
-			endif
-			
-			dr = 0
-			icnt += 1
-			
-		endfor
-		
-		dr = interRepTime
-		
-	endfor
-	
-	if (wn > 0)
-		we /= wn
-		Print "Average episodic wave interval:", we, " msec"
-	endif
-	
-	if (rn > 0)
-		re /= rn
-		//Print "Average episodic rep interval:", re, " msec"
-	endif
-
-End // ClampAvgInterval
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampAcquireManager(atype, callmode, savewhen) // call appropriate aquisition function
-	String atype // acqusition board ("Demo", "ITC", "NIDAQ")
-	Variable callmode // (0) preview (1) record (-2) config test
-	Variable savewhen // (0) never (1) after (2) while
-	
-	String cdf = ClampDF(), sdf = StimDF() 
-	
-	Variable WaveLength = NumVarOrDefault(sdf+"WaveLength", 0)
-	Variable NumStimWaves = NumVarOrDefault(sdf+"NumStimWaves", 0)
-	Variable interStimTime = NumVarOrDefault(sdf+"InterStimTime", 0)
-	Variable NumStimReps = NumVarOrDefault(sdf+"NumStimReps", 0)
-	Variable interRepTime = NumVarOrDefault(sdf+"InterRepTime", 0)
-	
-	String currentStim = StimCurrent()
-	
-	ClampError("")
-	
-	switch(callmode)
-		case 0: // preview
-			NMProgressStr("Preview : " + currentStim)
-			break
-		case 1: // record
-			NMProgressStr("Record : " + currentStim)
-			break
-		default:
-			NMProgressStr("")
-			break
-	endswitch
-
-	strswitch(atype)
-	
-		case "Demo":
-		
-			switch(callmode)
-			
-				case -2: // test config
-					ClampConfigDemo()
-					break
-					
-				case 0: // preview
-				case 1: // record
-					ClampAcquireDemo(callmode, savewhen, WaveLength, NumStimWaves, interStimTime, NumStimReps, interRepTime)
-					break
-					
-				default:
-					ClampError("demo acquire mode " + num2str(callmode) + " not supported.")
-					return -1
-					
-			endswitch
-			
-			break
-		
-		case "NIDAQ":
-			
-			switch(callmode)
-			
-				case -2: // config
-					Execute /Z "NIDAQconfig()"
-					if (V_flag != 0)
-						ClampError("cannot locate function in NM_ClampNIDAQ.ipf")
-						return -1
-					endif
-					break
-					
-				case 0: // preview
-				case 1: // record
-					Execute /Z "NIDAQacquire" + ClampParameterList(callmode, savewhen, WaveLength, NumStimWaves, interStimTime, NumStimReps, interRepTime)
-					if (V_flag != 0)
-						ClampError("cannot locate function in NM_ClampNIDAQ.ipf")
-						return -1
-					endif
-					break
-					
-				default:
-					ClampError("NIDAQ acquire mode " + num2str(callmode) + " not supported.")
-					return -1
-					
-			endswitch
-			
+		case "None":
 			break
 			
-		case "ITC16":
-		case "ITC18":
+		case "Text":
+			nb = 1
+			select = 1
+			break
 		
-			switch(callmode)
-				case -2: // config
-					Execute /Z "ITCconfig(\"" + atype + "\")"
-					if (V_flag != 0)
-						ClampError("cannot locate function in NM_ClampITC.ipf")
-						return -1
-					endif
-					break
-					
-				case 0: // preview
-				case 1: // record
-					Execute /Z "ITCacquire" + ClampParameterList(callmode, savewhen, WaveLength, NumStimWaves, interStimTime, NumStimReps, interRepTime)
-					if (V_flag != 0)
-						ClampError("cannot locate function in NM_ClampITC.ipf")
-						return -1
-					endif
-					break
-					
-				default:
-					ClampError("ITC acquire mode " + num2str(callmode) + " not supported")
-					return -1
-					
-			endswitch
+		case "Table":
+			table = 1
+			select = 2
+			break
 			
+		case "Both":
+			nb = 1
+			table = 1
+			select = 3
 			break
 			
 		default:
-			ClampError("interface " + atype + " is not supported.")
 			return -1
-			break
-		
-	endswitch
-
-	return NumVarOrDefault(cdf+"ClampError", -1)
-
-End // ClampAcquireManager
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampReadManager(atype, board, ADCchan, gain, npnts) // call appropriate read function
-	String atype // acqusition board ("Demo", "ITC", "NIDAQ")
-	Variable board
-	Variable ADCchan // ADC input channel to read
-	Variable gain
-	Variable npnts // number of points to average
-	
-	String cdf = ClampDF(), vlist = ""
-	
-	SetNMvar(cdf+"ClampReadValue", Nan)
-	
-	if (numtype(board * ADCchan * gain * npnts) > 0)
-		return Nan
-	endif
-	
-	strswitch(atype)
-	
-		case "Demo":
-			return Nan
-			break
-		
-		case "NIDAQ":
-		
-			vlist = AddListItem(num2str(board), vlist, ",", inf)
-			vlist = AddListItem(num2str(ADCchan), vlist, ",", inf)
-			vlist = AddListItem(num2str(gain), vlist, ",", inf)
-			vlist += num2str(npnts) 
-			
-			Execute /Z "NIDAQread(" + vlist + ")"
-			
-			if (V_flag != 0)
-				ClampError("cannot locate function in NM_ClampNIDAQ.ipf")
-				return Nan
-			endif
-			
-			break
-			
-		case "ITC16":
-		case "ITC18":
-		
-			vlist = AddListItem(num2str(ADCchan), vlist, ",", inf)
-			vlist = AddListItem(num2str(gain), vlist, ",", inf)
-			vlist += num2str(npnts) 
-			
-			Execute /Z "ITCread(" + vlist + ")"
-			
-			if (V_flag != 0)
-				ClampError("cannot locate function in NM_ClampITC.ipf")
-				return Nan
-			endif
-			
-			break
-			
-		default:
-			ClampError("interface " + atype + " is not supported.")
-			return Nan
-			
-	endswitch
-
-	return NumVarOrDefault(cdf+"ClampReadValue", Nan)
-	
-End // ClampReadManager
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S ClampParameterList(callmode, savewhen, WaveLength, NumStimWaves, interStimTime, NumStimReps, interRepTime)
-	Variable callmode, savewhen, WaveLength, NumStimWaves, interStimTime, NumStimReps, interRepTime
-
-	String paramstr = "("+num2str(callmode)+","+num2str(savewhen)+","+num2str(WaveLength)+","+num2str(NumStimWaves)+","
-	paramstr += num2str(interStimTime)+","+num2str(NumStimReps)+","+num2str(interRepTime)+")"
-	
-	return paramstr
-
-End // ClampParameterList
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampFxnExecute(select)
-	String select
-	
-	String flist, fxn, sdf = StimDF()
-	Variable icnt
-	
-	strswitch(select)
-	
-		case "pre":
-		case "pre-stim":
-			flist = StrVarOrDefault(sdf+"PreStimFxnList","")
-			break
-			
-		case "inter":
-		case "inter-stim":
-			flist = StrVarOrDefault(sdf+"InterStimFxnList","")
-			break
-			
-		case "post":
-		case "post-stim":
-			flist = StrVarOrDefault(sdf+"PostStimFxnList","")
-			break
 			
 	endswitch
 	
-	for (icnt = 0; icnt < ItemsInList(flist); icnt += 1)
+	SetNMvar(cdf+"LogDisplay", select)
 	
-		fxn = StringFromList(icnt, flist)
-		
-		if (StringMatch(fxn[strlen(fxn)-3,strlen(fxn)-1],"(0)") == 0)
-			fxn += "(0)" // run function
-		endif
-		
-		Execute /Z fxn
-		
-	endfor
-
-End // ClampFxnExecute
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampConfigCheck()
-	String sdf = StimDF()
-	
-	if (WaveExists($(sdf+"ADCon")) == 0)
-		ClampError("ADC input has not been configured.")
-		return -1
+	if (nb == 0)
+		DoWindow /K $nbName
+	elseif (WinType(nbName) == 5)
+		DoWindow /F $nbName
+	else
+		LogNoteBook(ldf)
 	endif
 	
-	if (StimOnCount(sdf, "ADC") == 0)
-		ClampError("ADC input has not been configured.")
-		return -1
+	if (table == 0)
+		DoWindow /K $tName
+	elseif (WinType(tName) == 2)
+		DoWindow /F $tName
+	else
+		LogTable(ldf)
 	endif
 	
-	return StimCheckChannels()
+	return select
 	
-End // ClampConfigCheck
+End // ClampLogDisplaySet
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ClampConfigDemo()
+Function ClampStimPathAsk()
 
 	String cdf = ClampDF()
 	
-	ClampError("")
+	NewPath /Q/O/M="Stim File Directory" ClampStimPath
 	
-	SetNMStr(cdf+"AcqBoard", "Demo")
-	SetNMVar(cdf+"BoardDriver", 0)
-	SetNMStr(cdf+"BoardList", "0, Demo;")
+	if (V_flag == 0)
 	
-	return 0
+		PathInfo ClampStimPath
+		
+		if (strlen(S_path) > 0)
+			SetNMstr(cdf+"StimPath", S_path)
+			DoAlert 0, "Don't forget to save changes by saving your Configurations (NeuroMatic > Configs > Save)."
+		endif
+		
+	endif
 
-End // ClampConfigDemo
+End // ClampStimPathSet
 
-//****************************************************************
-//****************************************************************
-//****************************************************************
-//
-//
-//	Telegraph gain functions defined below
-//
-//
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ClampTgainConfig()
-	Variable icnt, achan, gchan, on, mode, ibgn, iend
-	String item, tlist = ""
+Function ClampStimListAsk()
+
+	String cdf = ClampDF()
+	String openList = StrVarOrDefault(cdf+"OpenStimList", "")
 	
+	//if (strlen(openList) == 0)
+		openList = StimList()
+	//endif
+	
+	Prompt openList, "list of stim files to open when starting Nclamp:"
+	DoPrompt "Set Stim List", openList
+	
+	if (V_flag == 1)
+		return -1 // cancel
+	endif
+	
+	SetNMstr(cdf+"OpenStimList", openList)
+	
+	DoAlert 0, "Don't forget to save changes by saving your Configurations (NeuroMatic > Configs > Save)."
+
+End // ClampStimListSet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampSaveAsk()
 	String cdf = ClampDF()
 	
-	String blist = StrVarOrDefault(cdf+"BoardList", "")
-	Variable driver = NumVarOrDefault(cdf+"BoardDriver", 0)
+	Variable saveWhen = NumVarOrDefault(cdf+"SaveWhen", 1) + 1
+	Variable savePrompt = NumVarOrDefault(cdf+"SaveWithDialogue", 1) + 1
+	Variable saveFormat = NumVarOrDefault(cdf+"SaveFormat", 1)
 	
-	String instr = StrVarOrDefault(cdf+"ClampInstrument", "")
-	String tGainList = StrVarOrDefault(cdf+"TGainList", "")
+	Variable bintype = FileBinType()
 	
-	Prompt mode, " ", popup "edit existing config;add new config;"
-	Prompt gchan, "ADC input channel to read telegraph gain:"
-	Prompt achan, "ADC input channel to scale:"
-	Prompt instr, "telegraphed instrument:", popup "Axopatch200B;"
-	Prompt on, " ", popup "off;on;"
+	Prompt saveWhen, "save data when?", popup "never;after recording;while recording;"
+	Prompt savePrompt, "save with dialogue prompt?", popup "no;yes;"
+	Prompt saveFormat, "save as file format:", popup "NeuroMatic Binary;Igor Binary;Both;"
 	
-	if (ItemsInList(tGainList) > 0)
+	DoPrompt "Save Data Configuration", saveWhen, savePrompt, saveFormat
 	
-		DoPrompt "ADC Telegraph Gain Config", mode
+	if (V_flag == 1)
+		return -1 // cancel
+	endif
 	
+	if ((saveWhen == 3) && (saveFormat == 2))
+		saveFormat = 3 // save both if save while recording
+	endif
+	
+	if ((saveWhen == 2) && (bintype == 1) && (saveFormat != 2))
+		saveFormat = 2
+		DoPrompt "Please Check File Format", saveFormat
 		if (V_flag == 1)
 			return -1 // cancel
 		endif
-		
-	else
-	
-		mode = 2 // nothing to edit
-		
-	endif
-	
-	if (mode == 1)
-		ibgn = 0; iend = ItemsInList(tGainList) - 1
-	elseif (mode == 2)
-		ibgn = ItemsInList(tGainList); iend = ItemsInList(tGainList)
-		tlist = TGainList
-		tGainList = ""
-	endif
-	
-	for (icnt = ibgn; icnt <= iend; icnt += 1)
-	
-		if (icnt < ItemsInList(tGainList))
-			item = StringFromList(icnt, tGainList)
-			gchan = str2num(StringFromList(0, item, ","))
-			achan = str2num(StringFromList(1, item, ","))
-		else
-			gchan = 1
-			achan = 0
-		endif
-		
-		on = 2
-		
-		DoPrompt "ADC Telegraph Gain Config " + num2str(icnt), on, gchan, achan, instr
-		
-		if (V_flag == 1)
-			return -1 // cancel
-		endif
-		
-		item = num2str(gchan) + "," + num2str(achan)
-		
-		if ((on == 2) && (WhichListItem(item, tlist) == -1))
-			tlist = AddListItem(item, tlist, ";", inf)
-		endif
-		
-	endfor
-	
-	SetNMstr(cdf+"TGainList", tlist)
-	SetNMstr(cdf+"ClampInstrument", instr)
-
-End // ClampTgainConfig
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampTgainUpdate()
-	Variable icnt, config, aChan, gChan, npnts
-	String item
-	
-	String cdf = ClampDF(), sdf = StimDF()
-	
-	String tGainList = StrVarOrDefault(cdf+"TGainList", "")
-
-	Wave ADCon = $(sdf+"ADCon")
-	Wave ADCchan = $(sdf+"ADCchan")
-
-	if (strlen(tGainList) > 0)
-	
-		npnts = numpnts(ADCon)
-		
-		Make /O/N=(npnts) $(cdf+"ADCtgain") = Nan
-		
-		Wave ADCtgain = $(cdf+"ADCtgain")
-	
-		for (icnt = 0; icnt < ItemsInList(tGainList); icnt += 1)
-		
-			item = StringFromList(icnt, tGainList)
-			gChan = str2num(StringFromList(0, item, ",")) // corresponding telegraph ADC input channel
-			aChan = str2num(StringFromList(1, item, ",")) // ADC input channel
-			
-			for (config = 0; config < npnts; config += 1)
-			
-				if ((ADCon[config] == 1) && (ADCchan[config] == achan))
-					ADCtgain[config] = gChan
-					break
-				endif
-				
-			endfor
-			
-		endfor
-		
 	endif
 
-End // ClampTgainUpdate
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampTgainValue(df, chanNum, waveNum)
-	String df // data folder
-	Variable chanNum
-	Variable waveNum
-	
-	Variable npnts
-	
-	String wname = df + "CT_Tgain" + num2str(chanNum) // telegraph gain wave
-	
-	if (WaveExists($wname) == 0)
-		return -1
+	if (saveWhen == 3)
+		DoAlert 0, "Warning: depending on the speed of your computer, Save While Recording option may slow acquisition. Please use with caution."
 	endif
 	
-	Wave temp = $wname
+	SetNMVar(cdf+"SaveWhen", saveWhen - 1)
+	SetNMVar(cdf+"SaveWithDialogue", savePrompt - 1)
+	SetNMVar(cdf+"SaveFormat", saveFormat)
 
-	if (waveNum == -1) // return avg of wave
-		temp = Zero2Nan(temp) // remove possible 0's
-		WaveStats /Q temp
-		return V_avg
-	else
-		return temp[waveNum]
-	endif
-
-End // ClampTgainValue
+End // ClampSaveAsk
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ClampTgainConvert() // convert final tgain values to scale values
-	Variable ocnt, icnt, tvalue, npnts
-	String olist, oname
+Function ClampAutoBackupNM()
 	
-	olist = WaveList("CT_Tgain*", ";", "") // created by NIDAQ code
+	String fname, cdf = ClampDF()
+	Variable minutes = DateTime / 60
+	Variable backup = NumVarOrDefault(cdf+"BackUp", 20) // minutes
+	Variable lastbackup = NumVarOrDefault(cdf+"LastBackUp", Nan) // minutes
+	String path = StrVarOrDefault(cdf+"ClampPath", "")
+	String folderPrefix = ClampFolderPrefix()
 	
-	for (ocnt = 0; ocnt < ItemsInList(olist); ocnt += 1)
+	ClampPathsCheck()
 	
-		oname = StringFromList(ocnt, olist)
-		
-		Wave wtemp = $oname
-		
-		npnts = numpnts(wtemp)
-		
-		for (icnt = 0; icnt < npnts; icnt += 1)
-		
-			tvalue = wtemp[icnt]
-			
-			if (numtype(tvalue) == 0)
-				wtemp[icnt] = MyTelegraphGain(tvalue, tvalue)
-			endif
-			
-		endfor
+	PathInfo ClampSaveDataPath
 	
-	endfor
-	
-	olist = VariableList("Tgain*",";",4+2) // created by ITC code
-	
-	for (ocnt = 0; ocnt < ItemsInList(olist); ocnt += 1)
-	
-		oname = StringFromList(ocnt, olist)
-		
-		tvalue = NumVarOrDefault(oname, -1)
-		
-		if (tvalue == -1)
-			continue
-		endif
-		
-		SetNMvar(oname, MyTelegraphGain(tvalue, tvalue))
-		
-	endfor
-
-End // ClampTgainConvert
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-//
-//
-//	Igor-timed clock functions
-//
-//
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampWait(t)
-	Variable t
-	
-	if (IgorVersion() >= 5)
-		return ClampWaitMSTimer(t)
-	else
-		return ClampWaitTicks(t)
+	if ((strlen(S_path) == 0) || (strlen(folderPrefix) == 0))
+		return 0 // nowhere to save
 	endif
 	
-End // ClampWait
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampWaitTicks(t) // wait t msec (only accurate to 17 msec)
-	Variable t
-	
-	if (t == 0)
+	if ((numtype(backup) > 0) || (backup <= 0))
 		return 0
 	endif
 	
-	Variable t0 = ticks
-	
-	t *= 60 / 1000
+	if ((numtype(lastbackup) > 0) || (minutes >= lastbackup + backup))
+		fname = folderPrefix + "_backup.pxp"
+		SaveExperiment /P=ClampSaveDataPath as fname
+		Print "Backed up the current experiment in file " + S_path + fname
+		SetNMvar(cdf+"LastBackUp", minutes)
+	endif
 
-	do
-	while ((ClampAcquireCancel() == 0) && (ticks - t0 < t ))
+End // ClampAutoBackupNM
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+//
+//	Current Stim Functions
+//
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S StimCurrent()
+
+	return StrVarOrDefault(ClampDF()+"CurrentStim", "")
 	
-	return 0
-	
-End // ClampWaitTicks
+End // StimCurrent
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ClampWaitMSTimer(t) // wait t msec (this is more accurate)
-	Variable t
+Function StimCurrentCheck() // check current stim is OK
 	
-	if (t == 0)
-		return 0
+	String cdf = ClampDF()
+	String CurrentStim = StimCurrent()
+	String sList = StimList()
+	
+	if (strlen(CurrentStim+sList) == 0) // nothing is open
+	
+		CurrentStim = "Stim0"
+		StimNew(CurrentStim) // begin with blank stim
+		StimCurrentSet(CurrentStim)
+		
+	elseif (WhichListItem(UpperStr(CurrentStim), UpperStr(sList)) == -1)
+	
+		StimCurrentSet(StringFromList(0, sList))
+		
+	endif
+
+End // StimCurrentCheck
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S StimCurrentSet(fname) // set current stim
+	String fname // stimulus name
+	
+	Variable update1, update2, update3
+	String sdf, dp = StimParent(), cdf = ClampDF()
+	
+	Variable lastMode = NumVarOrDefault("CT_RecordMode", 0)
+	
+	if (strlen(fname) == 0)
+		SetNMstr(cdf+"CurrentStim", "")
+		return ""
 	endif
 	
-	Variable t0 = stopMSTimer(-2)
+	if (stringmatch(fname, StimCurrent()) == 1)
+		//return 0 // already current stim
+	endif
 	
-	t *= 1000 // convert to usec
+	if (DataFolderExists(dp+fname) == 0)
+		return ""
+	endif
 	
-	do
-	while ((ClampAcquireCancel() == 0) && (stopMSTimer(-2) - t0 < t ))
+	if (IsStimFolder(dp, fname) == 0)
+		ClampError("\"" + fname + "\" is not a NeuroMatic stimulus folder.")
+		return ""
+	endif
 	
-	return 0
+	ClampSpikeDisplaySavePosition()
+	ClampStatsDisplaySavePosition()
 	
-End // ClampWaitMSTimer
+	sdf = dp + fname + ":"
+	
+	SetNMstr(cdf+"CurrentStim", fname)
+	
+	if (StimChainOn("") == 1)
+		StimChainEdit("")
+		//ClampTabUpdate()
+		return fname
+	endif
+	
+	if (lastmode == 0) // empty folder
+		SetNMvar("CurrentChan", NumVarOrDefault(sdf+"CurrentChan", 0))
+		SetNMvar("NumChannels", StimBoardNumADCchan(sdf))
+	endif
+	
+	StimBoardConfigsOld2NewAll("")
+	StimBoardConfigsUpdateAll("")
+	
+	ClampStatsRetrieveFromStim() // get Stats from new stim
+	ClampStats(StimStatsOn())
+	ClampGraphsCopy(-1, -1) // get Chan display variables
+	ChanGraphsReset()
+	ClampStatsDisplaySetPosition("amp")
+	ClampStatsDisplaySetPosition("tau")
+	ClampSpikeDisplaySetPosition()
+	
+	//UpdateNMPanel(0)
+	//ClampTabUpdate()
+	//ChanGraphsUpdate()
+	
+	StatsDisplayClear()
+	
+	return fname
+	
+End // StimCurrentSet
 
 //****************************************************************
 //****************************************************************
@@ -1584,15 +864,15 @@ Function ClampGraphsCopy(chanNum, direction)
 	Variable chanNum // (-1) for all
 	Variable direction // (1) data folder to clamp data folder (-1) visa versa
 
-	Variable ccnt
-	String cdf = ClampDF(), sdf = StimDF(), gdf = GetDataFolder(1)
-	
-	String currFolder = StrVarOrDefault(cdf + "CurrentFolder", "")
+	String stim = StimCurrent(), sdf = StimDF(), gdf = GetDataFolder(1)
 	
 	if (direction == 1)
-		ChanFolderCopy(-1, gdf, sdf, 1)
+		if (StringMatch(stim, StrVarOrDefault(gdf+"CT_Stim", "")) == 1)
+			ChanFolderCopy(-1, gdf, sdf, 1)
+		endif
 	elseif (direction == -1)
 		ChanFolderCopy(-1, sdf, gdf, 0)
+		SetNMstr(gdf+"CT_Stim", stim)
 	endif
 
 End // ClampGraphsCopy
@@ -1753,28 +1033,111 @@ End // ClampZoom
 //****************************************************************
 //****************************************************************
 //****************************************************************
+//
+//
+//	Acquisition board configuration functions
+//
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
 
-Function ClampExitHook()
+Function /S ClampBoardName(boardNum)
+	Variable boardNum // (0) driver (> 0) for name from BoardList
+	
+	String cdf = ClampDF()
+	
+	Variable driver = NumVarOrDefault(cdf+"BoardDriver", 0)
+	
+	String bList = StrVarOrDefault(cdf+"BoardList", "")
+	
+	if (boardNum == 0)
+		boardNum = driver
+	endif
+	
+	if (ItemsInList(bList) == 1)
+	
+		return StringFromList(0, bList)
+		
+	elseif (ItemsInList(bList) > 1)
+	
+		if (boardNum <= 0)
+			return StringFromList(0, bList)
+		elseif ((boardNum > 0) && (boardNum <= ItemsInList(bList)))
+			return StringFromList(boardNum-1, bList)
+		endif
+		
+	endif
+	
+	return ""
 
-	String board = StrVarOrDefault(ClampDF()+"AcqBoard","")
+End // ClampBoardName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampBoardSet(select)
+	String select
 	
-	DoAlert 0, "Clamp Exit"
+	Variable driver
+	String cdf = ClampDF()
+	String blist = StrVarOrDefault(cdf+"BoardList", "")
 	
-	strswitch(board) // Reset boards
+	strswitch(select)
+	
 		case "ITC16":
 		case "ITC18":
-			Execute /Z "ITCconfig(\"" + board + "\")" 
+			SetNMvar(cdf+"BoardDriver", 0)
 			break
+			
 		case "NIDAQ":
-			Execute /Z "NidaqResetHard()"
+			driver = ClampBoardDriverPrompt()
+			SetNMvar(cdf+"BoardDriver", driver)
 			break
+			
+		default:
+			select = "Demo"
+			
 	endswitch
+	
+	ClampAcquireManager(select, -2, 0) // test interface board
+	
+	if (NumVarOrDefault(cdf+"ClampError", -1) == 0)
+		SetNMStr(cdf+"BoardSelect", select)
+	endif
+	
+End // ClampBoardSet
 
-End // ClampExitHook
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampBoardDriverPrompt()
+
+	String cdf = ClampDF()
+	String blist = StrVarOrDefault(cdf + "BoardList", "")
+	Variable driver = NumVarOrDefault(cdf+"BoardDriver", 0)
+
+	if (ItemsInList(blist) > 1)
+		
+		Prompt driver, "please select your default board:", popup blist
+		DoPrompt "NIDAQ board configuration", driver
+		
+		if (V_flag == 1)
+			driver = 1
+		endif
+			
+	endif
+	
+	return driver
+
+End // ClampBoardDriverPrompt
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
+
 
 
 
