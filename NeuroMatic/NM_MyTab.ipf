@@ -212,7 +212,7 @@ Function MyTabCall(fxn, select)
 			return MyFunction2()
 			
 		case "Function3":
-			return MyFunction3(select)
+			return MyFunction3Call(select)
 
 	endswitch
 	
@@ -225,14 +225,14 @@ End // MyTabCall
 Function MyFunction0()
 
 	String df = MyTabDF()
-
-	DoAlert 0, "Your macro can be run here."
 	
 	NVAR MyVar = $(df+"MyVar")
 	SVAR MyStr = $(df+"MyStr")
 	
 	Wave MyWave = $(df+"MyWave")
 	Wave /T MyTxtWave = $(df+"MyTxtWave")
+	
+	NMDoAlert("Your macro can be run here.")
 
 End // MyFunction0
 
@@ -260,8 +260,27 @@ End // MyFunction2
 //****************************************************************
 //****************************************************************
 
-Function MyFunction3(select)
+Function MyFunction3Call(select)
 	String select
+	
+	Variable dumvar
+	String vlist = ""
+
+	vlist = NMCmdStr(select, vlist)
+	vlist = NMCmdNum(dumvar, vlist)
+	NMCmdHistory("MyFunction3", vlist) // print function command to history
+
+	return MyFunction3(select, dumvar)
+
+End // MyFunction3Call
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function MyFunction3(select, dumvar)
+	String select
+	Variable dumvar
 
 	Print "You entered : " + select
 

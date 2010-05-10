@@ -224,7 +224,7 @@ Function /S NMConfigSaveCall(fname)
 		fname = "All"
 	
 		if (ItemsInList(flist) == 0)
-			DoAlert 0, "No Configurations to save."
+			NMDoAlert("No Configurations to save.")
 			return ""
 		endif
 		
@@ -263,7 +263,7 @@ Function /S NMConfigSave(fname) // save config folder
 	String file = "NMConfig" + fname
 
 	if (StringMatch(StrVarOrDefault(df+"FileType", ""), "NMConfig") == 0)
-		DoAlert 0, "NMConfigSave Error: folder is not a NM configuration file."
+		NMDoAlert("NMConfigSave Error: folder is not a NM configuration file.")
 		return ""
 	endif
 	
@@ -307,7 +307,7 @@ Function /S NMConfigSaveAll()
 	endif
 
 	if (StringMatch(StrVarOrDefault(df+"FileType", ""), "NMConfig") == 0)
-		DoAlert 0, "NMConfigSave Error: folder is not a NM configuration file."
+		NMDoAlert("NMConfigSave Error: folder is not a NM configuration file.")
 		return ""
 	endif
 	
@@ -380,10 +380,11 @@ Function NMConfigOpen(file)
 		error = 0
 		
 		CheckNMConfigsAll()
+		CheckNMPaths()
 		
 	else
 	
-		DoAlert 0, "Open File Error: file is not a NeuroMatic configuration file."
+		NMDoAlert("Open File Error: file is not a NeuroMatic configuration file.")
 		
 	endif
 	
@@ -405,10 +406,6 @@ Function NMConfigOpenAuto()
 
 	Variable icnt, error = -1
 	String fname, ext = FileBinExt()
-	
-	if (IgorVersion() < 5)
-		return -1 // does not seem to work with earlier Igor
-	endif
 
 	CheckNMPath()
 	
@@ -468,7 +465,7 @@ Function NMConfigKillCall(fname)
 	if ((strlen(fname) == 0) || (FindListItem(fname, flist) < 0))
 	
 		if (ItemsInList(flist) == 0)
-			DoAlert 0, "No configuration to kill."
+			NMDoAlert("No configuration to kill.")
 			return 0
 		endif
 		
@@ -666,13 +663,13 @@ Function NMConfigEditCall(fname)
 	if ((strlen(fname) == 0) || (FindListItem(fname, flist) < 0))
 	
 		if (ItemsInList(flist) == 0)
-			DoAlert 0, "No Configurations to edit."
+			NMDoAlert("No Configurations to edit.")
 			return 0
 		endif
 		
-		if (ItemsInList(flist) > 1)
-			flist += "All;"
-		endif
+		//if (ItemsInList(flist) > 1)
+		//	flist += "All;" // this seems to crash Igor
+		//endif
 	
 		Prompt fname, "choose configuration to edit:", popup flist
 		DoPrompt "Edit Configurations", fname
@@ -707,7 +704,8 @@ Function NMConfigEdit(flist) // create table to edit config vars
 	Variable xPixels = NumVarOrDefault(ndf+"xPixels", 1000)
 	
 	if (StringMatch(flist, "All") == 1)
-		flist = NMConfigList()
+		//flist = NMConfigList()
+		return -1 // not allowed. crashes Igor.
 	endif
 	
 	for (fcnt = 0; fcnt < ItemsInList(flist); fcnt += 1)

@@ -13,8 +13,6 @@
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 11 May 2007
-//
 //****************************************************************
 //****************************************************************
 //****************************************************************
@@ -158,7 +156,7 @@ Function ReadAxoColumns(file, df, numColumns, saveTheData, format)  // read Axog
 	Variable saveTheData // (0) no (1) yes
 	Variable format
 	
-	Variable icnt, scnt, wcnt, ncnt, scale, sampleInterval
+	Variable icnt, wcnt, ncnt, scale, sampleInterval
 	Variable ccnt, numChannels, nomorechannels
 	String dumstr, wprefix, wname, wnote, tLabel, xLabel
 	
@@ -233,9 +231,9 @@ Function ReadAxoColumns(file, df, numColumns, saveTheData, format)  // read Axog
 				nomorechannels = 1
 				ccnt = 0 // return to first channel
 				wcnt += 1 // next wave
+				ncnt += 1
 				
 				if (saveTheData == 0)
-					scnt = 1
 					break
 				endif
 				
@@ -267,13 +265,10 @@ Function ReadAxoColumns(file, df, numColumns, saveTheData, format)  // read Axog
 			wNote = "Folder:" + GetDataFolder(0)
 			wNote += "\rFile:" + NMNoteCheck(file)
 			wNote += "\rChan:" + ChanNum2Char(ccnt)
-			wNote += "\rWave:" + num2str(wcnt)
+			wNote += "\rWave:" + num2str(ncnt)
 			wNote += "\rScale:" + num2str(scale)
 	
 			NMNoteType(wName, "Axograph", xLabel, yLabel[ccnt], wNote)
-			
-			scnt += 1
-			ncnt += 1
 		
 		endif
 		
@@ -284,6 +279,7 @@ Function ReadAxoColumns(file, df, numColumns, saveTheData, format)  // read Axog
 			if (ccnt == numChannels)
 				ccnt = 0
 				wcnt += 1
+				ncnt += 1
 			endif
 		
 		endif
@@ -296,7 +292,7 @@ Function ReadAxoColumns(file, df, numColumns, saveTheData, format)  // read Axog
 	
 	SetNMvar(df+"NumChannels", numChannels)
 	
-	return scnt
+	return numChannels
 
 End // ReadAxoColumns
 

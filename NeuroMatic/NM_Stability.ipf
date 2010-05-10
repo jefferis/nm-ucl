@@ -286,7 +286,7 @@ Function /S NMStability(wName, startPnt, endPnt, minArray, sig, win2Frac)
 	if (pfirst < 0) // no stable region detected
 	
 		STBL_Sig1 = Nan
-		DoAlert 0, "Abort: no stable region detected during first stability test. Try using smaller analysis window."
+		NMDoAlert("Abort: no stable region detected during first stability test. Try using smaller analysis window.")
 		NMStabilityKill()
 		return ""
 		

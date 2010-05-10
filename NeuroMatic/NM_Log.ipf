@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -14,7 +14,6 @@
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last Modified 25 Feb 2007
 //
 //****************************************************************
 //****************************************************************
@@ -246,7 +245,7 @@ Function LogDisplayCall(ldf)
 	vlist = NMCmdNum(select, vlist)
 	NMCmdHistory("LogDisplay", vlist)
 	
-	LogDisplay(ldf, select)
+	NMLogDisplay(ldf, select)
 
 End // LogDisplayCall
 
@@ -254,7 +253,7 @@ End // LogDisplayCall
 //****************************************************************
 //****************************************************************
 
-Function LogDisplay(ldf, select)
+Function NMLogDisplay(ldf, select)
 	String ldf // log data folder
 	Variable select // (1) notebook (2) table (3) both
 
@@ -266,7 +265,7 @@ Function LogDisplay(ldf, select)
 		LogTable(ldf)
 	endif
 	
-End // LogDisplay
+End // NMLogDisplay
 
 //****************************************************************
 //****************************************************************
@@ -283,12 +282,12 @@ Function LogTable(ldf) // create a log table from a log data folder
 	String ftype = StrVarOrDefault(ldf+"FileType", "")
 	
 	if (DataFolderExists(ldf) == 0)
-		DoAlert 0, "Error: data folder \"" + ldf + "\" does not appear to exist."
+		NMDoAlert("Error: data folder \"" + ldf + "\" does not appear to exist.")
 		return -1
 	endif
 	
 	if (StringMatch(ftype, "NMLog") == 0)
-		DoAlert 0, "Error: data folder \"" + ldf + "\" does not appear to be a NeuroMatic Log folder."
+		NMDoAlert("Error: data folder \"" + ldf + "\" does not appear to be a NeuroMatic Log folder.")
 		return -1
 	endif
 	
@@ -305,7 +304,7 @@ Function LogTable(ldf) // create a log table from a log data folder
 	wlist = LogWaveList(ldf, "F")
 	
 	nlist = GetListItems("*note*", wlist, ";")
-	nlist = SortListLax(nlist, ";")
+	nlist = SortList(nlist, ";", 16)
 	
 	wlist = RemoveListFromList(nlist, wlist, ";") + nlist // place Note waves after others
 	wlist += LogWaveList(ldf, "H") // place Header waves last
@@ -403,7 +402,7 @@ Function LogNotebookFileVars(ndf, nbName)
 	String slist = LogVarList(ndf, "F_", "string")
 	String notelist = GetListItems("*note*", slist, ";") // note variables
 	
-	notelist = SortListLax(notelist, ";")
+	notelist = SortList(notelist, ";", 16)
 	
 	slist = RemoveListFromList(notelist, slist, ";")
 	

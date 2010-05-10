@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -14,7 +14,6 @@
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last modified 25 Dec 2006
 //
 //	NM tab entry "Event"
 //
@@ -501,7 +500,7 @@ Function EventSearchCall(func)
 				
 			elseif (EventFindNext(1) == -1)
 			
-				DoAlert 0, "Found no more events."
+				NMDoAlert("Found no more events.")
 				
 			endif
 			
@@ -1207,7 +1206,7 @@ Function EventFindAllCall()
 	NVAR TableNum = $(df+"TableNum")
 	
 	if (nwaves == 0)
-		DoAlert 0, "No waves selected."
+		NMDoAlert("No waves selected.")
 		return 0
 	endif
 
@@ -1275,7 +1274,7 @@ Function EventFindAll(wselect, dsply) // find events until end of trace
 	Variable wselect // (0) current wave (1) all waves
 	Variable dsply // (0) no (1) yes, update display
 
-	Variable pflag
+	Variable pflag, pflag2
 	String wName, setName, df = EventDF()
 	
 	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
@@ -1342,7 +1341,9 @@ Function EventFindAll(wselect, dsply) // find events until end of trace
 				
 				if (EventFindNext(dsply) == 0)
 				
-					if (EventSaveCurrent(0) == -3)
+					pflag2 = EventSaveCurrent(0)
+				
+					if ( pflag2 == -3)
 						break
 					endif
 					
@@ -1359,6 +1360,10 @@ Function EventFindAll(wselect, dsply) // find events until end of trace
 				endif
 				
 			while (1)
+			
+			if ( pflag2 == -3)
+				break
+			endif
 			
 			Print "Located " + num2str(ecnt) + " event(s) in wave " + CurrentWaveName()
 			
@@ -1832,7 +1837,7 @@ Function MatchTemplateSelect()
 			WaveStats /Q/Z $tname
 			
 			if (V_max > 1)
-				DoAlert 0, "Warning: your template waveform should be normalized to one and have zero baseline."
+				NMDoAlert("Warning: your template waveform should be normalized to one and have zero baseline.")
 			endif
 			
 			break
@@ -1985,7 +1990,7 @@ Function MatchTemplateCompute(wName, tName) // match template to wave
 	endif
 	
 	if (deltax($wName) != deltax($tName))
-		DoAlert 0, "Abort MatchTemplateCompute: template wave delta-x does not match that of wave to measure."
+		NMDoAlert("Abort MatchTemplateCompute: template wave delta-x does not match that of wave to measure.")
 		return -1
 	endif
 	
@@ -2318,7 +2323,7 @@ Function EventTableCall(fxn)
 		case "Clear":
 		
 			if (ItemsInList(tlist) == 0)
-				DoAlert 0, "No event tables to clear."
+				NMDoAlert("No event tables to clear.")
 				break
 			endif
 			
@@ -2334,7 +2339,7 @@ Function EventTableCall(fxn)
 		case "Kill":
 		
 			if (ItemsInList(tlist) == 0)
-				DoAlert 0, "No event tables to kill."
+				NMDoAlert("No event tables to kill.")
 				break
 			endif
 			
@@ -3045,7 +3050,7 @@ Function Event2WaveCall()
 	String elist = EventWaveList(-1)
 	
 	if (ItemsInList(elist) == 0)
-		DoAlert 0, "Detected no event waves."
+		NMDoAlert("Detected no event waves.")
 		return -1
 	endif
 	
@@ -3121,7 +3126,7 @@ Function Event2WaveCall()
 	endif
 	
 	if (WaveExists($wName2) == 0)
-		DoAlert 0, "Abort: cannot locate wave " + wName2
+		NMDoAlert("Abort: cannot locate wave " + wName2)
 		return -1
 	endif
 	
@@ -3217,7 +3222,7 @@ End // Event2WaveCall
 Function EventHistoCall()
 	
 	if (ItemsInList(EventWaveList(-1)) == 0)
-		DoAlert 0, "Detected no event waves."
+		NMDoAlert("Detected no event waves.")
 		return -1
 	endif
 	
@@ -3289,7 +3294,7 @@ Function EventHistoCall()
 					endif
 					
 					if (reps < 1)
-						DoAlert 0, "Bad number of waves."
+						NMDoAlert("Bad number of waves.")
 						return -1
 					endif
 				
@@ -3419,7 +3424,7 @@ Function EventHistoIntvl(wName, bin, winB, winE, isiMin, isiMax)
 	Variable events = Time2Intervals(wName, winB, winE, isiMin, isiMax) // results saved in U_INTVLS (function in Utility.ipf)
 
 	if (events <= 0)
-		DoAlert 0, "No inter-event intervals detected."
+		NMDoAlert("No inter-event intervals detected.")
 		return -1
 	endif
 	

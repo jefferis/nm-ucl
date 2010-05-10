@@ -73,7 +73,7 @@ Function CallNMImportFileManager(file, df, fileType, option) // call appropriate
 	endif
 	
 	if (success <= 0)
-		DoAlert 0, "Abort NMImportData: file format not recognized."
+		NMDoAlert("Abort NMImportData: file format not recognized.")
 		fileType = ""
 		success = -1
 	endif
@@ -281,8 +281,8 @@ Function NMImport(file, newFolder) // main load data function
 	String file
 	Variable newFolder // (0) no (1) yes
 	
-	Variable success, amode
-	String acqMode, wPrefix, wList, seq, folder, df = ImportDF()
+	Variable success, amode, saveprompt
+	String acqMode, wPrefix, wList, seq, folder, df = ImportDF(), ndf = NMDF()
 	
 	Variable importPrompt = NumVarOrDefault(NMDF()+"ImportPrompt", 1)
 	String saveWavePrefix = StrVarOrDefault("WavePrefix", "Record")
@@ -292,7 +292,7 @@ Function NMImport(file, newFolder) // main load data function
 	endif
 	
 	if (FileExists(file) == 0)
-		DoAlert 0, "Error: external data file has not been selected."
+		NMDoAlert("Error: external data file has not been selected.")
 		return -1
 	endif
 	
@@ -365,16 +365,26 @@ Function NMImport(file, newFolder) // main load data function
 	
 		if (NumVarOrDefault(df+"ConcatWaves", 0) == 1)
 		
+			if (WaveExists(ChanSelect) == 1)
+				Wave ChanSelect
+				ChanSelect = 1
+			endif
+		
 			wList = NMConcatWaves( "C_Record" )
 			
-			if (ItemsInList(wList) == NumVarOrDefault("NumWaves", 0))
+			if (ItemsInList(wList) == NumVarOrDefault("NumWaves", 0) * NumVarOrDefault("NumChannels", 0))
 				SetNMvar(NMDF()+"NMDeleteWavesNoAlert", 1)
 				NMDeleteWaves()
 			else
-				DoAlert 0, "Alert: waves were not properly concatenated."
+				NMDoAlert("Alert: waves may have not been properly concatenated.")
 			endif
 			
+			saveprompt = NumVarOrDefault(ndf+"ChangePrefixPrompt", 1)
+			SetNMvar(ndf+"ChangePrefixPrompt", 0)
+			
 			NMPrefixSelect( "C_Record" )
+			
+			SetNMvar(ndf+"ChangePrefixPrompt", saveprompt)
 			
 		else
 			NMTimeScaleMode(1) // make continuous
@@ -435,7 +445,7 @@ Function NMImportFileSeq(fileName, ImportSeqStr)
 		setList = NMSetsList(1) // save list of Sets before appending
 		
 		if (FileExists(file) == 0)
-			DoAlert 0, file + " does not exist."
+			NMDoAlert(file + " does not exist.")
 			continue
 		endif
 		
@@ -506,7 +516,7 @@ Function NMImportFileSeq(fileName, ImportSeqStr)
 					SetNMvar(NMDF()+"NMDeleteWavesNoAlert", 1)
 					NMDeleteWaves()
 				else
-					DoAlert 0, "Alert: waves were not properly concatenated."
+					NMDoAlert("Alert: waves were not properly concatenated.")
 				endif
 				
 				NMPrefixSelect( "C_Record" )

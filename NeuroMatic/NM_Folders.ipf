@@ -162,7 +162,7 @@ Function SetOpenDataPath()
 	if (V_flag == 0)
 		PathInfo OpenDataPath
 		SetNMstr(df+"OpenDataPath", S_Path)
-		//DoAlert 0, "Don't forget to save changes by saving your Configurations (NeuroMatic > Configs > Save)."
+		//NMDoAlert("Don't forget to save changes by saving your Configurations (NeuroMatic > Configs > Save)."
 	endif
 	
 	return V_flag
@@ -193,7 +193,7 @@ Function SetSaveDataPath()
 	if (V_flag == 0)
 		PathInfo SaveDataPath
 		SetNMstr(df+"SaveDataPath", S_Path)
-		//DoAlert 0, "Don't forget to save changes by saving your Configurations (NeuroMatic > Configs > Save)."
+		//NMDoAlert("Don't forget to save changes by saving your Configurations (NeuroMatic > Configs > Save)."
 	endif
 	
 	return V_flag
@@ -309,7 +309,7 @@ Function CheckNMDataFolderWaves() // check data folder waves
 	//CheckNMwave("FileScaleFactors",  nchans, 1)		// file scale factors, read from data file header
 	//CheckNMwave("MyScaleFactors", nchans, 1)		// user channel scale factors
 	
-	CheckNMDataNotes()
+	//CheckNMDataNotes()
 	
 	return 0
 	
@@ -699,7 +699,7 @@ Function NMFolderGlobalsSave(wPrefix) // save globals to a folder. called when s
 	String wPrefix // wave prefix name
 	
 	Variable icnt, nchan
-	String setList, setName, fName, fname2
+	String ndf, setList, setName, fName, fname2
 	
 	if (WavesExist("Set1;Set2;SetX;Group;WavSelect;ChanSelect;") == 0)
 		return 0
@@ -714,6 +714,12 @@ Function NMFolderGlobalsSave(wPrefix) // save globals to a folder. called when s
 	nchan = NMNumChannels()
 	
 	NewDataFolder /O $wPrefix // create folder to save globals
+	
+	ndf = df + wPrefix
+	
+	if (DataFolderExists(ndf) == 0)
+		return -1
+	endif
 	
 	SetNMvar(df + wPrefix + ":NumChannels", nchan)
 	SetNMvar(df + wPrefix + ":NumGrps", NumVarOrDefault("NumGrps", 0))
@@ -861,7 +867,7 @@ Function /S NMFolderChangeCall() // change the active folder
 	flist = RemoveFromList(GetDataFolder(0), flist) // remove active folder from list
 
 	If (ItemsInList(flist) == 0)
-		DoAlert 0, "Abort NMFolderChange: no folders to change to."
+		NMDoAlert("Abort NMFolderChange: no folders to change to.")
 		return ""
 	endif
 	
@@ -903,7 +909,7 @@ Function /S NMFolderChange(folder) // change the active folder
 	endif
 	
 	if (DataFolderExists(folder) == 0)
-		DoAlert 0, "Abort NMFolderChange: folder does not exist."
+		NMDoAlert("Abort NMFolderChange: folder does not exist.")
 		return ""
 	endif
 	
@@ -1137,7 +1143,7 @@ Function NMFolderDuplicateCall()
 	endif
 	
 	//if (DataFolderExists(NMFolderPath(newName)) == 1)
-	//	DoAlert 0, "Abort NMFolderDuplicate: folder name already in use."
+	//	NMDoAlert("Abort NMFolderDuplicate: folder name already in use."
 	//	return -1
 	//endif
 	
@@ -1199,7 +1205,7 @@ Function NMFolderRenameCall()
 	endif
 	
 	//if (DataFolderExists(NMFolderPath(newName)) == 1)
-	//	DoAlert 0, "Abort NMFolderRename: folder name already in use."
+	//	NMDoAlert("Abort NMFolderRename: folder name already in use."
 	//	return -1
 	//endif
 	
@@ -1233,9 +1239,11 @@ Function /S NMFolderRename(oldName, newName) // rename NeuroMatic data folder
 	endif
 	
 	if (DataFolderExists(df) == 1)
-		//DoAlert 0, "Abort NMFolderRename: folder name already in use."
+		//NMDoAlert("Abort NMFolderRename: folder name already in use."
 		return ""
 	endif
+	
+	newName = GetPathName(df, 0)
 	
 	oldName =NMFolderPath(oldName)
 	
@@ -1295,8 +1303,7 @@ End // NMFolderOpenAll
 
 Function /S NMFolderAppendAll()
 	
-	
-	DoAlert 0, "Alert: NMFolderAppendAll has been deprecated."
+	NMDoAlert("Alert: NMFolderAppendAll has been deprecated.")
 	
 	return ""
 
@@ -1509,7 +1516,7 @@ End // NMFoldersMerge
 
 Function NMFolderAppend()
 
-	DoAlert 0, "Alert: NMFolderAppend has been deprecated."
+	NMDoAlert("Alert: NMFolderAppend has been deprecated.")
 
 End // NMFolderAppend
 
@@ -1522,7 +1529,7 @@ Function NMFolderAppendWaves(fromFolder, toFolder, wavePrefix)
 	String toFolder // to this folder
 	String wavePrefix // wave prefix of BOTH folders (i.e. "Record")
 	
-	DoAlert 0, "Alert: NMFolderAppendWaves has been deprecated."
+	NMDoAlert("Alert: NMFolderAppendWaves has been deprecated.")
 
 End // NMFolderAppendWaves
 
@@ -1800,7 +1807,7 @@ Function NMFolderListNum(folder)
 	endif
 	
 	if (strlen(folder) == 0)
-		folder = NMCurrentFolder()
+		folder = CurrentNMFolder( 0 )
 	endif
 	
 	if (IsNMDataFolder(folder) == 0)
@@ -1832,7 +1839,7 @@ Function /S NMFolderListName(folder)
 	String prefix = "F"
 	
 	if (strlen(folder) == 0)
-		folder = NMCurrentFolder()
+		folder = CurrentNMFolder( 0 )
 	endif
 	
 	Variable id = NMFolderListNum(folder)

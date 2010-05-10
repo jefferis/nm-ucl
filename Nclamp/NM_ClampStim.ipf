@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -20,7 +20,6 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 1 April 2008
 //
 //****************************************************************
 //****************************************************************
@@ -60,7 +59,7 @@ Function CheckStim(dp, sname) // declare stim global variables
 	
 	CheckNMstr(sdf+"WavePrefix", "Record")				// wave prefix name
 	
-	CheckNMvar(sdf+"AcqMode", 0)						// acquisition mode (0) epic precise (1) continuous (2) episodic (3) triggered
+	CheckNMvar(sdf+"AcqMode", 0)						// acquisition mode (0) epic precise (1) continuous (2) episodic (3) epic triggered (4) continuous triggered
 	
 	CheckNMvar(sdf+"CurrentChan", 0)						// channel select
 	
@@ -113,18 +112,69 @@ End // StimWavePrefix
 //****************************************************************
 //****************************************************************
 
-Function StimWaveLength(sdf)
+Function StimWaveLength(sdf, waveNum)
 	String sdf
+	Variable waveNum
+	
+	Variable icnt
+	String wname
 	
 	sdf = CheckStimDF(sdf)
 	
-	if (strlen(sdf) == 0)
-		return -1
+	Variable waveLength = NumVarOrDefault(sdf+"WaveLength", 100)
+	Variable pgOff = NumVarOrDefault(sdf+"PulseGenOff", 0)
+	
+	if (pgOff == 1)
+	
+		for (icnt = 0; icnt < 50; icnt += 1)
+		
+			wname = sdf  + "MyDAC_" + num2str(icnt) + "_" + num2str(waveNum)
+			
+			if (WaveExists($wname) == 1)
+				return rightx($wname)
+			endif
+		
+		endfor
+		
 	endif
 	
-	return NumVarOrDefault(sdf+"WaveLength", 0)
+	return waveLength
 
 End // StimWaveLength
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimWavePoints(sdf, waveNum)
+	String sdf
+	Variable waveNum
+	
+	Variable icnt
+	String wname
+	
+	sdf = CheckStimDF(sdf)
+	
+	Variable waveLength = NumVarOrDefault(sdf+"SamplesPerWave", 100)
+	Variable pgOff = NumVarOrDefault(sdf+"PulseGenOff", 0)
+	
+	if (pgOff == 1)
+	
+		for (icnt = 0; icnt < 50; icnt += 1)
+		
+			wname = sdf  + "MyDAC_" + num2str(icnt) + "_" + num2str(waveNum)
+			
+			if (WaveExists($wname) == 1)
+				return numpnts($wname)
+			endif
+		
+		endfor
+		
+	endif
+	
+	return waveLength
+
+End // StimWavePoints
 
 //****************************************************************
 //****************************************************************
@@ -237,11 +287,15 @@ Function StimAcqModeSet(sdf, select)
 		case "continuous":
 			mode = 1
 			break
-		case "episodic": // less precise
+		case "episodic":
 			mode = 2
 			break
 		case "triggered":
+		case "epic triggered":
 			mode = 3
+			break
+		case "continuous triggered":
+			mode = 4
 			break
 	endswitch
 	
@@ -256,6 +310,29 @@ End // StimAcqModeSet
 //****************************************************************
 
 Function StimIntervalSet(sdf, boardNum, boardDriver, sampleInterval)
+	String sdf // stim data folder bath
+	Variable boardNum, boardDriver, sampleInterval
+	
+	Variable bcnt, driverSampleInterval
+	String varName, boards, cdf = ClampDF()
+	
+	sdf = CheckStimDF(sdf)
+	
+	if (strlen(sdf) == 0)
+		return -1
+	endif
+	
+	SetNMVar(sdf+"SampleInterval", sampleInterval)
+	
+	return sampleInterval
+	
+End // StimIntervalSet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimIntervalSetx(sdf, boardNum, boardDriver, sampleInterval)
 	String sdf // stim data folder bath
 	Variable boardNum, boardDriver, sampleInterval
 	
@@ -283,7 +360,7 @@ Function StimIntervalSet(sdf, boardNum, boardDriver, sampleInterval)
 	
 	return sampleInterval
 	
-End // StimIntervalSet
+End // StimIntervalSetx
 
 //****************************************************************
 //****************************************************************
@@ -605,7 +682,7 @@ Function /S StimFxnListAdd(sdf, select, fxn)
 	endif
 	
 	if (exists(fxn) != 6)
-		ClampError("function " + fxn + "() does not appear to exist.")
+		ClampError( 1, "function " + fxn + "() does not appear to exist.")
 		return ""
 	endif
 	
@@ -1399,7 +1476,7 @@ Function StimBoardConfigsUpdate(sdf, io)
 			cname = nameS[icnt]
 			
 			for (jcnt = 0; jcnt < 10; jcnt += 1)
-				if (StringMatch(cname, "Tgain_" + num2str(jcnt)) == 1)
+				if (StringMatch(cname, "TGain_" + num2str(jcnt)) == 1)
 					nameS[icnt] = "" // clear old telegraph gain configs before updating
 				endif
 			endfor
@@ -1493,7 +1570,7 @@ Function StimBoardConfigsUpdate(sdf, io)
 	endfor
 	
 	//
-	// BEGIN TELEGRAPH GAIN CONFIGS
+	// BEGIN TELEGRAPH CONFIGS
 	//
 	
 	if (StringMatch(io, "ADC") == 1)
@@ -1502,23 +1579,35 @@ Function StimBoardConfigsUpdate(sdf, io)
 		
 			cname = nameS[icnt]
 			
-			if (StringMatch(cname[0,5], "Tgain_") == 1)
-				nameS[icnt] = "" // remove pre-existing Tgain configs
+			if (StringMatch(cname[0,5], "TGain_") == 1)
+				nameS[icnt] = "" // remove pre-existing TGain configs
+			endif
+			
+			if (StringMatch(cname[0,5], "TMode_") == 1)
+				nameS[icnt] = "" // remove pre-existing TGain configs
+			endif
+			
+			if (StringMatch(cname[0,5], "TFreq_") == 1)
+				nameS[icnt] = "" // remove pre-existing TGain configs
+			endif
+			
+			if (StringMatch(cname[0,5], "TCap_") == 1)
+				nameS[icnt] = "" // remove pre-existing TGain configs
 			endif
 			
 		endfor
 		
-		// add new global Tgain configs if they exist
+		// add new global TGain configs if they exist
 		
 		for (icnt = 0; icnt < numpnts(nameG); icnt += 1)
 		
 			cname = nameG[icnt]
 			
-			if (StringMatch(cname[0,5], "Tgain_") == 1)
+			if (StringMatch(cname[0,5], "TGain_") == 1)
 					
 				modeStr = modeG[icnt]
-				board = ClampTgainBoard(modeStr)
-				chan = ClampTgainChan(modeStr)
+				board = ClampTGainBoard(modeStr)
+				chan = ClampTGainChan(modeStr)
 				
 				if (board == 0)
 					board = driver
@@ -1566,7 +1655,7 @@ Function StimBoardConfigsUpdate(sdf, io)
 		
 			for (jcnt = 0; jcnt < ItemsInList(tGainList); jcnt += 1)
 			
-				cname = "Tgain_" + num2str(jcnt)
+				cname = "TGain_" + num2str(jcnt)
 				item = StringFromList(jcnt, tGainList)
 				board = 0 // default driver
 				gchan = str2num(StringFromList(0, item, ",")) // telegraph gain ADC input channel
@@ -1581,7 +1670,7 @@ Function StimBoardConfigsUpdate(sdf, io)
 					continue
 				endif
 				
-				modeStr = "Tgain=B" + num2str(board) + "_C" + num2str(achan) + "_" + instr
+				modeStr = "TGain=B" + num2str(board) + "_C" + num2str(achan) + "_" + instr
 				
 				found = 0
 				
@@ -1593,7 +1682,7 @@ Function StimBoardConfigsUpdate(sdf, io)
 				endfor
 				
 				if (found == 1)
-					continue // config already exists, go to next Tgain config
+					continue // config already exists, go to next TGain config
 				endif
 				
 				board = driver
@@ -1624,12 +1713,12 @@ Function StimBoardConfigsUpdate(sdf, io)
 					endfor
 					
 					if (found == 1)
-						nameS[icnt] = "Tgain_" + num2str(jcnt)
+						nameS[icnt] = "TGain_" + num2str(jcnt)
 						UnitsS[icnt] = "V"
 						boardS[icnt] = 0
 						chanS[icnt] = gchan
 						scaleS[icnt] = 1
-						modeS[icnt] = "Tgain=B0_C" + num2str(achan) + "_" + instr
+						modeS[icnt] = "TGain=B0_C" + num2str(achan) + "_" + instr
 						gainS[icnt] = 1
 					endif
 				
@@ -1645,10 +1734,10 @@ Function StimBoardConfigsUpdate(sdf, io)
 		
 			modeStr = modeS[icnt]
 			
-			if (ClampTgainModeCheck(modeStr) == 1)
+			if (ClampTelegraphCheck( "Gain", modeStr ) == 1)
 			
-				board = ClampTgainBoard(modeStr)
-				chan = ClampTgainChan(modeStr)
+				board = ClampTGainBoard(modeStr)
+				chan = ClampTGainChan(modeStr)
 				
 				if (board == 0)
 					board = driver
@@ -1680,11 +1769,34 @@ Function StimBoardConfigsUpdate(sdf, io)
 			
 		endfor
 		
+		for (icnt = 0; icnt < numpnts(nameG); icnt += 1) // Add other existing telegraphs
+		
+			cname = nameG[icnt]
+			
+			if ( (StringMatch(cname[0,5], "TMode_") == 1) || (StringMatch(cname[0,5], "TFreq_") == 1) || (StringMatch(cname[0,5], "TCap_") == 1) )
+			
+				if ( strlen( modeG[icnt] ) >  0 )
+			
+					found = 0
+							
+					for (jcnt = 0; jcnt < numpnts(nameS); jcnt += 1)
+						if (strlen(nameS[jcnt]) == 0)
+							found = 1 // this is the first empty location
+							break
+						endif
+					endfor
+					
+					if (found == 1)
+						nameS[jcnt] = nameG[icnt]
+					endif
+				
+				endif
+				
+			endif
+			
+		endfor
+		
 	endif
-	
-	//
-	// FINISH TELEGRAPH GAIN CONFIGS
-	//
 		
 	return updated
 
@@ -1735,7 +1847,7 @@ Function StimBoardConfigsCheckDuplicates(sdf)
 				test = test && (ADCchan[jcnt] == ADCchan[config]) && (StringMatch(ADCmode[jcnt], ADCmode[config]) == 1)
 				
 				if ((jcnt != config) && (test == 1))
-					ClampError("duplicate ADC inputs for configs " + num2str(config) + " and " + num2str(jcnt))
+					ClampError( 1, "duplicate ADC inputs for configs " + num2str(config) + " and " + num2str(jcnt))
 					return -1
 				endif
 				
@@ -1760,7 +1872,7 @@ Function StimBoardConfigsCheckDuplicates(sdf)
 				test = test && (DACboard[jcnt] == DACboard[config]) && (DACchan[jcnt] == DACchan[config])
 				
 				if ((jcnt != config) && (test == 1))
-					ClampError("duplicate DAC outputs for configs " + num2str(config) + " and " + num2str(jcnt))
+					ClampError( 1, "duplicate DAC outputs for configs " + num2str(config) + " and " + num2str(jcnt))
 					return -1
 				endif
 				
@@ -1785,7 +1897,7 @@ Function StimBoardConfigsCheckDuplicates(sdf)
 				test = test && (TTLboard[jcnt] == TTLboard[config]) && (TTLchan[jcnt] == TTLchan[config])
 			
 				if ((jcnt != config) && (test == 1))
-					ClampError("duplicate TTL outputs for configs " + num2str(config) + " and " + num2str(jcnt))
+					ClampError( 1, "duplicate TTL outputs for configs " + num2str(config) + " and " + num2str(jcnt))
 					return -1
 				endif
 				
@@ -2037,6 +2149,33 @@ End // StimBoardConfigActiveList
 //****************************************************************
 //****************************************************************
 
+Function /S StimBoardConfigActiveNameList(sdf, io)
+	String sdf // stim data folder
+	String io // "ADC", "DAC" or "TTL"
+	
+	Variable icnt
+	String alist = "", bdf = StimBoardDF(sdf)
+	
+	if (WaveExists($bdf+io+"name") == 0)
+		return ""
+	endif
+	
+	Wave /T name = $bdf+io+"name"
+	
+	for (icnt = 0; icnt < numpnts(name); icnt += 1)
+		if (strlen(name[icnt]) > 0)
+			alist = AddListItem(name[icnt], alist, ";", inf)
+		endif
+	endfor
+	
+	return alist
+	
+End // StimBoardConfigActiveNameList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function /S StimBoardConfigName(sdf, io, config)
 	String sdf // stim data folder
 	String io // "ADC", "DAC" or "TTL"
@@ -2062,7 +2201,7 @@ End // StimBoardConfigName
 //****************************************************************
 //****************************************************************
 
-Function StimBoardConfigExists(sdf, io, configName)
+Function StimBoardConfigNum(sdf, io, configName)
 	String sdf // stim data folder
 	String io // "ADC", "DAC" or "TTL"
 	String configName
@@ -2079,26 +2218,52 @@ Function StimBoardConfigExists(sdf, io, configName)
 	for (icnt = 0; icnt < numpnts(name); icnt += 1)
 	
 		if (StringMatch(name[icnt], configName) == 1)
-			return 1
+			return icnt
 		endif
 		
 	endfor
 	
+	return -1
+
+End // StimBoardConfigNum
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimADCmodeNormal( modeStr )
+	String modeStr
+	
+	if ( strlen( modeStr ) == 0 )
+		return 1 // yes, normal
+	endif
+	
+	if ( ClampTelegraphCheck( "Gain", modeStr ) == 1 )
+		
+		strswitch( ClampTelegraphInstrument( modeStr ) )
+			case "MultiClamp700":
+				return 1 // yes, normal ( channel is scaled via NMMultiClampTelegraphsConfig )
+			default:
+				return 0 // no, this a telegraph configuration
+		endswitch
+		
+	endif
+	
 	return 0
-
-End // StimBoardConfigExists
+	
+End // StimADCmodeNormal
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function StimBoardNumADCchan(sdf)
+Function StimBoardNumADCchan( sdf )
 	String sdf // stim data folder
 	
 	Variable config, ccnt
 	String bdf = StimBoardDF(sdf)
 	
-	if ((WaveExists($bdf+"ADCname") == 0) || (WaveExists($bdf+"ADCmode") == 0))
+	if ( ( WaveExists($bdf+"ADCname") == 0) || (WaveExists($bdf+"ADCmode") == 0) )
 		return 0
 	endif
 	
@@ -2106,9 +2271,11 @@ Function StimBoardNumADCchan(sdf)
 	Wave /T mode = $bdf+"ADCmode"
 
 	for (config = 0; config < numpnts(name); config += 1)
-		if ((strlen(name[config]) > 0) && (strlen(mode[config]) == 0))
+	
+		if ( (strlen(name[config]) > 0) && ( StimADCmodeNormal( mode[ config ] ) == 1 ) )
 			ccnt += 1
 		endif
+		
 	endfor
 
 	return ccnt
@@ -2140,7 +2307,7 @@ Function /S StimBoardOnList(sdf, io)
 				name = WaveStrOrDefault(bdf+io+"name", config, "")
 				mode = WaveStrOrDefault(bdf+io+"mode", config, "")
 				
-				if ((strlen(name) > 0) && (strlen(mode) == 0))
+				if ((strlen(name) > 0) && (StimADCmodeNormal(mode) == 1))
 					list = AddListItem(num2str(config), list, ";", inf)
 				endif
 				

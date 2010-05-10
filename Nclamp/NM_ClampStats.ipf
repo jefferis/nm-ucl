@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -11,7 +11,7 @@
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
-//	By Jason Rothman (Jason@ThinkRandom.com)
+//	By Jason Rothman ( Jason@ThinkRandom.com )
 //
 //	Created in the Laboratory of Dr. Angus Silver
 //	Department of Physiology, University College London
@@ -20,16 +20,15 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 9 April 2007
 //
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function /S StimStatsDF()
-	String sdf = StimDF()
+Function /S StimStatsDF( )
+	String sdf = StimDF( )
 	
-	if (strlen(sdf) > 0)
+	if ( strlen( sdf ) > 0 )
 		return sdf + "Stats:"
 	else
 		return ""
@@ -41,9 +40,9 @@ End // StimStatsDF
 //****************************************************************
 //****************************************************************
 
-Function StimStatsOn()
+Function StimStatsOn( )
 	
-	return BinaryCheck(NumVarOrDefault(StimStatsDF()+"StatsOn", 0))
+	return BinaryCheck( NumVarOrDefault( StimStatsDF( )+"StatsOn", 0 ) )
 	
 End // StimStatsOn
 
@@ -51,22 +50,22 @@ End // StimStatsOn
 //****************************************************************
 //****************************************************************
 
-Function StimStatsOnSet(on)
-	Variable on // (0) no (1) yes
+Function StimStatsOnSet( on )
+	Variable on // ( 0 ) off ( 1 ) on
 	
-	String ssdf = StimStatsDF()
+	String ssdf = StimStatsDF( )
 	
-	on = BinaryCheck(on)
+	on = BinaryCheck( on )
 	
-	if ((on == 1) && (DataFolderExists(ssdf) == 0))
-		NewDataFolder $LastPathColon(ssdf, 0)
-		SetNMvar(ssdf+"StatsOn", 1)
-		StimStatsUpdate()
+	if ( ( on == 1 ) && ( DataFolderExists( ssdf ) == 0 ) )
+		NewDataFolder $LastPathColon( ssdf, 0 )
+		SetNMvar( ssdf + "StatsOn", 1 )
+		StimStatsUpdate( )
 	endif
 	
-	SetNMvar(ssdf+"StatsOn", on)
+	SetNMvar( ssdf + "StatsOn", on )
 	
-	ClampStats(on)
+	ClampStats( on )
 	
 	return on
 
@@ -76,14 +75,14 @@ End // StimStatsOnSet
 //****************************************************************
 //****************************************************************
 
-Function StimStatsUpdateAsk()
+Function StimStatsUpdateAsk( )
 	
-	if (StatsTimeStampCompare(StatsDF(), StimStatsDF()) == 0)
+	if ( StatsTimeStampCompare( StatsDF( ), StimStatsDF( ) ) == 0 )
 	
 		DoAlert 1, "Your Stats configuration has changed. Do you want to update the current stimulus configuration to reflect these changes?"
 		
-		if (V_flag == 1)
-			StimStatsUpdate()
+		if ( V_flag == 1 )
+			StimStatsUpdate( )
 			return 1
 		endif
 	
@@ -97,14 +96,14 @@ End // StimStatsUpdateAsk
 //****************************************************************
 //****************************************************************
 
-Function StimStatsUpdate() // save Stats waves to stim folder
+Function StimStatsUpdate( ) // save Stats waves to stim folder
 	
-	String stdf = StatsDF()
-	String ssdf = StimStatsDF()
+	String stdf = StatsDF( )
+	String ssdf = StimStatsDF( )
 	
-	if (StimStatsOn() == 1)
-		StatsWavesCopy(stdf, ssdf)
-		SetNMvar(ssdf+"AmpNV", NumVarOrDefault(stdf+"AmpNV", 0)) // copy current stats window
+	if ( StimStatsOn( ) == 1 )
+		StatsWavesCopy( stdf, ssdf )
+		SetNMvar( ssdf + "AmpNV", NumVarOrDefault( stdf+"AmpNV", 0 ) ) // copy current stats window
 	endif
 
 End // StimStatsUpdate
@@ -113,24 +112,24 @@ End // StimStatsUpdate
 //****************************************************************
 //****************************************************************
 
-Function ClampStatsRetrieveFromStim() // retrieve Stats waves from stim folder
+Function ClampStatsRetrieveFromStim( ) // retrieve Stats waves from stim folder
 	String sdf // stim data folder
 	
-	String stdf = StatsDF()
-	String ssdf = StimStatsDF()
+	String stdf = StatsDF( )
+	String ssdf = StimStatsDF( )
 	
-	if ((StimStatsOn() == 0) || (DataFolderExists(ssdf) == 0))
+	if ( ( StimStatsOn( ) == 0 ) || ( DataFolderExists( ssdf ) == 0 ) )
 		return -1
 	endif
 	
-	StatsWavesCopy(ssdf, stdf)
+	StatsWavesCopy( ssdf, stdf )
 	
-	if (WaveExists($(stdf+"ChanSelect")) == 1)
-		Wave chan = $(stdf+"ChanSelect")
-		CurrentChanSet(chan[0])
+	if ( WaveExists( $( stdf+"ChanSelect" ) ) == 1 )
+		Wave chan = $( stdf+"ChanSelect" )
+		CurrentChanSet( chan[0] )
 	endif
 	
-	SetNMvar(stdf+"AmpNV", NumVarOrDefault(ssdf+"AmpNV", 0))
+	SetNMvar( stdf+"AmpNV", NumVarOrDefault( ssdf + "AmpNV", 0 ) )
 		
 	return 0
 
@@ -140,21 +139,21 @@ End // ClampStatsRetrieveFromStim
 //****************************************************************
 //****************************************************************
 
-Function ClampStats(enable)
-	Variable enable // (0) no (1) yes
+Function ClampStats( enable )
+	Variable enable // ( 0 ) no ( 1 ) yes
 	
-	if (DataFolderExists(StimDF()) == 0)
+	if ( DataFolderExists( StimDF( ) ) == 0 )
 		return -1
 	endif
 	
-	if (enable == 1)
-		StatsChanControlsEnableAll(1)
-		ChanGraphUpdate(-1, 1)
+	if ( enable == 1 )
+		StatsChanControlsEnableAll( 1 )
+		ChanGraphUpdate( -1, 1 )
 	else
-		StatsChanControlsEnableAll(0)
+		StatsChanControlsEnableAll( 0 )
 	endif
 	
-	StatsDisplay(-1, enable)
+	StatsDisplay( -1, enable )
 	
 	return 0
 	
@@ -164,42 +163,41 @@ End // ClampStats
 //****************************************************************
 //****************************************************************
 
-Function ClampStatsInit()
+Function ClampStatsInit( )
 
-	if (StimStatsOn() == 1)
+	if ( StimStatsOn( ) == 1 )
 	
-		if (StimStatsUpdateAsk() == 0)
-			ClampStatsRetrieveFromStim() // get Stats from new stim
+		if ( StimStatsUpdateAsk( ) == 0 )
+			ClampStatsRetrieveFromStim( ) // get Stats from new stim
 		endif
 		
-		StatsDisplayClear()
-		ClampStatsDisplaySavePosition()
-		CurrentChanSet(StatsChanSelect(-1))
+		StatsDisplayClear( )
+		ClampStatsDisplaySavePositions( )
+		CurrentChanSet( StatsChanSelect( -1 ) )
 		
 	else
 	
-		ClampStatsRemoveWaves(1)
+		ClampStatsRemoveWavesAll( 1 )
 		
 	endif
 	
-	ClampStatsDisplaySetPosition("amp")
-	ClampStatsDisplaySetPosition("tau")
+	ClampStatsDisplaySetPositions( )
 
-End // ClampStatsInit()
+End // ClampStatsInit( )
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ClampStatsStart()
+Function ClampStatsStart( )
 	
-	ClampStatsDisplay(0) // clear display
-	ClampStatsRemoveWaves(1) // kill waves
+	ClampStatsDisplays( 0 ) // clear display
+	ClampStatsRemoveWavesAll( 1 ) // kill waves
 	
-	if (StimStatsOn() == 1)
-		StatsWinSelectUpdate()
-		StatsWavesMake(StatsChanSelect(-1))
-		ClampStatsDisplay(1)
+	if ( StimStatsOn( ) == 1 )
+		StatsWinSelectUpdate( )
+		StatsWavesMake( StatsChanSelect( -1 ) )
+		ClampStatsDisplays( 1 )
 	endif
 
 End // ClampStatsStart
@@ -208,49 +206,49 @@ End // ClampStatsStart
 //****************************************************************
 //****************************************************************
 
-Function ClampStatsCompute(mode, currentWave, numWaves)
-	Variable mode // (0) preview (1) record
+Function ClampStatsCompute( mode, currentWave, numWaves )
+	Variable mode // ( 0 ) preview ( 1 ) record
 	Variable currentWave
 	Variable numWaves
 	Variable chan
 	
 	String wName = ""
 
-	if (StimStatsOn() == 0)
+	if ( StimStatsOn( ) == 0 )
 		return 0
 	endif
 	
-	chan = StatsChanSelect(-1)
+	chan = StatsChanSelect( -1 )
 	
-	if (mode == 0)
-		wName = ChanWaveName(chan, 0)
+	if ( mode == 0 )
+		wName = ChanWaveName( chan, 0 )
 	endif
 	
-	StatsCompute(wName, chan, currentWave, -1, 1, 1)
+	StatsCompute( wName, chan, currentWave, -1, 1, 1 )
 	
-	ClampStatsDisplayUpdate(currentWave, numWaves)
+	ClampStatsDisplaysUpdate( currentWave, numWaves )
 
-End // ClampStatsCompute()
+End // ClampStatsCompute( )
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ClampStatsFinish(currentWave)
+Function ClampStatsFinish( currentWave )
 	Variable currentWave
 	
-	if (StimStatsOn() == 0)
+	if ( StimStatsOn( ) == 0 )
 		return 0
 	endif
 	
-	String stdf = StatsDF()
-	Variable saveAuto = NumVarOrDefault(stdf+"AutoPlot", 0)
+	String stdf = StatsDF( )
+	Variable saveAuto = NumVarOrDefault( stdf+"AutoPlot", 0 )
 	
-	ClampStatsResize(CurrentWave)
+	ClampStatsResize( CurrentWave )
 	
-	SetNMvar(stdf+"AutoPlot", 0) // temporarily turn off auto-plot
-	Stats2WSelectDefault()
-	SetNMvar(stdf+"AutoPlot", saveAuto)
+	SetNMvar( stdf+"AutoPlot", 0 ) // temporarily turn off auto-plot
+	Stats2WSelectDefault( )
+	SetNMvar( stdf+"AutoPlot", saveAuto )
 	
 End // ClampStatsFinish
 
@@ -258,15 +256,15 @@ End // ClampStatsFinish
 //****************************************************************
 //****************************************************************
 
-Function ClampStatsResize(npnts)
+Function ClampStatsResize( npnts )
 	Variable npnts
 	
 	Variable icnt
-	String wname, wlist = WaveList("ST_*", ";", "")
+	String wname, wlist = WaveList( "ST_*", ";", "" )
 	
-	for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
-		wname = StringFromList(icnt, wlist)
-		Redimension /N=(npnts) $wname
+	for ( icnt = 0; icnt < ItemsInList( wlist ); icnt += 1 )
+		wname = StringFromList( icnt, wlist )
+		Redimension /N=( npnts ) $wname
 	endfor
 
 End // ClampStatsResize
@@ -275,306 +273,270 @@ End // ClampStatsResize
 //****************************************************************
 //****************************************************************
 
-Function /S ClampStatsDisplayAmp()
+Function /S ClampStatsDisplayName( select )
+	String select
 
-	return "ClampStatsAmp"
+	return "ClampStats" + select
 
-End // ClampStatsDisplayAmp
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S ClampStatsDisplayTau()
-
-	return "ClampStatsTau"
-
-End // ClampStatsDisplayTau
+End // ClampStatsDisplayAmpName
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ClampStatsDisplay(enable)
+Function ClampStatsDisplays( enable )
 	Variable enable
 	
-	Variable red, green, blue, wcnt, acnt, askbsln, asktau, foundtau
-	String wlist, wname, xy, amp, tbox = "", tbox2 = ""
+	ClampStatsDisplayClear( "Amp" )
+	ClampStatsDisplayClear( "Tau" )
 	
-	String gName = ClampStatsDisplayAmp(), gName2 = ClampStatsDisplayTau()
-	
-	String cdf = ClampDF(), stdf = StatsDF()
-	
-	Variable gexists = WinType(gName)
-	Variable texists = WinType(gName2)
-	
-	Variable numAmps = StatsWinCount()
-	Variable numWaves = NumVarOrDefault("NumWaves", 0)
-	
-	Variable bsln = NumVarOrDefault(cdf+"StatsBslnDsply", 1)
-	Variable tau = NumVarOrDefault(cdf+"StatsTauDsply", 2)
-	
-	String ampColor = StrVarOrDefault(stdf+"AmpColor", "65535,0,0")
-	String baseColor = StrVarOrDefault(stdf+"BaseColor", "16386,65535,16385")
-	String riseColor = StrVarOrDefault(stdf+"RiseColor", "0,0,65535")
-	String dcayColor = StrVarOrDefault(stdf+"DcayColor", "0,0,65535")
-	
-	if (WaveExists($(stdf+"AmpSlct")) == 0)
-		return -1
-	endif
-	
-	Wave /T AmpSlct = $(stdf+"AmpSlct")
-	Wave BslnSubt = $(stdf+"BslnSubt")
-	
-	if (gexists == 1) // remove waves
-	
-		wlist = WaveList("*", ";", "WIN:"+gName)
-		
-		for (wcnt = 0; wcnt < ItemsInList(wlist); wcnt += 1)
-			wname = StringFromList(wcnt, wlist)
-			RemoveFromGraph /Z/W=$gName $wname
-		endfor
-		
-		TextBox /K/N=text0/W=$gName
-		
-	endif
-	
-	if (texists == 1) // remove tau waves
-	
-		wlist = WaveList("*", ";", "WIN:"+gName2)
-		
-		for (wcnt = 0; wcnt < ItemsInList(wlist); wcnt += 1)
-			wname = StringFromList(wcnt, wlist)
-			RemoveFromGraph /Z/W=$gName2 $wname
-		endfor
-		
-		TextBox /K/N=text0/W=$gName2
-		
-	endif
-	
-	if ((StimStatsOn() == 0) || (enable == 0))
+	if ( ( StimStatsOn( ) == 0 ) || ( enable == 0 ) )
 		return 0
 	endif
 	
-	wlist = WaveList("ST_*",";","")
+	ClampStatsDisplay( enable, "Amp" )
+	ClampStatsDisplay( enable, "Tau" )
+
+End // ClampStatsDisplays
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampStatsDisplay( enable, select )
+	Variable enable
+	String select // "Amp" or "Tau"
 	
-	foundtau = (StringMatch(wlist, "*ST_RiseT*") == 1) || (StringMatch(wlist, "*ST_DcayT*") == 1)
-	foundtau = foundtau || (StringMatch(wlist, "*ST_FwhmT*") == 1)
+	Variable red, green, blue, wcnt, win, lastwin = -1, acnt = -1, plottedXY, y1, y2
+	String wlist, wname, amp, amp2, xyt = "", tbox = "", yaxis = ""
 	
-	if ((gexists == 0) || (texists == 0))
+	String gName = ClampStatsDisplayName( select )
 	
-		if ((gexists == 0) && (StringMatch(wlist, "*ST_Bsln*") == 1))
-			askbsln = 1
-		endif
-		
-		if (foundtau == 1)
-		if ((gexists == 0) || ((texists == 0) && (tau == 2)))
-			asktau = 1
-		endif
-		endif
+	String stdf = StatsDF( ), ssdf = StimStatsDF( )
 	
-		bsln += 1
-		tau += 1
+	Variable numWaves = NumVarOrDefault( "NumWaves", 0 )
 	
-		Prompt bsln, "Display baseline values?", popup "no;yes;"
-		Prompt tau, "Display time constants?", popup "no;yes, same window;yes, seperate window;"
-		
-		if (askbsln && asktau)
-			DoPrompt "Clamp Online Stats Display", bsln, tau
-		elseif (askbsln && !asktau)
-			DoPrompt "Clamp Online Stats Display", bsln
-		elseif (!askbsln && asktau)
-			DoPrompt "Clamp Online Stats Display", tau
-		endif
+	Variable bsln = NumVarOrDefault( ssdf + "StatsDisplay" + select + "Bsln", 1 )
+	Variable multipleY = NumVarOrDefault( ssdf + "StatsDisplay" + select + "MultipleY", 0 )
+	Variable autoscale = NumVarOrDefault( ssdf + "StatsDisplay" + select + "AutoScale", 1 )
 	
-		bsln -= 1
-		tau -= 1
-		
-		SetNMvar(cdf+"StatsBslnDsply", bsln)
-		SetNMvar(cdf+"StatsTauDsply", tau)
-	
+	if ( WaveExists( $( stdf+"AmpSlct" ) ) == 0 )
+		return 0
 	endif
 	
-	if (gexists == 0)
+	Wave /T AmpSlct = $( stdf+"AmpSlct" )
+	
+	wlist = WaveList( "ST_*",";","" )
+	
+	if ( ItemsInList( wlist ) == 0 )
+		return 0 // nothing to plot
+	endif
+	
+	if ( StringMatch( select, "Tau" ) == 1 )
+		if ( ( StringMatch( wlist, "*ST_RiseT*" ) == 0 ) && ( StringMatch( wlist, "*ST_DcayT*" ) == 0 ) && ( StringMatch( wlist, "*ST_FwhmT*" ) == 0 ) )
+			return 0 // nothing to plot
+		endif
+	endif
+	
+	if ( WinType( gName ) == 0 )
+	
 		Make /O/N=0 CT_DummyWave
 		DoWindow /K $gName
-		Display /K=1/N=$gName/W=(0,0,200,100) CT_DummyWave as "NClamp Stats"
+		Display /K=1/N=$gName/W=( 0,0,200,100 ) CT_DummyWave
 		RemoveFromGraph /Z CT_DummyWave
 		KillWaves /Z CT_DummyWave
-		ClampStatsDisplaySetPosition("amp")
+		ClampStatsDisplaySetPosition( select )
+		
+		strswitch( select )
+			case "Amp": 
+				DoWindow /T $gName, "NM Online Stats"
+				PopupMenu SDMenu, pos={0,0}, size={15,0}, bodyWidth= 20, mode=1, value=" ;Baseline;Multiple Y;AutoScale;", proc=ClampStatsDisplayAmpPopup, win=$gName
+				break
+			case "Tau":
+				DoWindow /T $gName, "NM Online Stats : Time Constants"
+				PopupMenu SDMenu, pos={0,0}, size={15,0}, bodyWidth= 20, mode=1, value=" ;Multiple Y;AutoScale;", proc=ClampStatsDisplayTauPopup, win=$gName
+				break
+		endswitch
 	endif
 	
-	DoWindow /F $gName
+	for ( wcnt = 0; wcnt < ItemsInList( wlist ); wcnt += 1 )
 	
-	tau *= foundtau
-	
-	if (tau == 2)
-	
-		if (texists == 0)
-			Make /O/N=0 CT_DummyWave
-			DoWindow /K $gName2
-			Display /K=1/N=$gName2/W=(20,50,220,150) CT_DummyWave as "Clamp Stats Time Constants"
-			RemoveFromGraph /Z CT_DummyWave
-			KillWaves /Z CT_DummyWave
-			ClampStatsDisplaySetPosition("tau")
+		wname = StringFromList( wcnt, wlist )
+		win = StatsWinNum( wname )
+		amp = AmpSlct[ win ]
+		amp2 = amp
+		xyt = ""
+		
+		if ( win < 0 )
+			continue // window number not recognized
 		endif
 		
-		DoWindow /F $gName2
+		y1 = strlen(amp2) -1
+		y2 = y1
 		
-	elseif (tau == 1)
-	
-		DoWindow /K $gName2
-		gName2 = gName
+		if ( StringMatch( amp2[y1,y2], "-" ) == 1 )
+			amp2 = amp2[0,y2-1]
+		endif
 		
-	endif
-	
-	for (wcnt = 0; wcnt < ItemsInList(wlist); wcnt += 1)
-	
-		wname = StringFromList(wcnt, wlist)
+		if ( StringMatch( amp2[y1,y2], "+" ) == 1 )
+			amp2 = amp2[0,y2-1]
+		endif
 		
-		if ((StringMatch(wname, "ST_Bsln*") == 1) && (bsln == 1))
+		strswitch( amp )
 		
-			acnt = str2num(wname[7,7])
-			
-			red = str2num(StringFromList(0,baseColor,","))
-			green = str2num(StringFromList(1,baseColor,","))
-			blue = str2num(StringFromList(2,baseColor,","))
-		
-			AppendToGraph /W=$gName $wname
-			ModifyGraph /W=$gName rgb($wname)=(red,green,blue)
-			ModifyGraph /W=$gName marker($wname)=ClampStatsMarker(acnt)
-			
-			tbox += "\rbsln" + num2str(acnt) + " \\s(" + wname + ")"
-			
-		elseif ((StringMatch(wname, "ST_RiseT*") == 1) && (tau > 0))
-		
-			acnt = str2num(wname[8,8])
+			case "Onset":
+			case "Level":
+			case "Level+":
+			case "Level-":
+
+				if ( StringMatch( select, "Amp" ) == 1 )
+					xyt = "X" + num2str( win ) + "_"
+					break
+				endif
 				
-			red = str2num(StringFromList(0,riseColor,","))
-			green = str2num(StringFromList(1,riseColor,","))
-			blue = str2num(StringFromList(2,riseColor,","))
-			
-			if (tau == 1)
-				AppendToGraph /R=tau /W=$gName2 $wname
-				ModifyGraph axRGB(tau)=(red,green,blue)
-				tbox += "\rriseT" + num2str(acnt) + " \\s(" + wname + ")"
-			elseif (tau == 2)
-				AppendToGraph /W=$gName2 $wname
-				tbox2 += "\rriseT" + num2str(acnt) + " \\s(" + wname + ")"
-			endif
-			
-			ModifyGraph /W=$gName2 rgb($wname)=(red,green,blue)
-			ModifyGraph /W=$gName2 marker($wname)=ClampStatsMarker(acnt)
-			
-		elseif ((StringMatch(wname, "ST_DcayT*") == 1) && (tau > 0))
-		
-			acnt = str2num(wname[8,8])
-		
-			red = str2num(StringFromList(0,dcayColor,","))
-			green = str2num(StringFromList(1,dcayColor,","))
-			blue = str2num(StringFromList(2,dcayColor,","))
-			
-			if (tau == 1)
-				AppendToGraph /R=tau /W=$gName2 $wname
-				ModifyGraph axRGB(tau)=(red,green,blue)
-				tbox += "\rdecayT" + num2str(acnt) + " \\s(" + wname + ")"
-			elseif (tau == 2)
-				AppendToGraph /W=$gName2 $wname
-				tbox2 += "\rdecayT" + num2str(acnt) + " \\s(" + wname + ")"
-			endif
-			
-			ModifyGraph /W=$gName2 rgb($wname)=(red,green,blue)
-			ModifyGraph /W=$gName2 marker($wname)=ClampStatsMarker(acnt)
-			
-		elseif ((StringMatch(wname, "ST_FwhmT*") == 1) && (tau > 0))
-		
-			acnt = str2num(wname[8,8])
+				continue
 				
-			red = str2num(StringFromList(0,riseColor,","))
-			green = str2num(StringFromList(1,riseColor,","))
-			blue = str2num(StringFromList(2,riseColor,","))
-			
-			if (tau == 1)
-				AppendToGraph /R=tau /W=$gName2 $wname
-				ModifyGraph axRGB(tau)=(red,green,blue)
-				tbox += "\rfwhm" + num2str(acnt) + " \\s(" + wname + ")"
-			elseif (tau == 2)
-				AppendToGraph /W=$gName2 $wname
-				tbox2 += "\rfwhm" + num2str(acnt) + " \\s(" + wname + ")"
+			case "RiseTime+":
+			case "RiseTime-":
+			case "DecayTime+":
+			case "DecayTime-":
+			case "FWHM+":
+			case "FWHM-":
+				
+				if ( StringMatch( select, "Tau" ) == 1 )
+					xyt = "T" + num2str( win ) + "_"
+					bsln = 0 // no baseline to plot
+					break
+				endif
+				
+				continue // time waves
+				
+			default:
+				
+				if ( StringMatch( select, "Amp" ) == 1 )
+					xyt = "Y" + num2str( win ) + "_"
+					break
+				endif
+				
+				continue
+				
+		endswitch
+		
+		if ( win != lastwin )
+		
+			if ( acnt == 0 )
+				ModifyGraph /W=$gName axRGB(left) = ( red,green,blue )
 			endif
 			
-			ModifyGraph /W=$gName2 rgb($wname)=(red,green,blue)
-			ModifyGraph /W=$gName2 marker($wname)=ClampStatsMarker(acnt)
+			acnt += 1
+			lastwin = win
+			plottedXY = 0
+			
+		endif
+		
+		yaxis = "StatsYaxis" + num2str( acnt )
+		red = ClampStatsColor( acnt, "r" )
+		green = ClampStatsColor( acnt, "g" )
+		blue = ClampStatsColor( acnt, "b" )
+		
+		if ( ( StringMatch( wname[0,6], "ST_Bsln" ) == 1 ) )
+		
+			if ( bsln == 0 )
+				continue
+			endif
+			
+			if ( ( acnt > 0 ) && ( multipleY == 1 ) )
+				AppendToGraph /W=$gName /R=$yaxis $wname
+			else
+				AppendToGraph /W=$gName $wname
+			endif
+			
+			ModifyGraph /W=$gName rgb( $wname ) = ( red, green, blue )
+			ModifyGraph /W=$gName marker( $wname ) = 8 // ClampStatsMarker( acnt )
+			
+			tbox += "    bsln" + num2str( win ) + " \\s(" + wname + ")"
 			
 		else
 		
-			for (acnt = 0; acnt < numAmps; acnt += 1) // loop through stats amp windows
+			if ( plottedXY == 1 )
+				continue
+			endif
 			
-				amp = AmpSlct[acnt]
-				xy = "*Y" + num2str(acnt) + "*"
-				
-				if (StringMatch(amp, "Level*") == 1)
-					xy = "*X" + num2str(acnt) + "*"
-				endif
+			if ( strsearch( wname, xyt, 0 ) < 0 )
+				continue
+			endif
+
+			if ( ( acnt > 0 ) && ( multipleY == 1 ) )
+				AppendToGraph /W=$gName /R=$yaxis $wname
+				ModifyGraph /W=$gName freePos($yaxis) = {0.1*(acnt-1),kwFraction}
+				ModifyGraph /W=$gName axRGB($yaxis) = ( red,green,blue )
+			else
+				AppendToGraph /W=$gName $wname
+				ModifyGraph /W=$gName axRGB(left) = ( 0,0,0 )
+			endif
 			
-				if (StringMatch(wname, xy) == 1)
-				
-					red = str2num(StringFromList(0,ampColor,","))
-					green = str2num(StringFromList(1,ampColor,","))
-					blue = str2num(StringFromList(2,ampColor,","))
+			ModifyGraph /W=$gName rgb( $wname ) = ( red, green, blue )
+			ModifyGraph /W=$gName marker( $wname ) = 19 // ClampStatsMarker( acnt )
 			
-					AppendToGraph /W=$gName $wname
-					ModifyGraph /W=$gName rgb($wname)=(red,green,blue)
-					ModifyGraph /W=$gName marker($wname)=ClampStatsMarker(acnt)
-					
-					tbox += "\r" + amp + num2str(acnt) + " \\s(" + wname + ")"
-					
-				endif
-				
-			endfor
+			tbox += "\r" + amp2 + num2str( win ) + " \\s(" + wname + ")"
+			
+			plottedXY = 1
 		
 		endif
 		
 	endfor
 	
-	ModifyGraph /W=$gName mode=4, msize=4, standoff=0 
+	ModifyGraph /W=$gName mode=4, msize=4, standoff=0
 	
-	if (strlen(tbox) > 0)
-		tbox = tbox[1,inf] // remove carriage return at beginning
-		Label /W=$gName bottom StrVarOrDefault("WavePrefix", "Wave")
-		TextBox /E/C/N=text0/A=MT/W=$gName tbox
-		
-		if (numWaves > 0)
-			SetAxis /W=$gName bottom 0,(min(numWaves,10))
-		endif
-	
+	if ( ( acnt > 0 ) && ( multipleY == 1 ) )
+		ModifyGraph /W=$gName margin(right) = 50
+	else
+		ModifyGraph /W=$gName margin(right) = 0
 	endif
 	
-	if (tau == 1)
+	if ( strlen( tbox ) > 0 )
 	
-		Label /W=$gName2 tau StrVarOrDefault("xLabel", "msec")
+		tbox = tbox[1,inf] // remove first carriage return
 		
-	elseif (tau == 2)
+		TextBox /E/C/N=text0/A=MT/W=$gName tbox
+		TextBox/C/N=text0/X=0.00/Y=0.00/W=$gName
+		
+		Label /W=$gName bottom StrVarOrDefault( "WavePrefix", "Wave" )
+		
+		if ( numWaves > 0 )
+			SetAxis /W=$gName bottom 0,( min( numWaves,10 ) )
+		endif
 	
-		ModifyGraph /W=$gName2 mode=4, msize=4, standoff=0
+		if ( autoscale == 1 )
 		
-		if (strlen(tbox2) > 0)
-			tbox2 = tbox2[1,inf] // remove carriage return at beginning
-			Label /W=$gName2 bottom StrVarOrDefault("WavePrefix", "Wave")
-			Label /W=$gName2 left StrVarOrDefault("xLabel", "msec")
-			TextBox /E/C/N=text0/A=MT/W=$gName2 tbox2
-			
-			if (numWaves > 0)
-				SetAxis /W=$gName bottom 0,(min(numWaves,10))
-			endif
-			
+			SetAxis /A/W=$gName/Z
+	
 		else
 		
-			TextBox /K/W=$gName2
-		
+			y1 = NumVarOrDefault( ssdf + "CS" + select[0,0] + "_Ymin", 0 )
+			y2 = NumVarOrDefault( ssdf + "CS" + select[0,0] + "_Ymax", 100 )
+			SetAxis /W=$gName/Z left y1, y2
+			
+			for ( acnt = 0 ; acnt < 10 ; acnt += 1 )
+				yaxis = "StatsYaxis" + num2str( acnt )
+				y1 = NumVarOrDefault( ssdf + "CS" + select[0,0] + num2str( acnt ) + "_Ymin", 0 )
+				y2 = NumVarOrDefault( ssdf + "CS" + select[0,0] + num2str( acnt ) + "_Ymax", 100 )
+				SetAxis /W=$gName/Z $yaxis y1, y2
+			endfor
+			
 		endif
-		
+	
 	endif
+	
+	wlist = WaveList( "*", ";", "WIN:"+gName )
+	
+	if ( ItemsInList( wlist ) == 0 )
+		SetNMvar( ssdf + gName+"Hidden", 1)
+	else
+		SetNMvar( ssdf + gName+"Hidden", 0)
+	endif
+	
+	ClampStatsDisplaySetPosition( select )
 
 End // ClampStatsDisplay
 
@@ -582,24 +544,60 @@ End // ClampStatsDisplay
 //****************************************************************
 //****************************************************************
 
-Function ClampStatsDisplayUpdate(currentWave, numwaves) // resize stats display x-scale
+Function ClampStatsDisplayClear( select )
+	String select // "Amp" or "Tau"
+
+	Variable wcnt
+	String wlist, wname
+	
+	String gName = ClampStatsDisplayName( select )
+	
+	if ( WinType( gName ) == 1 ) // remove waves
+	
+		wlist = WaveList( "*", ";", "WIN:"+gName )
+		
+		for ( wcnt = 0; wcnt < ItemsInList( wlist ); wcnt += 1 )
+			wname = StringFromList( wcnt, wlist )
+			RemoveFromGraph /Z/W=$gName $wname
+		endfor
+		
+		TextBox /K/N=text0/W=$gName
+		
+	endif
+
+End // ClampStatsDisplayClear
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampStatsDisplaysUpdate( currentWave, numwaves ) // resize stats display x-scale
 	Variable currentWave
 	Variable numwaves
 	
-	String amp = ClampStatsDisplayAmp()
-	String tau = ClampStatsDisplayTau()
+	ClampStatsDisplayUpdate( "Amp", currentWave, numwaves )
+	ClampStatsDisplayUpdate( "Tau", currentWave, numwaves )
+	
+End // ClampStatsDisplaysUpdate
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampStatsDisplayUpdate( select, currentWave, numwaves ) // resize stats display x-scale
+	String select // "Amp" or "Tau"
+	Variable currentWave
+	Variable numwaves
+	
+	String gname = ClampStatsDisplayName( select )
 	
 	Variable inc = 10
-	Variable num = inc * (1 + floor(currentWave / inc))
+	Variable num = inc * ( 1 + floor( currentWave / inc ) )
 	
-	num = min(numwaves, num)
+	num = min( numwaves, num )
 
-	if (WinType(amp) == 1)
-		SetAxis /Z/W=$amp bottom 0, num
-	endif
-	
-	if (WinType(tau) == 1)
-		SetAxis /Z/W=$tau bottom 0, num
+	if ( WinType( gname ) == 1 )
+		SetAxis /Z/W=$gname bottom 0, num
 	endif
 	
 End // ClampStatsDisplayUpdate
@@ -608,140 +606,162 @@ End // ClampStatsDisplayUpdate
 //****************************************************************
 //****************************************************************
 
-Function ClampStatsDisplaySavePosition()
-	
-	String amp = ClampStatsDisplayAmp()
-	String tau = ClampStatsDisplayTau()
-	String ssdf = StimStatsDF()
-	
-	if (WinType(amp) == 1)
-		GetWindow $amp wsize	
-		SetNMvar(ssdf+"CSA_X0", V_left)
-		SetNMvar(ssdf+"CSA_Y0", V_top)
-		SetNMvar(ssdf+"CSA_X1", V_right)
-		SetNMvar(ssdf+"CSA_Y1", V_bottom)
-	endif
-	
-	if (WinType(tau) == 1)
-		GetWindow $tau wsize	
-		SetNMvar(ssdf+"CST_X0", V_left)
-		SetNMvar(ssdf+"CST_Y0", V_top)
-		SetNMvar(ssdf+"CST_X1", V_right)
-		SetNMvar(ssdf+"CST_Y1", V_bottom)
-	endif
+Function ClampStatsDisplaySavePositions( )
 
-End // ClampStatsDisplaySavePositionx
+	ClampStatsDisplaySavePosition( "Amp" )
+	ClampStatsDisplaySavePosition( "Tau" )
+
+End // ClampStatsDisplaySavePositions
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ClampStatsDisplaySetPosition(gType)
-	String gType // "amp" or "tau"
+Function ClampStatsDisplaySavePosition( select )
+	String select // "Amp" or "Tau"
 	
-	Variable x0, y0, x1, y1
-	String ndf = NMDF()
+	Variable icnt
+	String yaxis
 	
-	Variable xPixels = NumVarOrDefault(ndf+"xPixels", 1000)
-	Variable yPixels = NumVarOrDefault(ndf+"yPixels", 700)
-
-	String amp = ClampStatsDisplayAmp()
-	String tau = ClampStatsDisplayTau()
-	String ssdf =StimStatsDF()
+	String gname = ClampStatsDisplayName( select )
+	String ssdf = StimStatsDF( )
 	
-	Variable statsOn = StimStatsOn()
+	Variable hidden = NumVarOrDefault( ssdf + gName + "Hidden", 0 )
 	
-	strswitch(gType)
+	if ( WinType( gname ) == 1 )
 	
-		case "amp":
+		if ( hidden == 1 )
+			return 0
+		endif
 	
-			if (WinType(amp) == 1)
+		GetWindow $gname wsize
+		
+		if ( ( V_right > V_left ) && ( V_top < V_bottom ) )
+			SetNMvar( ssdf + "CS" + select[0,0] + "_X0", V_left )
+			SetNMvar( ssdf + "CS" + select[0,0] + "_Y0", V_top )
+			SetNMvar( ssdf + "CS" + select[0,0] + "_X1", V_right )
+			SetNMvar( ssdf + "CS" + select[0,0] + "_Y1", V_bottom )
+		endif
+		
+		GetAxis /Q/W=$gName left
+		
+		if ( V_flag == 0 )
+			SetNMvar( ssdf + "CS" + select[0,0] + "_Ymin", V_min)
+			SetNMvar( ssdf + "CS" + select[0,0] + "_Ymax", V_max)
+		endif
+		
+		for ( icnt = 0 ; icnt < 10 ; icnt += 1 )
+		
+			yaxis = "StatsYaxis" + num2str( icnt )
+			GetAxis /Q/W=$gName $yaxis
 			
-				if (statsOn == 1)
-					x0 = NumVarOrDefault(ssdf+"CSA_X0", xPixels * 0.1)
-					y0 = NumVarOrDefault(ssdf+"CSA_Y0", yPixels * 0.5)
-					x1 = NumVarOrDefault(ssdf+"CSA_X1", x0 + 260)
-					y1 = NumVarOrDefault(ssdf+"CSA_Y1", y0 + 170)
-				else
-					x0 = 0
-					y0 = 0
-					x1 = 0
-					y1 = 0
-				endif
-				
-				if (numtype(x0 * y0 * x1 * y1) == 0)
-					MoveWindow /W=$amp x0, y0, x1, y1
-				endif
-				
+			if ( V_flag == 0 )
+				SetNMvar( ssdf + "CS" + select[0,0] + num2str( icnt ) + "_Ymin", V_min)
+				SetNMvar( ssdf + "CS" + select[0,0] + num2str( icnt ) + "_Ymax", V_max)
 			endif
 			
-			break
-			
-		case "tau":
+		endfor
+		
+	else
 	
-			if (WinType(tau) == 1)
-			
-				if (statsOn == 1)
-					x0 = NumVarOrDefault(ssdf+"CST_X0", xPixels * 0.1 + 270)
-					y0 = NumVarOrDefault(ssdf+"CST_Y0", yPixels * 0.5)
-					x1 = NumVarOrDefault(ssdf+"CST_X1", x0 + 260)
-					y1 = NumVarOrDefault(ssdf+"CST_Y1", y0 + 170)
-				else
-					x0 = 0
-					y0 = 0
-					x1 = 0
-					y1 = 0
-				endif
-				
-				if (numtype(x0 * y0 * x1 * y1) == 0)
-					MoveWindow /W=$tau x0, y0, x1, y1
-				endif
-				
-			endif
-			
-			break
-			
-	endswitch
+		if ( exists( ssdf + "CS" + select[0,0] + "_X0" ) == 2 )
+			KillVariables /Z $( ssdf + "CS" + select[0,0] + "_X0" )
+			KillVariables /Z $( ssdf + "CS" + select[0,0] + "_Y0" )
+			KillVariables /Z $( ssdf + "CS" + select[0,0] + "_X1" )
+			KillVariables /Z $( ssdf + "CS" + select[0,0] + "_Y1" )
+		endif
+		
+	endif
 
+End // ClampStatsDisplaySavePosition
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampStatsDisplaySetPositions( )
+
+	ClampStatsDisplaySetPosition( "Amp" )
+	ClampStatsDisplaySetPosition( "Tau" )
+
+End // ClampStatsDisplaySetPositions
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampStatsDisplaySetPosition( select )
+	String select // "Amp" or "Tau"
+	
+	Variable x0, y0, x1, y1, xshift
+	String ndf = NMDF( )
+	
+	Variable xPixels = NumVarOrDefault( ndf+"xPixels", 1000 )
+	Variable yPixels = NumVarOrDefault( ndf+"yPixels", 700 )
+
+	String gname = ClampStatsDisplayName( select )
+	String ssdf =StimStatsDF( )
+	
+	Variable statsOn = StimStatsOn( )
+	Variable hidden = NumVarOrDefault( ssdf + gName + "Hidden", 0 )
+	
+	if ( StringMatch( select, "Tau" ) == 1 )
+		xshift = 270
+	endif
+	
+	if ( ( hidden == 0 ) && ( statsOn == 1 ) )
+		x0 = NumVarOrDefault( ssdf + "CS" + select[0,0] + "_X0", xPixels * 0.1 + xshift)
+		y0 = NumVarOrDefault( ssdf + "CS" + select[0,0] + "_Y0", yPixels * 0.5 )
+		x1 = NumVarOrDefault( ssdf + "CS" + select[0,0] + "_X1", x0 + 260 )
+		y1 = NumVarOrDefault( ssdf + "CS" + select[0,0] + "_Y1", y0 + 170 )
+	else
+		x0 = 0
+		y0 = 0
+		x1 = 0
+		y1 = 0
+	endif
+	
+	if ( ( WinType( gname ) == 1 ) && ( numtype( x0 * y0 * x1 * y1 ) == 0 ) )
+		MoveWindow /W=$gname x0, y0, x1, y1
+	endif
+	
 End // ClampStatsDisplaySetPosition
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ClampStatsRemoveWaves(kill)
-	Variable kill // (0) dont kill waves (1) kill waves
+Function ClampStatsRemoveWavesAll( kill )
+	Variable kill // ( 0 ) dont kill waves ( 1 ) kill waves
 	
-	Variable icnt
-	String wname
+	ClampStatsRemoveWaves( "Amp" )
+	ClampStatsRemoveWaves( "Tau" )
 	
-	String amp = ClampStatsDisplayAmp()
-	String tau = ClampStatsDisplayTau()
-	
-	if (WinType(amp) == 1)
-	
-		String wlist = WaveList("*", ";", "WIN:"+amp)
-		
-		for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
-			wname = StringFromList(icnt, wlist)
-			RemoveFromGraph /Z/W=$amp $wname
-		endfor
-		
+	if ( kill == 1 )
+		KillGlobals( "", "ST_*", "001" ) // kill Stats waves in current folder
 	endif
 	
-	if (WinType(tau) == 1)
+End // ClampStatsRemoveWavesAll
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampStatsRemoveWaves( select )
+	String select // "Amp" or "Tau"
 	
-		wlist = WaveList("*", ";", "WIN:"+tau)
+	Variable wcnt
+	String wname, gname = ClampStatsDisplayName( select )
+	
+	if ( WinType( gname ) == 1 )
+	
+		String wlist = WaveList( "*", ";", "WIN:"+gname )
 		
-		for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
-			wname = StringFromList(icnt, wlist)
-			RemoveFromGraph /Z/W=$tau $wname
+		for ( wcnt = 0; wcnt < ItemsInList( wlist ); wcnt += 1 )
+			wname = StringFromList( wcnt, wlist )
+			RemoveFromGraph /Z/W=$gname $wname
 		endfor
 		
-	endif
-	
-	if (kill == 1)
-		KillGlobals("", "ST_*", "001") // kill Stats waves in current folder
 	endif
 
 End // ClampStatsRemoveWaves
@@ -750,24 +770,99 @@ End // ClampStatsRemoveWaves
 //****************************************************************
 //****************************************************************
 
-Function ClampStatsMarker(select)
-	Variable select
+Function ClampStatsColor( amp, rgb )
+	Variable amp
+	String rgb
+	
+	strswitch( rgb )
+	
+		case "r":
 
-	switch(select)
-		case 0:
-			return 8
-		case 1:
-			return 6
-		case 2:
-			return 5
-		case 3:
-			return 2
-		case 4:
-			return 22
-		case 5:
-			return 4
-		default:
-			return 0
+			switch( amp )
+				case 0:
+					return 65280
+				case 1:
+					return 0
+				case 2:
+					return 0
+				case 3:
+					return 65280
+				case 4:
+					return 26368
+				case 5:
+					return 52224
+				case 6:
+					return 0
+				case 7:
+					return 65280
+				case 8:
+					return 0
+				case 9:
+					return 0
+				default:
+					return 0
+			endswitch
+			
+			break
+		
+		case "g":
+
+			switch( amp )
+				case 0:
+					return 0
+				case 1:
+					return 0
+				case 2:
+					return 52224
+				case 3:
+					return 21760
+				case 4:
+					return 0
+				case 5:
+					return 52224
+				case 6:
+					return 0
+				case 7:
+					return 0
+				case 8:
+					return 65280
+				case 9:
+					return 26112
+				default:
+					return 0
+			endswitch
+			
+			break
+			
+		case "b":
+
+			switch( amp )
+				case 0:
+					return 0
+				case 1:
+					return 65280
+				case 2:
+					return 0
+				case 3:
+					return 0
+				case 4:
+					return 52224
+				case 5:
+					return 0
+				case 6:
+					return 0
+				case 7:
+					return 52224
+				case 8:
+					return 65280
+				case 9:
+					return 0
+				default:
+					return 0
+			endswitch
+			
+			break
+	
 	endswitch
 
 End // ClampStatsMarker
@@ -775,3 +870,135 @@ End // ClampStatsMarker
 //****************************************************************
 //****************************************************************
 //****************************************************************
+
+Function ClampStatsDisplayAmpPopup(ctrlName, popNum, popStr) : PopupMenuControl // display graph menu
+	String ctrlName; Variable popNum; String popStr
+	
+	String select = "Amp"
+	
+	PopupMenu $ctrlName, mode=1, win=$ClampStatsDisplayName( select ) // reset the drop-down menu
+	
+	ClampStatsDisplayCall( popStr, select )
+
+End // ClampStatsDisplayPopup
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampStatsDisplayTauPopup(ctrlName, popNum, popStr) : PopupMenuControl // display graph menu
+	String ctrlName; Variable popNum; String popStr
+	
+	String select = "Tau"
+	
+	PopupMenu $ctrlName, mode=1, win=$ClampStatsDisplayName( select ) // reset the drop-down menu
+	
+	ClampStatsDisplayCall( popStr, select )
+
+End // ClampStatsDisplayPopup
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampStatsDisplayCall( fxn, select )
+	String fxn, select
+	
+	strswitch( fxn )
+	
+		case "Baseline":
+			return ClampStatsDisplayBaseline( select )
+			
+		case "Multiple Y":
+		case "MultipleY":
+			return ClampStatsDisplayMultipleY( select )
+			
+		case "AutoScale":
+			return ClampStatsDisplayAutoScale( select )
+	
+	endswitch
+	
+End // ClampStatsDisplayCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampStatsDisplayBaseline( select )
+	String select // "Amp" or "Tau"
+
+	String ssdf = StimStatsDF( )
+
+	Variable bsln = 1 + NumVarOrDefault( ssdf + "StatsDisplay" + select + "Bsln", 1 )
+
+	Prompt bsln, "Display baseline values?", popup "no;yes;"
+	DoPrompt "Clamp Online Stats Display", bsln
+	
+	if (V_flag == 1)
+		return 0 // cancel
+	endif
+	
+	bsln -= 1
+	
+	SetNMvar( ssdf + "StatsDisplay" + select + "Bsln", bsln )
+	
+	return bsln
+		
+End // ClampStatsDisplayBaseline
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampStatsDisplayMultipleY( select )
+	String select // "Amp" or "Tau"
+
+	String ssdf = StimStatsDF( )
+
+	Variable y = 1 + NumVarOrDefault( ssdf + "StatsDisplay" + select + "MultipleY", 0 )
+
+	Prompt y, "Display stats windows with multiple y-axes?", popup "no;yes;"
+	DoPrompt "Clamp Online Stats Display", y
+	
+	if (V_flag == 1)
+		return 0 // cancel
+	endif
+	
+	y -= 1
+	
+	SetNMvar( ssdf + "StatsDisplay" + select + "MultipleY", y )
+	
+	return y
+		
+End // ClampStatsDisplayMultipleY
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ClampStatsDisplayAutoScale( select )
+	String select // "Amp" or "Tau"
+
+	String ssdf = StimStatsDF( )
+
+	Variable y = 1 + NumVarOrDefault( ssdf + "StatsDisplay" + select + "AutoScale", 1 )
+
+	Prompt y, "Auto scale y-axes?", popup "no;yes;"
+	DoPrompt "Clamp Online Stats Display", y
+	
+	if (V_flag == 1)
+		return 0 // cancel
+	endif
+	
+	y -= 1
+	
+	SetNMvar( ssdf + "StatsDisplay" + select + "AutoScale", y )
+	
+	return y
+		
+End // ClampStatsDisplayAutoScale
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+

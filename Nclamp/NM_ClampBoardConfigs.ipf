@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -20,7 +20,6 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 24 March 2008
-//	Last modified 24 March 2008
 //
 //****************************************************************
 //****************************************************************
@@ -79,6 +78,26 @@ Function ClampBoardConfigs()
 	NMConfigWave(fname, "TTLscale", numIO, 1, "TTL scale factor")
 	
 End // ClampBoardConfigs
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ClampBoardWavesList(io)
+	String io // "ADC", "DAC" or "TTL"
+	
+	strswitch(io)
+		case "ADC":
+			return "ADCname;ADCunits;ADCboard;ADCchan;ADCscale;ADCmode;ADCgain;"
+		case "DAC":
+			return "DACname;DACunits;DACboard;DACchan;DACscale;"
+		case "TTL":
+			return "TTLname;TTLunits;TTLboard;TTLchan;TTLscale;"
+	endswitch
+	
+	return ""
+	
+End // ClampBoardWavesList
 
 //****************************************************************
 //****************************************************************
@@ -287,6 +306,55 @@ End // ClampBoardWavesReset
 //****************************************************************
 //****************************************************************
 
+Function /S ClampBoardWavesSave()
+
+	Variable wcnt
+	String wlist, wname, file = "", ext
+	
+	String cdf = ClampDF()
+	String tdf = "root:NMClampBoardConfigs:" // temp folder
+	String sdf = "root:NMClampBoardConfigs:Clamp:"
+	
+	if (DataFolderExists(tdf) == 1)
+		KillDataFolder $tdf // kill temp folder if already exists
+	endif
+	
+	NewDataFolder $LastPathColon(tdf, 0)
+	NewDataFolder $LastPathColon(sdf, 0)
+	
+	SetNMstr(tdf+"FileType", "NMConfig")
+	SetNMstr(sdf+"FileType", "NMConfig")
+	
+	wlist = ClampBoardWavesList("ADC") + ClampBoardWavesList("DAC") + ClampBoardWavesList("TTL")
+	
+	for (wcnt = 0; wcnt < ItemsInList(wlist); wcnt += 1)
+	
+		wname = StringFromList(wcnt, wlist)
+		
+		if (WaveExists($cdf+wname) == 0)
+			continue
+		endif
+		
+		Duplicate /O $(cdf+wname), $(sdf+wname)
+	
+	endfor
+	
+	CheckNMPath()
+	
+	ext = FileBinSave(1, 1, tdf, "NMPath", file, 1, -1) // new file
+	
+	if (DataFolderExists(tdf) == 1)
+		KillDataFolder $tdf // kill temp folder
+	endif
+	
+	return ext
+
+End // ClampBoardWavesSave
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function ClampBoardConfigFind(io, configName)
 	String io // "ADC", "DAC" or "TTL"
 	String configName
@@ -364,6 +432,47 @@ End // ClampBoardNamesCheck
 //****************************************************************
 //****************************************************************
 
+Function /S ClampBoardNextDefaultName(io, startNum)
+	String io // "ADC", "DAC" or "TTL"
+	Variable startNum
+	
+	Variable icnt
+	String clist = "", cdf = ClampDF()
+	
+	String cname = io + num2str( startNum )
+	
+	if (strlen(ClampIOcheck(io)) == 0)
+		return cname
+	endif
+	
+	if (WaveExists($cdf+io+"name") == 0)
+		return cname
+	endif
+	
+	Wave /T name = $cdf+io+"name"
+	
+	for (icnt = 0; icnt < numpnts(name); icnt += 1)
+		clist = AddListItem( name[icnt], clist, ";", inf )
+	endfor
+	
+	for ( icnt = startNum ; icnt < 99 ; icnt += 1 )
+	
+		cname = io + num2str( icnt )
+		
+		if ( WhichListItem( cname, clist ) < 0 )
+			return cname
+		endif
+		
+	endfor
+	
+	return cname
+
+End // ClampBoardNamesNext
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function /S ClampBoardNameSet(io, config, nameStr)
 	String io
 	Variable config
@@ -406,7 +515,7 @@ Function /S ClampBoardNameSet(io, config, nameStr)
 			return nameStr
 		endif
 	else
-		ClampError(io + " board config name \"" + nameStr + "\" is already in use.")
+		ClampError( 1, io + " board config name \"" + nameStr + "\" is already in use.")
 	endif
 	
 	return ""
@@ -487,7 +596,7 @@ End // ClampBoardModeSet
 //****************************************************************
 //****************************************************************
 
-Function /S ClampBoardTgainFind(board, chan)
+Function /S ClampBoardTGainFind(board, chan)
 	Variable board, chan
 	
 	Variable icnt, tboard
@@ -513,17 +622,17 @@ Function /S ClampBoardTgainFind(board, chan)
 		
 		modeStr = wtemp[icnt]
 		
-		if (StringMatch(modeStr[0, 5], "Tgain=") == 0)
+		if (StringMatch(modeStr[0, 5], "TGain=") == 0)
 			continue
 		endif
 		
-		tboard = ClampTgainBoard(modeStr)
+		tboard = ClampTGainBoard(modeStr)
 		
 		if (tboard == 0)
 			tboard = driver
 		endif
 		
-		if ((tboard == board) && (ClampTgainChan(modeStr) == chan))
+		if ((tboard == board) && (ClampTGainChan(modeStr) == chan))
 			return WaveStrOrDefault(cdf + io + "name", icnt, "")
 		endif
 		
@@ -531,7 +640,7 @@ Function /S ClampBoardTgainFind(board, chan)
 	
 	return ""
 	
-End // ClampBoardTgainFind
+End // ClampBoardTGainFind
 
 //****************************************************************
 //****************************************************************

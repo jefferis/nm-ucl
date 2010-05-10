@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 4
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -20,7 +20,6 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 1 April 2008
 //
 //****************************************************************
 //****************************************************************
@@ -47,7 +46,7 @@ End // ClampUtilityList
 //****************************************************************
 
 Function /S ClampUtilityPreList()
-	return "TModeCheck;ReadTemp;"
+	return "ReadTemp;TModeCheck;TcapRead;TfreqRead;"
 End // ClampUtilityPreList
 
 //****************************************************************
@@ -55,7 +54,7 @@ End // ClampUtilityPreList
 //****************************************************************
 
 Function /S ClampUtilityInterList()
-	return "OnlineAvg;Rstep;RCstep;TempRead;"
+	return "OnlineAvg;Rstep;RCstep;TempRead;StatsRatio;"
 End // ClampUtilityInterList
 
 //****************************************************************
@@ -178,101 +177,6 @@ Function OnlineAvgConfig()
 	SetNMvar(sdf+"OnlineAvgChan", chan)
 
 End // OnlineAvgConfig
-
-//****************************************************************
-//
-//	TModeCheck()
-//	check acquisition telegraph mode is set correctly
-//	currently configured for Axopatch200B
-//
-//
-//****************************************************************
-
-Function TModeCheck(mode)
-	Variable mode // (-1) kill (0) run (1) config (2) init
-	
-	Variable telValue
-	String tmode, cdf = ClampDF(), sdf = StimDF()
-	
-	switch(mode)
-	
-		case 0:
-			break
-	
-		case 1:
-			TModeCheckConfig()
-			return 0
-			
-		case 2:
-		case -1:
-		default:
-			return 0
-			
-	endswitch
-	
-	Variable driver = NumVarOrDefault(cdf+"BoardDriver", 0)
-	
-	Variable chan = NumVarOrDefault(cdf+"TModeChan", -1)
-	String amode = StrVarOrDefault(sdf+"TModeStr", "")
-	String instr = StrVarOrDefault(cdf+"ClampInstrument", "")
-	
-	if (chan < 0)
-		return -1
-	endif
-	
-	telValue = ClampReadManager(StrVarOrDefault(cdf+"AcqBoard", ""), driver, chan, 1, 5)
-	tmode = TModeAxo200B(telValue)
-	
-	strswitch(instr)
-	
-		case "Axopatch200B":
-		
-			if (StringMatch(amode, "I-clamp") == 1)
-				if (StringMatch(tmode[0,0], "I") == 1)
-					tmode = "I-clamp"
-				endif
-			endif
-			
-			if (StringMatch(amode, tmode) == 0)
-				ClampError("acquisition mode should be " + amode)
-				return -1
-			endif
-			
-			break
-			
-	endswitch
-	
-	String /G TModeStr = amode
-	
-End // TModeCheck
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function TModeCheckConfig()
-	String cdf = ClampDF(), sdf = StimDF()
-	
-	Variable chan = NumVarOrDefault(cdf+"TModeChan", -1) + 1
-	String amode = StrVarOrDefault(sdf+"TModeStr", "")
-	String instr = StrVarOrDefault(cdf+"ClampInstrument", "")
-	
-	String mlist = "V-clamp;I-clamp;I-clamp Normal;I-clamp Fast;"
-	
-	Prompt chan, "select ACD input that reads telegraph mode:", popup "0;1;2;3;4;5;6;7;"
-	Prompt amode, "choose mode required for this protocol:", popup mlist
-	Prompt instr, "telegraphed instrument:", popup "Axopatch200B;"
-	
-	DoPrompt "Check Telegraph Mode", chan, amode, instr
-	
-	if (V_flag == 1)
-		return 0 // cancel
-	endif
-	
-	SetNMvar(cdf+"TModeChan", chan-1)
-	SetNMstr(sdf+"TModeStr", amode)
-
-End // TModeCheckConfig
 
 //****************************************************************
 //
@@ -618,6 +522,94 @@ Function RstepConfig(userInput)
 End // RstepConfig
 
 //****************************************************************
+//
+//	StatsRatio()
+//	computes ratio of two Stats1 window measurements
+//	add this function to inter-stim fxn execution list
+//
+//****************************************************************
+
+Function StatsRatio(mode)
+	Variable mode // (-1) kill (0) run (1) config (2) init
+	
+	String wname1, wname2, sdf = StimDF()
+	
+	switch(mode)
+	
+		case 0:
+			break
+	
+		case 1:
+			return StatsRatioConfig()
+	
+		case -1:
+			KillVariables /Z $(sdf+"StatsRatioNumer")
+			KillVariables /Z $(sdf+"StatsRatioDenom")
+			return 0
+		
+		case 2:
+		default:
+			return 0
+			
+	endswitch
+	
+	if ( StimStatsOn() == 0 )
+		return -1 // Stats not on
+	endif
+	
+	Variable n = NumVarOrDefault(sdf+"StatsRatioNumer", 0)
+	Variable d = NumVarOrDefault(sdf+"StatsRatioDenom", 1)
+	
+	wname1 = StatsWaveName(n, "AmpY", 0, 1)
+	wname2 = StatsWaveName(d, "AmpY", 0, 1)
+	
+	if ( ( WaveExists( $wname1 ) == 0 ) || ( WaveExists( $wname2 ) == 0 ) )
+		return -1
+	endif
+	
+	NVAR CurrentWave
+	
+	Wave numer = $wname1
+	Wave denom = $wname2
+	
+	numer[ CurrentWave ] = numer[ CurrentWave ] / denom[ CurrentWave ]
+	denom[ CurrentWave ] = Nan
+	
+End // StatsRatio
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StatsRatioConfig()
+	String sdf = StimDF()
+	
+	Variable n = NumVarOrDefault(sdf+"StatsRatioNumer", 0) + 1
+	Variable d = NumVarOrDefault(sdf+"StatsRatioDenom", 1) + 1
+	
+	Prompt n, "choose Stats1 window for numerator:", popup "0;1;2;3;4;5;6;7;8;9;"
+	Prompt d, "choose Stats1 window for denominator:", popup "0;1;2;3;4;5;6;7;8;9;"
+	DoPrompt "Online Stats Ratio", n, d
+	
+	if (V_flag == 1)
+		return 0 // cancel
+	endif
+	
+	n -= 1
+	d -= 1
+	
+	if ( n == d )
+		DoAlert 0, "Warning: the same Stats1 window was chosen for the numberator and denominator: " + num2str( n )
+	endif
+	
+	SetNMvar(sdf+"StatsRatioNumer", n )
+	SetNMvar(sdf+"StatsRatioDenom", d )
+	
+	return 0
+
+End // StatsRatioConfig
+
+//****************************************************************
 //****************************************************************
 //****************************************************************
 
@@ -836,7 +828,7 @@ Function RCstepDisplay()
 	
 	if (WinType(gName) == 0)
 	
-		Display /K=1/N=$gName/W=(0,0,200,100) CT_Rp, CT_Rm as "Nclamp RC Estimation"
+		Display /K=1/N=$gName/W=(0,0,200,100) CT_Rp, CT_Rm as "NeuroMatic RC Estimation"
 		
 		AppendToGraph /R=Cm /W=$gName CT_Cm
 		
@@ -986,95 +978,6 @@ Function RCstepConfig(userInput)
 End // RCstepConfig
 
 //****************************************************************
-//
-//	TFreqAxo200B()
-//	Axopatch 200B telegraph frequency look-up table
-//
-//****************************************************************
-
-Function TFreqAxo200B(telValue)
-	Variable telValue
-	
-	telValue = 5*round(10 * telValue / 5)
-	
-	switch(telValue)
-		case 20:
-			return 1
-		case 40:
-			return 2
-		case 60:
-			return 5
-		case 80:
-			return 10
-		case 100:
-			return 100
-		default:
-			Print "\rAxopatch 200B Telegraph Frequency not recognized : " + num2str(telValue)
-	endswitch
-	
-	return -1
-
-End // TFreqAxo200B
-
-//****************************************************************
-//
-//	TModeAxo200B()
-//	Axopatch 200B telegraph mode look-up table
-//
-//****************************************************************
-
-Function /S TModeAxo200B(telValue)
-	Variable telValue
-	
-	telValue = 5*round(10 * telValue / 5)
-	
-	switch(telValue)
-		case 40:
-			return "Track"
-		case 60:
-			return "V-Clamp"
-		case 30:
-			return "I = 0"
-		case 20:
-			return "I-Clamp Normal"
-		case 10:
-			return "I-Clamp Fast"
-		default:
-			Print "\rAxopatch 200B Telegraph Mode not recognized : " + num2str(telValue)
-	endswitch
-	
-	return ""
-
-End // TModeAxo200B
-
-//****************************************************************
-//
-//	TCapAxo200B()
-//	Axopatch 200B telegraph cell capacitance look-up table
-//
-//****************************************************************
-
-Function TCapAxo200B(telValue, beta)
-	Variable telValue
-	Variable beta
-	
-	if ((telValue < 0) || (telValue > 10))
-		Print "\rAxopatch 200B Telegraph Capacitance not recognized : " + num2str(telValue)
-		return -1
-	endif
-	
-	if (beta == 1)
-		return telValue * 10 // 0 - 100 pF
-	elseif (beta == 0.1)
-		return telValue * 100 // range 0 - 1000 pF
-	else
-		Print "\rAxopatch 200B Telegraph Capacitance not recognized : " + num2str(telValue)
-		return -1
-	endif
-
-End // TCapAxo200B
-
-//****************************************************************
 //****************************************************************
 //****************************************************************
 //
@@ -1093,11 +996,7 @@ Function ClampWait(t)
 		return 0
 	endif
 	
-	if (IgorVersion() >= 5)
-		return ClampWaitMSTimer(t)
-	else
-		return ClampWaitTicks(t)
-	endif
+	return ClampWaitMSTimer(t)
 	
 End // ClampWait
 

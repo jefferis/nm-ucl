@@ -144,7 +144,7 @@ Function ChangeTab(fromTab, toTab, tabList) // change to new tab window
 			Execute /Z tName + "Tab(1)" // try with another name
 		
 			if (V_Flag == 2003)
-				DoAlert 0, "Failed to find function " + tName + "(enable) or " + tName + "Tab(enable). Make sure the Igor procedure file for this tab is open."
+				NMDoAlert("Failed to find function " + tName + "(enable) or " + tName + "Tab(enable). Make sure the Igor procedure file for this tab is open.")
 			endif
 			
 		endif

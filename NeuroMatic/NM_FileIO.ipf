@@ -63,9 +63,6 @@ Function /S CheckNMPath() // find path to NeuroMatic Procedure folder
 	Variable icnt
 	String flist, fname, igor, path = ""
 	
-	Variable /G V_isAliasShortcut
-	String /G S_aliasPath
-	
 	PathInfo NMPath
 	
 	if (V_flag == 1)
@@ -105,12 +102,12 @@ Function /S CheckNMPath() // find path to NeuroMatic Procedure folder
 			
 			if (StrSearchLax(fname, "NeuroMatic", 0) >= 0)
 			
-				if (IgorVersion() < 5)
-					DoAlert 0, "NM path cannot be determined. Try putting NM folder (rather than alias) in Igor Procedures folder."
-					break
-				endif
+				//if (IgorVersion() < 5)
+				//	NMDoAlert("NM path cannot be determined. Try putting NM folder (rather than alias) in Igor Procedures folder.")
+				//	break
+				//endif
 				
-				Execute "GetFileFolderInfo /P=NMPath/Q/Z \"" + fname + "\"" // Igor 5 only
+				GetFileFolderInfo /P=NMPath /Q/Z fname
 				
 				if (V_isAliasShortcut == 1)
 					path = S_aliasPath
@@ -415,7 +412,7 @@ End // NMImportFileSeq
 
 Function FileBinType()
 
-	if ((IgorVersion() >= 5) && (exists("LoadData") == 4) && (exists("SaveData") == 4))
+	if ((exists("LoadData") == 4) && (exists("SaveData") == 4))
 		return 1 // Igor 5 binary file
 	else
 		return 0 // NM binary file
@@ -886,7 +883,7 @@ End // FileBinSave
 Function NMBin2IgorCall()
 
 	if (FileBinType() == 0)
-		DoAlert 0, "Sorry, this is an Igor 5 function."
+		NMDoAlert("Sorry, this is an Igor 5 function.")
 		return -1
 	endif
 
@@ -993,7 +990,7 @@ Function /S IgorBinOpen(folder, file, changeFolder) // open Igor packed binary f
 
 	String saveDF = GetDataFolder(1)
 	NewDataFolder /O/S $LastPathColon(folder, 0)
-	Execute "LoadData /O/Q/R \"" + file + "\""
+	LoadData /O/Q/R file
 	
 	SetNMstr("DataFileType", "IgorBin")
 	SetNMstr("FileName", GetPathName(file, 0))
@@ -1050,7 +1047,11 @@ Function /S IgorBinSave(folder, file) // save Igor packed binary file
 	String saveDF = GetDataFolder(1)
 	
 	SetDataFolder $folder
-	Execute "SaveData /O/Q/R \"" + file + "\""
+	SaveData /O/Q/R file
+	
+	if ( V_flag > 0 )
+		DoAlert 0, "IgorBinSave: failed to save " + folder + " to external file " + file
+	endif
 	
 	//if (strlen(S_path) > 0)
 	//	file = S_path
@@ -1096,7 +1097,7 @@ Function /S NMBinOpen(folder, file, makeflag, changeFolder)
 	endif
 	
 	if ((FileExists(file) == 0) || (strlen(NMBinFileType(file)) == 0))
-		DoAlert 0, "Error: file \"" + file + "\" is not a NeuroMatic binary file."
+		NMDoAlert("Error: file \"" + file + "\" is not a NeuroMatic binary file.")
 		return "" // not a NM binary file
 	endif
 
@@ -1185,7 +1186,7 @@ Function /S NMBinSave(folder, file, writeflag, closed)
 	endif
 	
 	if (DataFolderExists(folder) == 0)
-		DoAlert 0, "Data folder \"" + folder + "\" does not exist."
+		NMDoAlert("Data folder \"" + folder + "\" does not exist.")
 		return ""
 	endif
 

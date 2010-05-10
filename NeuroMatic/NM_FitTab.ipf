@@ -66,6 +66,7 @@ Function AutoFit()
 	
 	String gName = CurrentChanGraphName()
 	String fitWave = NMFitWaveName(-1)
+	String resWave = NMFitResidWaveName(-1)
 	
 	if (WaveExists($dwave) == 1)
 		Wave wtemp = $dwave
@@ -130,26 +131,30 @@ Function CheckFit() // declare global variables
 	String df = FitDF()
 	
 	if (DataFolderExists(df) == 0)
-		return -1 // folder doesnt exist
+		//return -1 // folder doesnt exist
 	endif
 	
 	CheckNMvar(df+"UserInput", 0)
+	
 	CheckNMvar(df+"Tbgn", -inf)
 	CheckNMvar(df+"Tend", inf)
 	CheckNMvar(df+"Cursors", 0)
-	CheckNMvar(df+"FitAuto", 0)
-	CheckNMvar(df+"FitNumPnts", Nan)
-	CheckNMvar(df+"MaxIterations", 40)
-	CheckNMvar(df+"SaveFitWaves", 1)
+	
 	CheckNMvar(df+"FullGraphWidth", 0)
-	CheckNMvar(df+"Print", 1)
+	CheckNMvar(df+"SaveFitWaves", 1)
+	CheckNMvar(df+"FitNumPnts", Nan)
+	
+	CheckNMvar(df+"FitAuto", 0)
 	CheckNMvar(df+"WeightStdv", 0)
+	CheckNMvar(df+"Print", 1)
+	CheckNMvar(df+"MaxIterations", 40)
+	CheckNMvar(df+"Residuals", 0)
 	
 	CheckNMstr(df+"Function", "")
 	CheckNMstr(df+"FxnShort", "")
 	CheckNMstr(df+"Equation", "")
 	CheckNMstr(df+"FxnList", NMFitIgorList())
-	CheckNMstr(df+"UserFxnList", "f:NMBekkers2,n:8;f:NMBekkers3,n:10;")
+	CheckNMstr(df+"UserFxnList", "")
 	CheckNMstr(df+"Xwave", "")
 	
 	return 0
@@ -260,6 +265,16 @@ End // NMFitNumPnts
 //****************************************************************
 //****************************************************************
 
+Function NMFitResiduals()
+
+	return NumVarOrDefault(FitDF()+"Residuals", Nan)
+
+End // NMFitResiduals
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function NMFitPrint()
 
 	return NumVarOrDefault(FitDF()+"Print", 1)
@@ -302,14 +317,24 @@ End // NMFitEquation
 
 Function /S NMFitFxnList()
 
-	String flist = StrVarOrDefault(FitDF()+"FxnList", NMFitIgorList())
-	String user = StrVarOrDefault(FitDF()+"UserFxnList", "")
-
-	if (ItemsInList(flist) == 0)
-		flist = NMFitIgorList()
-	endif
-
-	return flist + user
+	Variable icnt
+	String item, fname, userList = ""
+	
+	String flist = NMFitIgorList()
+	String uList = NMFitFuncList() + StrVarOrDefault(FitDF()+"UserFxnList", "")
+	
+	for ( icnt = 0 ; icnt < ItemsInList( uList ) ; icnt += 1 )
+	
+		item = StringFromList( icnt, uList )
+		fname = StringByKey("f", item, ":", ",")
+		
+		if ( exists( fname ) == 6 )
+			userList = AddListItem( item, userList, ";", inf )
+		endif
+		
+	endfor
+	
+	return flist + userList
 
 End // NMFitFxnList
 
@@ -426,6 +451,26 @@ End // NMFitIgorListShort
 //****************************************************************
 //****************************************************************
 
+Function /S NMFitFuncList() // NM fit functions functions
+	
+	return "f:NMSynExp3,n:7;f:NMSynExp4,n:9;"
+	
+End // NMFitFuncList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMFitFuncListShort()
+	
+	return NMFitFxnListByKey(NMFitFuncList(), "f")
+
+End // NMFitFuncListShort
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function /S NMFitPopupList()
 	
 	return " ;" + NMFitFxnListShort() + "---;Other;Remove from List;"
@@ -480,13 +525,14 @@ Function NMFitMake() // create controls that will begin with appropriate prefix
 	
 	y0 += 85
 	
-	GroupBox $FitPrefix("FitWaveGroup"), title = "Fit Waves", pos={x0-20,y0-23}, size={260,77}, win=NMpanel, fsize=fs
+	GroupBox $FitPrefix("FitWaveGroup"), title = "Outputs", pos={x0-20,y0-23}, size={260,77}, win=NMpanel, fsize=fs
 	Checkbox $FitPrefix("FullGraphWidth"), title="Full Graph Width", pos={x0,y0+0*yinc}, size={200,50}, value=NMFitSaveWaves(), proc=NMFitCheckBox, win=NMPanel, fsize=fs
 	Checkbox $FitPrefix("SaveFits"), title="Save", pos={x0,y0+1*yinc}, size={200,50}, value=NMFitSaveWaves(), proc=NMFitCheckBox, win=NMPanel, fsize=fs
-	SetVariable $FitPrefix("FitNumPnts"), title="Points:", pos={x0+130,y0+0*yinc}, size={90,50}, limits={0,inf,1}, win=NMpanel
+	Checkbox $FitPrefix("Residuals"), title="Residuals", pos={x0+65,y0+1*yinc}, size={200,50}, value=NMFitResiduals(), proc=NMFitCheckBox, win=NMPanel, fsize=fs
+	SetVariable $FitPrefix("FitNumPnts"), title="Points:", pos={x0+135,y0+0*yinc}, size={90,50}, limits={0,inf,1}, win=NMpanel
 	SetVariable $FitPrefix("FitNumPnts"), value=$(df+"FitNumPnts"), proc=NMFitSetVariable, win=NMpanel, fsize=fs
-	Button $FitPrefix("Compute"), pos={x0+75,y0+1*yinc}, title="Compute", size={70,20}, proc=NMFitButton, win=NMpanel, fsize=fs
-	Button $FitPrefix("Plot"), pos={x0+155,y0+1*yinc}, title="Plot", size={70,20}, proc=NMFitButton, win=NMpanel, fsize=fs
+	Button $FitPrefix("Compute"), pos={x0+155,y0+1*yinc}, title="Compute", size={70,20}, proc=NMFitButton, win=NMpanel, fsize=fs
+	//Button $FitPrefix("Plot"), pos={x0+155,y0+1*yinc}, title="Plot", size={70,20}, proc=NMFitButton, win=NMpanel, fsize=fs
 	
 	y0 += 85
 	
@@ -556,6 +602,7 @@ Function NMFitUpdate()
 	Checkbox $FitPrefix("Cursors"), value=NMFitCursors(), win=NMPanel
 	Checkbox $FitPrefix("FullGraphWidth"), value=NMFitFullGraphWidth(), win=NMPanel
 	Checkbox $FitPrefix("SaveFits"), value=NMFitSaveWaves(), win=NMPanel
+	Checkbox $FitPrefix("Residuals"), value=NMFitResiduals(), win=NMPanel
 	
 	Checkbox $FitPrefix("FitAuto"), value=NMFitAuto(), win=NMPanel
 	Checkbox $FitPrefix("Print"), value=NMFitPrint(), win=NMPanel
@@ -670,12 +717,12 @@ Function NMFitCall(fxn, select)
 			break
 			
 		case "Tbgn":
-			NMFitSetTbgnCall(snum)
+			NMFitTbgnSetCall(snum)
 			AutoFit()
 			break
 			
 		case "Tend":
-			NMFitSetTendCall(snum)
+			NMFitTendSetCall(snum)
 			AutoFit()
 			break
 			
@@ -695,6 +742,10 @@ Function NMFitCall(fxn, select)
 			
 		case "SaveFits":
 			NMFitSaveFitsSetCall()
+			break
+			
+		case "Residuals":
+			NMFitResidualsSetCall()
 			break
 			
 		case "FitNumPnts":
@@ -999,15 +1050,15 @@ Function NMFitFunctionSet(fxn)
 			pList = "Y0;A;X0;W;"
 			eq = "             Y0+A*exp(-(ln(x/X0)/W)^2)"
 			break
-		case "NMBekkers2":
-			sfxn = "Bek2"
-			pList = "A0;TR1;N;A1;TD1;A2;TD2;X0;"
-			eq = "A0*(1-exp(-(x-X0)/TR1))^N*(A1*exp(-(x-X0)/TD1)+A2*exp(-(x-X0)/TD2))"
+		case "NMSynExp3":
+			sfxn = "Syn3"
+			pList = "X0;TR1;N;A1;TD1;A2;TD2;"
+			eq = "(1-exp(-(x-X0)/TR1))^N*(A1*exp(-(x-X0)/TD1)+A2*exp(-(x-X0)/TD2))"
 			break
-		case "NMBekkers3":
-			sfxn = "Bek3"
-			pList = "A0;TR1;N;A1;TD1;A2;TD2;A3;TD3;X0;"
-			eq = "A0*(1-exp(-(x-X0)/TR1))^N*(A1*exp(-(x-X0)/TD1)+A2*exp(-(x-X0)/TD2))+A3*exp(-(x-X0)/TD3))"
+		case "NMSynExp4":
+			sfxn = "Syn4"
+			pList = "X0;TR1;N;A1;TD1;A2;TD2;A3;TD3;"
+			eq = "(1-exp(-(x-X0)/TR1))^N*(A1*exp(-(x-X0)/TD1)+A2*exp(-(x-X0)/TD2))+A3*exp(-(x-X0)/TD3))"
 			break
 		default:
 			sfxn = fxn
@@ -1021,7 +1072,7 @@ Function NMFitFunctionSet(fxn)
 	SetNMstr(df+"FxnShort", sfxn)
 	SetNMstr(df+"Equation", eq)
 	
-	Print fxn + ": " + eq
+	NMHistory(fxn + ": " + eq)
 	
 	NMFitWaveTable(1)
 	NMFitCoefNamesSet(pList)
@@ -1071,14 +1122,14 @@ End // NMFitX0Set
 //****************************************************************
 //****************************************************************
 
-Function NMFitSetTbgnCall(tbgn)
+Function NMFitTbgnSetCall(tbgn)
 	Variable tbgn
 	
-	NMCmdHistory("NMFitSetTbgn", NMCmdNum(tbgn,""))
+	NMCmdHistory("NMFitTbgnSet", NMCmdNum(tbgn,""))
 	
-	return NMFitSetTbgn(tbgn)
+	return NMFitTbgnSet(tbgn)
 	
-End // NMFitSetTbgnCall
+End // NMFitTbgnSetCall
 
 //****************************************************************
 //****************************************************************
@@ -1087,9 +1138,7 @@ End // NMFitSetTbgnCall
 Function NMFitSetTbgn(tbgn)
 	Variable tbgn
 	
-	SetNMvar(FitDF()+"Tbgn", tbgn)
-	
-	NMFitX0Set()
+	return NMFitTbgnSet(tbgn)
 	
 End // NMFitSetTbgn
 
@@ -1097,14 +1146,27 @@ End // NMFitSetTbgn
 //****************************************************************
 //****************************************************************
 
-Function NMFitSetTendCall(tend)
+Function NMFitTbgnSet(tbgn)
+	Variable tbgn
+	
+	SetNMvar(FitDF()+"Tbgn", tbgn)
+	
+	NMFitX0Set()
+	
+End // NMFitTbgnSet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMFitTendSetCall(tend)
 	Variable tend
 	
-	NMCmdHistory("NMFitSetTend", NMCmdNum(tend,""))
+	NMCmdHistory("NMFitTendSet", NMCmdNum(tend,""))
 	
-	return NMFitSetTend(tend)
+	return NMFitTendSet(tend)
 	
-End // NMFitSetTendCall
+End // NMFitTendSetCall
 
 //****************************************************************
 //****************************************************************
@@ -1113,11 +1175,22 @@ End // NMFitSetTendCall
 Function NMFitSetTend(tend)
 	Variable tend
 	
+	return NMFitTendSet(tend)
+	
+End // NMFitSetTend
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMFitTendSet(tend)
+	Variable tend
+	
 	SetNMvar(FitDF()+"Tend", tend)
 	
 	NMFitX0Set()
 	
-End // NMFitSetTend
+End // NMFitTendSet
 
 //****************************************************************
 //****************************************************************
@@ -1350,6 +1423,31 @@ End // NMFitSaveFitsSet
 //****************************************************************
 //****************************************************************
 
+Function NMFitResidualsSetCall()
+
+	Variable on = BinaryInvert(NMFitResiduals())
+	
+	NMCmdHistory("NMFitResidualsSet", NMCmdNum(on,""))
+
+	return NMFitResidualsSet(on)
+
+End // NMFitResidualsSetCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMFitResidualsSet(on)
+	Variable on
+	
+	SetNMvar(FitDF()+"Residuals",  BinaryCheck(on))
+
+End // NMFitResidualsSet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function NMFitPrintSetCall()
 
 	Variable on = BinaryInvert(NMFitPrint())
@@ -1405,7 +1503,7 @@ Function NMFitWeightSetCall()
 	Variable on = BinaryInvert(NMFitWeight())
 	
 	if (on == 1)
-		DoAlert 0, "Note: to use this option, weight waves must have the same name as the data waves, but with \"Stdv_\" or \"InvStdv_\" as a prefix (i.e. Stdv_Data0)."
+		NMDoAlert("Note: to use this option, weight waves must have the same name as the data waves, but with \"Stdv_\" or \"InvStdv_\" as a prefix (i.e. Stdv_Data0).")
 	endif
 	
 	NMCmdHistory("NMFitWeightSet", NMCmdNum(on,""))
@@ -1474,6 +1572,8 @@ Function NMFitAllWavesCall()
 	NMCmdHistory("NMFitAllWaves", NMCmdNum(pauseMode, ""))
 
 	NMFitAllWaves(pauseMode)
+	
+	NMFitPlotAll(1)
 
 End // NMFitAllWavesCall
 
@@ -1493,7 +1593,7 @@ Function NMFitAllWaves(pause)
 	WaveStats /Q/Z WavSelect
 	
 	if (V_max != 1)
-		DoAlert 0, "No Waves Selected!"
+		NMDoAlert("No Waves Selected!")
 		return -1
 	endif
 	
@@ -1579,9 +1679,9 @@ End // NMFitWaveCall
 Function NMFitWave()
 
 	Variable pbgn, pend, icnt
-	String fitwave = ""
+	String fitwave = "", reswave = ""
 
-	String fit = "CurveFit ", quiet = "", polynom = "", guess = "", region = "", cmd = "", fitpnts = ""
+	String fit = "CurveFit ", quiet = "", polynom = "", guess = "", region = "", cmd = "", fitpnts = "", resid = ""
 	String fullgraph = "", hold = "", const = "", cycle = "", xw = "", weightflag = "", weightwave = "", df = FitDF()
 	String wName = ChanDisplayWave(-1)
 	String gName = CurrentChanGraphName()
@@ -1594,6 +1694,7 @@ Function NMFitWave()
 	Variable tend = NMFitTend()
 	Variable fitNumPnts = NMFitNumPnts()
 	Variable fullGraphWidth = NMFitFullGraphWidth()
+	Variable residuals = NMFitResiduals()
 	Variable maxIter = NMFitMaxIterations()
 	
 	String fxn = NMFitFunction()
@@ -1665,7 +1766,7 @@ Function NMFitWave()
 	if (NMFitCursors() == 1)
 	
 		if ((strlen(NMFitCsrInfo("A", gName)) == 0) && (strlen(NMFitCsrInfo("B", gName)) == 0))
-			DoAlert 0, "Error: cannot locate Cursor information on current graph."
+			NMDoAlert("Error: cannot locate Cursor information on current graph.")
 			return -1
 		endif
 		
@@ -1707,7 +1808,7 @@ Function NMFitWave()
 		fit = "FuncFit "
 		
 		if (NumType(sum(FT_guess)) > 0)
-			DoAlert 0, "Fit Error: you must provide initial guesses for user-defined equations."
+			NMDoAlert("Fit Error: you must provide initial guesses for user-defined equations.")
 			return -1
 		endif
 		
@@ -1778,7 +1879,7 @@ Function NMFitWave()
 			weightflag = "/I=0 "
 			weightwave = "/W=InvStdv" + sourceWave + " "
 		else
-			DoAlert 0, "Error: cannot locate Stdv or InvStdv wave for " + sourceWave
+			NMDoAlert("Error: cannot locate Stdv or InvStdv wave for " + sourceWave)
 			return -1
 		endif
 	endif
@@ -1791,6 +1892,10 @@ Function NMFitWave()
 		fullGraph = "/X=1 "
 	endif
 	
+	if (residuals == 1)
+		resid = "/R "
+	endif
+	
 	if (maxIter != 40)
 		Variable /G V_FitMaxIters = maxIter
 	endif
@@ -1800,7 +1905,7 @@ Function NMFitWave()
 	FT_sigma = Nan
 	
 	cmd = fit + fitpnts + "/N " + cycle + guess + quiet + fullGraph + hold + const + fxn + " kwCWave=" + df + "FT_coef, "
-	cmd += wName + region + " /D " + weightflag + weightwave + xw
+	cmd += wName + region + " /D " + resid + weightflag + weightwave + xw
 	
 	Execute cmd
 	
@@ -1809,23 +1914,6 @@ Function NMFitWave()
 	if (WaveExists(W_sigma) == 1)
 		Wave W_sigma
 		FT_sigma = W_sigma
-	endif
-	
-	if ((V_FitError == 0) && (NMFitSaveWaves() == 1))
-	
-		fitwave = NMFitDisplayWaveName()
-		
-		WaveStats /Q/Z $fitwave
-		
-		if (numtype(V_avg) > 0)
-			NMFitWaveCompute(1) // something went wrong - recompute fit wave
-		endif
-		
-		if (WaveExists($fitwave) == 1)
-			Duplicate /O $fitwave $("fit_" + sourceWave)
-			NMPrefixAdd("fit_" + NMCurrentWavePrefix())
-		endif
-		
 	endif
 	
 	return V_flag
@@ -1847,11 +1935,32 @@ End // NMFitWaveName
 //****************************************************************
 //****************************************************************
 
+Function /S NMFitResidWaveName(wavNum)
+	Variable wavNum // (-1) for current
+
+	return "res_" + ChanWaveName(-1, wavNum)
+	
+End // NMFitResidWaveName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function /S NMFitDisplayWaveName()
 	
 	return "fit_" + ChanDisplayWaveName(0, NMCurrentChan(), 0)
 
 End // NMFitDisplayWaveName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMFitResidDisplayWaveName()
+	
+	return "Res_" + ChanDisplayWaveName(0, NMCurrentChan(), 0)
+
+End // NMFitResidDisplayWaveName
 
 //****************************************************************
 //****************************************************************
@@ -1907,7 +2016,7 @@ Function NMFitWaveCompute(guessORfit)
 	String fitWave = NMFitDisplayWaveName()
 	
 	if (WhichListItem(fxn, igorFxns) < 0) // user defined function here
-		//DoAlert 0, "Sorry, this function does not work for user-defined curve fit functions."
+		//NMDoAlert("Sorry, this function does not work for user-defined curve fit functions.")
 		//return 0
 	endif
 	
@@ -2017,14 +2126,14 @@ Function NMFitWaveCompute(guessORfit)
 			//eq = "             Y0+A*exp(-(ln(x/X0)/W)^2)"
 			fit = w[0]+w[1]*exp(-(ln(x/w[2])/w[3])^2)
 			break
-		case "NMBekkers2":
-			fit = NMBekkers2(w,x)
+		case "NMSynExp3":
+			fit = NMSynExp3(w,x)
 			break
-		case "NMBekkers3":
-			fit = NMBekkers3(w,x)
+		case "NMSynExp4":
+			fit = NMSynExp4(w,x)
 			break
 		default:
-			DoAlert 0, "Cannot compute function for : " + fxn
+			NMDoAlert("Cannot compute function for : " + fxn)
 			return -1
 	endswitch
 	
@@ -2178,27 +2287,25 @@ Function NMFitGuess()
 	endif
 	
 	strswitch(fxn)
-		case "NMBekkers2":
-			FT_guess[0] = 1 // A0
+		case "NMSynExp3":
+			FT_guess[0] = tbgn // X0
 			FT_guess[1] = 0.1 // TR1
 			FT_guess[2] = 11 // N
 			FT_guess[3] = 2 // A1
 			FT_guess[4] = 0.5 // TD1
 			FT_guess[5] = 0.3 // A2
 			FT_guess[6] = 3 // TD2
-			FT_guess[7] = tbgn // X0
 			break
-		case "NMBekkers3":
-			FT_guess[0] = 1 // A0
+		case "NMSynExp4":
+			FT_guess[0] = tbgn // X0
 			FT_guess[1] = 0.1 // TR1
 			FT_guess[2] = 11 // N
 			FT_guess[3] = 2 // A1
 			FT_guess[4] = 0.5 // TD1
 			FT_guess[5] = 0.3 // A2
 			FT_guess[6] = 3 // TD2
-			FT_guess[7] = 0.1 // A2
-			FT_guess[8] = 20 // TD2
-			FT_guess[9] = tbgn // X0
+			FT_guess[7] = 0.1 // A3
+			FT_guess[8] = 20 // TD3
 			break
 	endswitch
 
@@ -2252,6 +2359,37 @@ End // NMFitSaveCurrentCall
 //****************************************************************
 
 Function /S NMFitSaveCurrent()
+
+	String fitwave, reswave
+	String sourceWave = ChanWaveName(-1, -1)
+
+	if (NMFitSaveWaves() == 1)
+	
+		fitwave = NMFitDisplayWaveName()
+		reswave = NMFitResidDisplayWaveName()
+		
+		WaveStats /Q/Z $fitwave
+		
+		if (numtype(V_avg) > 0)
+		
+			NMFitWaveCompute(1) // something went wrong - recompute fit wave
+			
+			Wave res = $reswave
+			
+			res = Nan
+			
+		endif
+		
+		if (WaveExists($fitwave) == 1)
+			Duplicate /O $fitwave $("fit_" + sourceWave)
+			NMPrefixAdd("fit_" + NMCurrentWavePrefix())
+		endif
+		
+		if (WaveExists($reswave) == 1)
+			Duplicate /O $reswave $("res_" + sourceWave)
+		endif
+		
+	endif
 
 	return NMFitSaveClear(NMCurrentWave(), 0)
 	
@@ -2321,7 +2459,9 @@ Function /S NMFitSaveClear(wavNum, clear)
 	String df = FitDF()
 	String tName = NMFitTable()
 	String fitWave = NMFitWaveName(wavNum)
+	String resWave = NMFitResidWaveName(wavNum)
 	String fitDisplay = NMFitDisplayWaveName()
+	String resDisplay = NMFitResidDisplayWaveName()
 	
 	if ((WaveExists($df+"FT_coef") == 0) || (WaveExists($df+"FT_sigma") == 0))
 		return ""
@@ -2336,8 +2476,16 @@ Function /S NMFitSaveClear(wavNum, clear)
 			Wave wtemp = $fitWave
 			wtemp = Nan
 		endif
+		if (WaveExists($resWave) == 1)
+			Wave wtemp = $resWave
+			wtemp = Nan
+		endif
 		if (WaveExists($fitDisplay) == 1)
 			Wave wtemp = $fitDisplay
+			wtemp = Nan
+		endif
+		if (WaveExists($resDisplay) == 1)
+			Wave wtemp = $resDisplay
 			wtemp = Nan
 		endif
 	else
@@ -2439,6 +2587,7 @@ Function /S NMFitName(name, chanNum, overWrite)
 	Variable chanNum
 	Variable overWrite
 	
+	String fname
 	String fxn = StrVarOrDefault(FitDF()+"FxnShort", NMFitFunction())
 	
 	if (strlen(fxn) > 5)
@@ -2449,7 +2598,9 @@ Function /S NMFitName(name, chanNum, overWrite)
 	
 	String wPrefix = FitPrefix(fxn + "_" + name+ "_" + NMWaveSelectStr() + "_")
 	
-	return NextWaveName2("", wPrefix, chanNum, overWrite)
+	fname = NextWaveName2("", wPrefix, chanNum, overWrite)
+	
+	return fname[0,30]
 
 End // NMFitName
 
@@ -2588,7 +2739,7 @@ Function NMFitPlotAll(plotData)
 	endfor
 	
 	If (ItemsInList(fList) <= 0)
-		DoAlert 0, "There are no saved fits to plot."
+		NMDoAlert("There are no saved fits to plot.")
 		return 0
 	endif
 	
@@ -2637,10 +2788,25 @@ Function NMFitRemoveDisplayWaves()
 		wList = WaveList("fit_*", ";", "WIN:"+gName)
 		
 		for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
+		
 			wName = StringFromList(wcnt, wList)
+			
 			if (WaveExists($wName) == 1)
 				RemoveFromGraph /W=$gName /Z $wName
 			endif
+			
+		endfor
+		
+		wList = WaveList("res_*", ";", "WIN:"+gName)
+		
+		for (wcnt = 0; wcnt < ItemsInList(wList); wcnt += 1)
+		
+			wName = StringFromList(wcnt, wList)
+			
+			if (WaveExists($wName) == 1)
+				RemoveFromGraph /W=$gName /Z $wName
+			endif
+			
 		endfor
 		
 	endfor
@@ -2658,15 +2824,15 @@ Function NMSingleExp(w,x) : FitFunc // example of a user-defined fit function
 	//CurveFitDialog/ These comments were created by the Curve Fitting dialog. Altering them will
 	//CurveFitDialog/ make the function less convenient to work with in the Curve Fitting dialog.
 	//CurveFitDialog/ Equation:
-	//CurveFitDialog/ f(x) = Yo + A1*exp(-(x-Xo)/tau1) 
+	//CurveFitDialog/ f(x) = Y0 + A1*exp(-(x-X0)/Tau1) 
 	//CurveFitDialog/ End of Equation
 	//CurveFitDialog/ Independent Variables 1
 	//CurveFitDialog/ x
 	//CurveFitDialog/ Coefficients 4
-	//CurveFitDialog/ w[0] = Yo
+	//CurveFitDialog/ w[0] = Y0
 	//CurveFitDialog/ w[1] = A1
-	//CurveFitDialog/ w[2] = tau1
-	//CurveFitDialog/ w[3] = Xo
+	//CurveFitDialog/ w[2] = Tau1
+	//CurveFitDialog/ w[3] = X0
 
 	return w[0] + w[1]*exp(-(x-w[3])/w[2])
 	
@@ -2676,57 +2842,89 @@ End // NMSingleExp
 //****************************************************************
 //****************************************************************
 
-Function NMBekkers2(w,x) : FitFunc
+Function NMSynExp3(w,x) : FitFunc
 	Wave w
 	Variable x
 
 	//CurveFitDialog/ These comments were created by the Curve Fitting dialog. Altering them will
 	//CurveFitDialog/ make the function less convenient to work with in the Curve Fitting dialog.
 	//CurveFitDialog/ Equation:
-	//CurveFitDialog/ f(x) =A0*(1-exp(-(x-X0)/TR1))^N*(A1*exp(-(x-X0)/TD1)+A2*exp(-(x-X0)/TD2))
+	//CurveFitDialog/ f(x) = (1-exp(-(x-X0)/TR1))^N*(A1*exp(-(x-X0)/TD1)+A2*exp(-(x-X0)/TD2))
 	//CurveFitDialog/ End of Equation
 	//CurveFitDialog/ Independent Variables 1
 	//CurveFitDialog/ x
-	//CurveFitDialog/ Coefficients 8
-	//CurveFitDialog/ w[0] = A0
+	//CurveFitDialog/ Coefficients 7
+	//CurveFitDialog/ w[0] = X0
 	//CurveFitDialog/ w[1] = TR1
 	//CurveFitDialog/ w[2] = N
 	//CurveFitDialog/ w[3] = A1
 	//CurveFitDialog/ w[4] = TD1
 	//CurveFitDialog/ w[5] = A2
 	//CurveFitDialog/ w[6] = TD2
-	//CurveFitDialog/ w[7] = X0
 	
-	//Variable signA0 = w[0] / abs(w[0])
+	w[3] = abs(w[3])
+	w[5] = abs(w[5])
 	
-	//w[3] = signA0 * abs(w[3])
-	//w[5] = signA0 * abs(w[5])
-	
-	if (x < w[7])
+	if (x < w[0])
 		return 0
 	else
-		return w[0]*(1-exp(-(x-w[7])/w[1]))^w[2]*(w[3]*exp(-(x-w[7])/w[4])+w[5]*exp(-(x-w[7])/w[6]))
+		return (1-exp(-(x-w[0])/w[1]))^w[2]*(w[3]*exp(-(x-w[0])/w[4])+w[5]*exp(-(x-w[0])/w[6]))
 	endif
 	
-End // NMBekkers2
+End // NMSynExp3
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function NMBekkers3(w,x) : FitFunc
+Function NMSynExp3F(w,x) : FitFunc
 	Wave w
 	Variable x
 
 	//CurveFitDialog/ These comments were created by the Curve Fitting dialog. Altering them will
 	//CurveFitDialog/ make the function less convenient to work with in the Curve Fitting dialog.
 	//CurveFitDialog/ Equation:
-	//CurveFitDialog/ f(x) =A0*(1-exp(-(x-X0)/TR1))^N*(A1*exp(-(x-X0)/TD1)+A2*exp(-(x-X0)/TD2)+A3*exp(-(x-X0)/TD3))
+	//CurveFitDialog/ f(x) = A0*(1-exp(-(x-X0)/TR1))^N*(F*exp(-(x-X0)/TD1)+(1-F)*exp(-(x-X0)/TD2))
 	//CurveFitDialog/ End of Equation
 	//CurveFitDialog/ Independent Variables 1
 	//CurveFitDialog/ x
-	//CurveFitDialog/ Coefficients 10
-	//CurveFitDialog/ w[0] = A0
+	//CurveFitDialog/ Coefficients 7
+	//CurveFitDialog/ w[0] = X0
+	//CurveFitDialog/ w[1] = TR1
+	//CurveFitDialog/ w[2] = N
+	//CurveFitDialog/ w[3] = A0
+	//CurveFitDialog/ w[4] = TD1
+	//CurveFitDialog/ w[5] = F
+	//CurveFitDialog/ w[6] = TD2
+	
+	w[3] = abs(w[3])
+	w[5] = abs(w[5])
+	
+	if (x < w[0])
+		return 0
+	else
+		return w[3]*(1-exp(-(x-w[0])/w[1]))^w[2]*(w[5]*exp(-(x-w[0])/w[4])+(1-w[5])*exp(-(x-w[0])/w[6]))
+	endif
+	
+End // NMSynExp3F
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMSynExp4(w,x) : FitFunc
+	Wave w
+	Variable x
+
+	//CurveFitDialog/ These comments were created by the Curve Fitting dialog. Altering them will
+	//CurveFitDialog/ make the function less convenient to work with in the Curve Fitting dialog.
+	//CurveFitDialog/ Equation:
+	//CurveFitDialog/ f(x) = (1-exp(-(x-X0)/TR1))^N*(A1*exp(-(x-X0)/TD1)+A2*exp(-(x-X0)/TD2)+A3*exp(-(x-X0)/TD3))
+	//CurveFitDialog/ End of Equation
+	//CurveFitDialog/ Independent Variables 1
+	//CurveFitDialog/ x
+	//CurveFitDialog/ Coefficients 9
+	//CurveFitDialog/ w[0] = X0
 	//CurveFitDialog/ w[1] = TR1
 	//CurveFitDialog/ w[2] = N
 	//CurveFitDialog/ w[3] = A1
@@ -2735,15 +2933,18 @@ Function NMBekkers3(w,x) : FitFunc
 	//CurveFitDialog/ w[6] = TD2
 	//CurveFitDialog/ w[7] = A3
 	//CurveFitDialog/ w[8] = TD3
-	//CurveFitDialog/ w[9] = x0
 	
-	if(x<w[9])
+	w[3] = abs(w[3])
+	w[5] = abs(w[5])
+	w[7] = abs(w[7])
+	
+	if(x<w[0])
 		return 0
 	else
-		return w[0]*(1-exp(-(x-w[9])/w[1]))^w[2]*(w[3]*exp(-(x-w[9])/w[4])+w[5]*exp(-(x-w[9])/w[6])+w[7]*exp(-(x-w[9])/w[8]))
+		return (1-exp(-(x-w[0])/w[1]))^w[2]*(w[3]*exp(-(x-w[0])/w[4])+w[5]*exp(-(x-w[0])/w[6])+w[7]*exp(-(x-w[0])/w[8]))
 	endif
 	
-End // NMBekkers3
+End // NMSynExp4
 
 //****************************************************************
 //****************************************************************

@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -23,7 +23,6 @@
 //	and log (NMLog) folders.
 //
 //	Began 1 July 2003
-//	Last modified 08 Nov 2005
 //
 //****************************************************************
 //****************************************************************
@@ -224,7 +223,7 @@ Function NotesTable(update) // create table to edit note vars
 	String fnlist = NotesVarList(ndf, "F_", "numeric")
 	String notelist = GetListItems("*note*", fslist, ";") // note strings
 	
-	notelist = SortListLax(notelist, ";")
+	notelist = SortList(notelist, ";", 16)
 	
 	fnlist = RemoveListFromList(NotesBasicList("F",0), fnlist, ";")
 	fslist = RemoveListFromList(NotesBasicList("F",1), fslist, ";")
@@ -740,13 +739,15 @@ Function NotesHeaderVar(varName, value)
 	String varName
 	Variable value
 	
+	String tName = NotesTableName()
+	
 	if (StringMatch(varName[0,1], "H_") == 0)
 		varName = "H_" + varName
 	endif
 	
 	SetNMvar(NotesDF()+varName, value)
 	
-	if (WinType("ClampNotesTable") == 2)
+	if (WinType(tName) == 2)
 		NotesTable(0)
 	endif
 
@@ -760,13 +761,15 @@ Function NotesHeaderStr(varName, strValue)
 	String varName
 	String strValue
 	
+	String tName = NotesTableName()
+	
 	if (StringMatch(varName[0,1], "H_") == 0)
 		varName = "H_" + varName
 	endif
 	
 	SetNMstr(NotesDF()+varName, strValue)
 	
-	if (WinType("ClampNotesTable") == 2)
+	if (WinType(tName) == 2)
 		NotesTable(0)
 	endif
 
@@ -780,13 +783,15 @@ Function NotesFileVar(varName, value)
 	String varName
 	Variable value
 	
+	String tName = NotesTableName()
+	
 	if (StringMatch(varName[0,1], "F_") == 0)
 		varName = "F_" + varName
 	endif
 	
 	SetNMvar(NotesDF()+varName, value)
 	
-	if (WinType("ClampNotesTable") == 2)
+	if (WinType(tName) == 2)
 		NotesTable(0)
 	endif
 
@@ -800,13 +805,15 @@ Function NotesFileStr(varName, strValue)
 	String varName
 	String strValue
 	
+	String tName = NotesTableName()
+	
 	if (StringMatch(varName[0,1], "F_") == 0)
 		varName = "F_" + varName
 	endif
 	
 	SetNMstr(NotesDF()+varName, strValue)
 	
-	if (WinType("ClampNotesTable") == 2)
+	if (WinType(tName) == 2)
 		NotesTable(0)
 	endif
 

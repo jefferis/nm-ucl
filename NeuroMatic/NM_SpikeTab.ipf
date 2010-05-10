@@ -501,7 +501,7 @@ Function MakeSpike(force) // create Spike tab controls
 	
 	SetVariable SP_Thresh, title="Threshold", pos={x0,y0+1*yinc}, limits={-inf,inf,1}, size={120,20}, frame=1, value=$(df+"Thresh"), proc=SpikeSetVariable, fsize=fs
 	
-	SetVariable SP_WinB, title="t_beg", pos={x0,y0+2*yinc}, limits={-inf,inf,1}, size={120,20}, frame=1, value=$(df+"WinB"), proc=SpikeSetVariable, fsize=fs
+	SetVariable SP_WinB, title="t_bgn", pos={x0,y0+2*yinc}, limits={-inf,inf,1}, size={120,20}, frame=1, value=$(df+"WinB"), proc=SpikeSetVariable, fsize=fs
 	SetVariable SP_WinE, title="t_end", pos={x0,y0+3*yinc}, limits={-inf,inf,1}, size={120,20}, frame=1, value=$(df+"WinE"), proc=SpikeSetVariable, fsize=fs
 	
 	SetVariable SP_Count, title="Spikes : ", pos={x0+xinc,y0+2*yinc}, limits={0,inf,0}, size={90,20}, frame=0, value=$(df+"Events"), fsize=fs
@@ -918,21 +918,21 @@ Function SpikeRasterCheckWaves()
 	String yRaster = StrVarOrDefault(df+"RasterWaveY", "")
 
 	if (WaveExists($xRaster) == 0)
-		DoAlert 0, "Error: Raster wave " + xRaster + "does not exist."
+		NMDoAlert("Error: Raster wave " + xRaster + "does not exist.")
 		SetNMstr(df+"RasterWaveX", "")
 		SetNMstr(df+"RasterWaveY", "")
 		return -1
 	endif
 	
 	if (WaveExists($yRaster) == 0)
-		DoAlert 0, "Error: Raster wave " + yRaster + "does not exist."
+		NMDoAlert("Error: Raster wave " + yRaster + "does not exist.")
 		SetNMstr(df+"RasterWaveX", "")
 		SetNMstr(df+"RasterWaveY", "")
 		return -1
 	endif
 	
 	if (numpnts($xRaster) != numpnts($yRaster))
-		DoAlert 0, "Error: Raster x and y waves are not the same length."
+		NMDoAlert("Error: Raster x and y waves are not the same length.")
 		SetNMstr(df+"RasterWaveX", "")
 		SetNMstr(df+"RasterWaveY", "")
 		return -1
@@ -1042,7 +1042,7 @@ Function /S SpikeAllWavesCall()
 	Variable nwaves = ChanWavesCount(-1)
 	
 	if (nwaves <= 0)
-		DoAlert 0, "No waves selected!"
+		NMDoAlert("No waves selected!")
 		return ""
 	endif
 
@@ -1353,6 +1353,18 @@ Function SpikeRaster(chanNum, waveNum, thresh, WinB, WinE, xName, yName, dsplyFl
 		
 		Variable tmin2 = NMXvalueTransform(aName, tmin, -1, 1)
 		Variable tmax2 = NMXvalueTransform(aName, tmax, -1, -1)
+		
+		if ((tmin2 >= rightx($aName)) || (tmax2 > rightx($aName)))
+			continue // out of range
+		endif
+		
+		if ((tmin2 < leftx($aName)) || (tmax2 <= leftx($aName)))
+			continue // out of range
+		endif
+		
+		if (tmax2 < tmin2 + 2*deltax($aName))
+			continue // out of range
+		endif
 		
 		Findlevels /Q/R=(tmin2, tmax2)/D=Xtimes $aName, thresh
 		
@@ -1753,7 +1765,7 @@ Function SpikeAvgAlert()
 	String s1 = "ALERT: this function produced incorrect averages in previous NM versions due to division by wrong number of spikes. "
 	String s2 = "Please use 'Spike 2 Waves' option and compute average of 'SP_Rstr' waves using Main tab. "
 
-	DoAlert 0, s1 + s2
+	NMDoAlert(s1 + s2)
 
 End // SpikeAvgAlert
 
@@ -1912,7 +1924,7 @@ Function Spike2WavesCall()
 		wlist = Event2Wave(yRaster, xRaster, before, after, stop, ccnt, prefix)
 		
 		if (strlen(wlist) == 0)
-			DoAlert 0, "Error: no spikes detected"
+			NMDoAlert("Error: no spikes detected")
 			return 0
 		endif
 		
@@ -2169,7 +2181,7 @@ Function /S SpikeISIH(xRaster, yRaster, winB, winE, isiMin, isiMax, isihD, isihY
 	Variable events = Time2Intervals(xRaster, winB, winE, isiMin, isiMax) // results saved in U_INTVLS
 		
 	if ((events <= 0) || (WaveExists(U_INTVLS) == 0))
-		DoAlert 0, "No interspike intervals detected."
+		NMDoAlert("No interspike intervals detected.")
 		return ""
 	endif
 	
@@ -2458,7 +2470,7 @@ Function SpikeTable()
 	wlist = RemoveFromList(wlist2, wlist)
 
 	if (ItemsInList(wlist) == 0)
-		DoAlert 0, "Detected no Spike waves."
+		NMDoAlert("Detected no Spike waves.")
 		return -1
 	endif
 	
@@ -2480,7 +2492,7 @@ End // SpikeTable
 //****************************************************************
 //****************************************************************
 
-Function XTimes2Spike() : GraphMarquee // use marquee x-values for stats t_beg and t_end
+Function XTimes2Spike() : GraphMarquee // use marquee x-values for stats t_bgn and t_end
 	String df = SpikeDF()
 	
 	if ((DataFolderExists(df) == 0) || (IsCurrentNMTab("Spike") == 0))

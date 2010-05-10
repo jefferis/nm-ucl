@@ -120,7 +120,7 @@ End // StimList
 
 Function /S StimAcqModeList()
 
-	return "continuous;episodic;epic precise;triggered;"
+	return "episodic;epic precise;epic triggered;continuous;continuous triggered;"
 	
 End // StimAcqModeList
 
@@ -139,7 +139,9 @@ Function /S StimAcqModeStr(acqModeNum)
 		case 2:
 			return "epic precise"
 		case 3:
-			return "triggered"
+			return "epic triggered"
+		case 4:
+			return "continuous triggered"
 		default:
 			return ""
 	endswitch
@@ -151,6 +153,20 @@ End // StimAcqModeStr
 //****************************************************************
 
 Function StimIntervalGet(sdf, boardNum)
+	String sdf // stim data folder path
+	Variable boardNum
+	
+	sdf = CheckStimDF(sdf)
+	
+	return StimIntervalCheck(NumVarOrDefault(sdf+"SampleInterval", 1))
+		
+End // StimIntervalGet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StimIntervalGetx(sdf, boardNum)
 	String sdf // stim data folder path
 	Variable boardNum
 	
@@ -169,7 +185,7 @@ Function StimIntervalGet(sdf, boardNum)
 	
 	return StimIntervalCheck(sampleInterval)
 		
-End // StimIntervalGet
+End // StimIntervalGetx
 
 //****************************************************************
 //****************************************************************
@@ -255,10 +271,13 @@ Function /S StimWavesCheck(sdf, forceUpdate)
 	endfor
 	
 	if (new == 1)
+	
 		klist = WaveListFolder(sdf, "ITCoutWave*", ";", "")
+		
 		for (icnt = 0; icnt < ItemsInList(klist); icnt += 1)
 			KillWaves /Z $StringFromList(icnt, klist)
 		endfor
+		
 	endif
 	
 	return wlist
@@ -342,7 +361,7 @@ Function /S StimWavesMake(sdf, io, config, ORflag)
 			if (WaveExists($sdf+"My"+wname) == 1)
 			
 				//if ((deltax($sdf+"My"+wname) != dt) && (alert == 0))
-					//DoAlert 0, "Error: encountered incorrect sample interval for wave: " + sdf + "My" + wname + " : " + num2str(deltax($sdf+"My"+wname)) + " , " + num2str(dt)
+					//NMDoAlert("Error: encountered incorrect sample interval for wave: " + sdf + "My" + wname + " : " + num2str(deltax($sdf+"My"+wname)) + " , " + num2str(dt)
  					//alert = 1
 					//continue
 				//endif
@@ -392,7 +411,7 @@ Function StimTableCall(sdf, pName)
 	Variable pgOff = NumVarOrDefault(sdf+"PulseGenOff", 0)
 	
 	if (pgOff == 1)
-		//DoAlert 0, "Pulse Generator was turned off for this stimulus."
+		//NMDoAlert("Pulse Generator was turned off for this stimulus.")
 		//return -1
 	endif
 	
@@ -402,7 +421,7 @@ Function StimTableCall(sdf, pName)
 		
 			case 0:
 			
-				DoAlert 0, "This folder has no stimulus configuration."
+				NMDoAlert("This folder has no stimulus configuration.")
 				return -1
 			
 			case 1:
@@ -426,7 +445,7 @@ Function StimTableCall(sdf, pName)
 	if (StringMatch(pName, "All") == 1)
 	
 		if (ItemsInList(plist) == 0)
-			DoAlert 0, "Found no stim pulse configurations."
+			NMDoAlert("Found no stim pulse configurations.")
 			return 0
 		endif
 	
@@ -957,7 +976,7 @@ Function SubStimCall(fxn)
 	String df = SubStimDF()
 	
 	if (strlen(df) == 0)
-		DoAlert 0, "The current data folder contains no stimulus configuration."
+		NMDoAlert("The current data folder contains no stimulus configuration.")
 		return 0
 	endif
 	

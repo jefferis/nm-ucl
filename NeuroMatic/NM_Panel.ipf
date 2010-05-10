@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -118,7 +118,7 @@ Function MakeNMpanel()
 	DoWindow /K NMpanel
 	NewPanel /K=1/N=NMpanel/W=(x0, y0, x1, y1) as "  NeuroMatic v" + NMVersionStr()
 	
-	SetWindow NMpanel, hook=NMPanelHook
+	//SetWindow NMpanel, hook=NMPanelHook
 	
 	ModifyPanel cbRGB = (r, g, b)
 	
@@ -210,7 +210,7 @@ Function NMPanelHook(infoStr)
 	endif
 	
 	if (StringMatch(event, "activate") == 1)
-		CheckCurrentFolder()
+		//CheckCurrentFolder()
 		//CheckNMFolderList()
 	endif
 
@@ -723,7 +723,7 @@ Function NMPopupGroups(ctrlName, popNum, popStr) : PopupMenuControl
 	PopupMenu NM_GroupMenu, win=NMpanel, mode=1
 	
 	//if (NumVarOrDefault("NumWaves", 0) == 0)
-		//DoAlert 0, "Data waves have not been selected for this folder."
+		//NMDoAlert("Data waves have not been selected for this folder."
 		//return 0
 	//endif
 	
@@ -741,7 +741,7 @@ Function NMPopupSets(ctrlName, popNum, popStr) : PopupMenuControl
 	PopupMenu NM_SetsMenu, win=NMpanel, mode=1
 	
 	if (NumVarOrDefault("NumWaves", 0) == 0)
-		DoAlert 0, "Data waves have not been selected for this folder."
+		NMDoAlert("Data waves have not been selected for this folder.")
 		return 0
 	endif
 	
@@ -959,6 +959,10 @@ Function /S NMTabListGet()
 	String win = TabWinName(tabList)
 	String tab = TabCntrlName(tabList)
 	
+	if ((ItemsInList(tabList) == 0) && (ItemsInList(newList) == 0))
+		return "" // tab list does not exist yet
+	endif
+	
 	if ((StringMatch(win, "NMPanel") == 1) && (StringMatch(tab, "NM_Tab") == 1))
 		
 		if (StringMatch(newList, newList2) == 0)
@@ -967,6 +971,16 @@ Function /S NMTabListGet()
 		
 		return tabList // OK format
 		
+	endif
+	
+	if (ItemsInList(newList) == 0)
+	
+		if (ItemsInList(newList2) > 0)
+			newList = newList2
+		else
+			newList = "Main;"
+		endif
+	
 	endif
 	
 	tabList = ""
@@ -979,15 +993,16 @@ Function /S NMTabListGet()
 		if (strlen(prefix) > 0)
 			tabList = AddListItem(tname + "," + prefix, tabList, ";", inf)
 		else
-			DoAlert 0, "NM Tab Entry Failure : " + tname
+			NMHistory("NM Tab Entry Failure : " + tname)
 		endif
 		
 	endfor
 	
 	tabList = AddListItem("NMPanel,NM_Tab", tabList, ";", inf)
+	newList2 = NMTabListConvert(tabList)
 	
 	SetNMstr(df+"TabList", tabList)
-	SetNMstr(df+"CurrentNMTabList", newList)
+	SetNMstr(df+"CurrentNMTabList", newList2)
 
 	return tabList
 
@@ -1317,7 +1332,7 @@ Function /S NMTabsAvailable()
 	Variable icnt
 	String tname, aList = ""
 
-	String tabList = "Main;Stats;Spike;Event;Clamp;MyTab;RiseT;PairP;MPFA;Art;Fit;"
+	String tabList = "Main;Stats;Spike;Event;Clamp;MyTab;RiseT;PairP;MPFA;Art;Fit;EPSC;"
 	
 	for (icnt = 0; icnt < ItemsInList(tabList); icnt += 1)
 	
@@ -1432,7 +1447,7 @@ Function NMNextWave(direction) // set next wave number
 	Variable wskip = NumVarOrDefault("WaveSkip", 1)
 	
 	if (nwaves == 0)
-		DoAlert 0, "No waves to display."
+		NMDoAlert("No waves to display.")
 		return -1
 	endif
 	
@@ -1801,13 +1816,15 @@ End // NMPrefixSelectSilent
 Function NMPrefixSelect(prefix) // change to a new wave prefix
 	String prefix // wave prefix name, or ("") for current prefix
 	
-	Variable ccnt, wcnt, nchan, found, nmax, prmt, nwaves, newPrefix = 1
+	Variable ccnt, wcnt, nchan, found, nmax, nwaves, newPrefix = 1
 	Variable oldNumChan, oldNumWaves, oldWaveListExists
 	String wlist, olist, wname, sdf, df = NMDF()
 	
 	String opstr = WaveListText0()
 	
 	String currentPrefix = NMCurrentWavePrefix()
+	
+	Variable prmt = NumVarOrDefault(df+"ChangePrefixPrompt", 1)
 	
 	if (strlen(prefix) == 0)
 		prefix = currentPrefix
@@ -1820,7 +1837,7 @@ Function NMPrefixSelect(prefix) // change to a new wave prefix
 	nwaves = ItemsInList(wlist)
 
 	if (nwaves == 0)
-		DoAlert 0, "NMPrefixSelect Abort: no waves detected with prefix \"" + prefix + "\""
+		NMDoAlert("NMPrefixSelect Abort: no waves detected with prefix \"" + prefix + "\"")
 		return -1
 	endif
 	
@@ -1894,7 +1911,7 @@ Function NMPrefixSelect(prefix) // change to a new wave prefix
 	
 	nwaves = ceil(nwaves)
 	
-	if ((NumVarOrDefault(df+"ChangePrefixPrompt", 1) == 1) && (nchan > 1) && (nchan != oldNumChan))
+	if ((prmt == 1) && (nchan > 1) && (nchan != oldNumChan))
 	
 		Prompt nchan, "number of channels:"
 		Prompt nwaves, "waves per channel:"
@@ -1985,7 +2002,7 @@ Function NMWaveSelectCall(fxn)
 			wavList = RemoveListFromList(NMWaveSelectDefaults(), wavList, ";")
 			
 			if (ItemsInList(wavList) == 0)
-				DoAlert 0, "No appropriate waves detected."
+				NMDoAlert("No appropriate waves detected.")
 				error = 1
 				break
 			endif
@@ -2062,18 +2079,18 @@ Function NMWaveSelect(fxn)
 	Variable sumvar, grpNum, and = -1, or = -1, error = 1, update = 1
 	String wname, df = NMDF()
 	
-	if (WavesExist("WavSelect;SetX;Group;") == 0)
+	if (WaveExists(WavSelect) == 0)
 		return -1
 	endif
 	
-	Wave WavSelect, SetX, Group
+	Wave WavSelect
 	
 	if (numpnts(WavSelect) == 0)
 		return -1
 	endif
 	
-	Variable NumActiveWaves = NumVarOrDefault("NumActiveWaves", 0)
-	Variable GroupsOn = NumVarOrDefault(df+"GroupsOn", 0)
+	//Variable NumActiveWaves = NumVarOrDefault("NumActiveWaves", 0)
+	//Variable GroupsOn = NumVarOrDefault(df+"GroupsOn", 0)
 
 	if ((strlen(fxn) == 0) || (StringMatch(fxn, "Update") == 1))
 		fxn = NMWaveSelectGet()

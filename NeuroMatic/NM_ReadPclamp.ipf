@@ -21,6 +21,16 @@
 //****************************************************************
 //****************************************************************
 
+Function ReadPclampScaleWaves()
+
+	return 1 // ( 0 ) no ( 1 ) yes, scale waves by scale factor read from header file
+
+End // ReadPclampScaleWaves
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function ReadPclampXOPExists(file)
 	String file
 
@@ -69,7 +79,7 @@ Function ReadPClampHeader(file, df) // read pClamp file header
 			if (XOPexists == 1)
 				return ReadPClampHeaderXOP(file, df)
 			else
-				DoAlert 0, "Encounted ABF file format 2: Please contact Jason@ThinkRandom.com for the new ReadPclamp XOP. "
+				NMDoAlert("Encounted ABF file format 2: Please contact Jason@ThinkRandom.com for the new ReadPclamp XOP.")
 				return -1
 			endif
 		default:
@@ -126,7 +136,7 @@ Function ReadPClampHeader(file, df) // read pClamp file header
 	
 	DataPointer = ReadPclampVar(file, "long", 40) // block number of start of Data section
 	SetNMvar(df+"DataPointer", DataPointer)
-	DataFormat = ReadPclampVar(file, "long", 100)
+	DataFormat = ReadPclampVar(file, "short", 100)
 	SetNMvar(df+"DataFormat", DataFormat)
 		
 	//
@@ -146,7 +156,7 @@ Function ReadPClampHeader(file, df) // read pClamp file header
 	SetNMvar(df+"SplitClock", SplitClock)
 	
 	if (SplitClock != 0) // SecondSampleInterval
-		DoAlert 0, "Warning: data contains split-clock recording, which is not supported by this version of NeuroMatic."
+		NMDoAlert("Warning: data contains split-clock recording, which is not supported by this version of NeuroMatic.")
 	endif
 	
 	SamplesPerWave = ReadPclampVar(file, "long", 138) / NumChannels // sample points per wave
@@ -338,7 +348,7 @@ Function ReadPClampHeaderXOP(file, df)
 	SetNMvar(df+"SplitClock", SplitClock)
 	
 	if (SplitClock > 0) // SecondSampleInterval
-		DoAlert 0, "Warning: data contains split-clock recording, which is not supported by this version of NeuroMatic."
+		NMDoAlert("Warning: data contains split-clock recording, which is not supported by this version of NeuroMatic.")
 	endif
 	
 	SamplesPerWave = NumVarOrDefault("ABF_lNumSamplesPerEpisode", -1) / NumChannels // sample points per wave
@@ -567,7 +577,7 @@ Function ReadPClampData(file, df) // read pClamp file
 			
 		//if (V_Flag != 0)
 		//	DumWave0 = NAN
-		//	DoAlert 0, "WARNING: Unsuccessfull read on Wave #" + num2str(wcnt)
+		//	NMDoAlert("WARNING: Unsuccessfull read on Wave #" + num2str(wcnt))
 		//endif
 		
 		for (ccnt = 0; ccnt < NumChannels; ccnt += 1) // loop thru channels and extract channel waves
@@ -584,8 +594,10 @@ Function ReadPClampData(file, df) // read pClamp file
 			
 			scale = FileScaleFactors[ccnt]
 			
-			if (numtype(scale) == 0)
-				DumWave1 *= scale
+			if ( ReadPclampScaleWaves() == 1 )
+				if ( ( numtype( scale ) == 0 ) && ( scale > 0 ) )
+					DumWave1 *= scale
+				endif
 			endif
 			
 			if (amode == 3) // Gap-Free acquisition mode

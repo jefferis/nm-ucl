@@ -117,8 +117,8 @@ Function CheckStats()
 	// variables for channel graph controls
 	
 	CheckNMvar(df+"Ft", 0)
-	CheckNMvar(df+"SmoothN", 0)
-	CheckNMstr(df+"SmoothA", "")
+	CheckNMvar(df+"SmoothN", 0)  // filter/smooth number
+	CheckNMstr(df+"SmoothA", "") // filter/smooth algorithm
 	
 	// misc variables
 	
@@ -212,8 +212,8 @@ Variable nwin = StatsNumWindows() // number of measurement windows - may be incr
 	CheckNMwave(df+"DcayT", nwin, Nan)
 	
 	CheckNMwave(df+"dtFlag", nwin, 0)
-	CheckNMwave(df+"SmthNum", nwin, 0)
-	CheckNMtwave(df+"SmthAlg", nwin, "")
+	CheckNMwave(df+"SmthNum", nwin, 0) // filter/smooth number
+	CheckNMtwave(df+"SmthAlg", nwin, "") // filter/smooth algorithm
 	
 	CheckNMtwave(df+"OffsetW", nwin, "")
 	
@@ -268,8 +268,8 @@ Function ResetStatsWaves()
 	SetNMwave(df+"DcayT", nwin, Nan)
 	
 	SetNMwave(df+"dtFlag", nwin, 0)
-	SetNMwave(df+"SmthNum", nwin, 0)
-	SetNMtwave(df+"SmthAlg", nwin, "")
+	SetNMwave(df+"SmthNum", nwin, 0) // filter/smooth number
+	SetNMtwave(df+"SmthAlg", nwin, "") // filter/smooth algorithm
 	
 	SetNMtwave(df+"OffsetW", nwin, "")
 	
@@ -322,8 +322,8 @@ Function StatsConfigs()
 	
 	NMConfigWave(fname, "dtFlag", numwin, 0, "F(t) (0) none (1) d/dt (2) dd/dt*dt (3) integral")
 	
-	NMConfigWave(fname, "SmthNum", numwin, 0, "Smooth number")
-	NMConfigTWave(fname, "SmthAlg", numwin, "binomial", "Smooth algorithm")
+	NMConfigTWave(fname, "SmthAlg", numwin, "binomial", "smooth/filter algorithm: binomial, boxcar, low-pass, high-pass")
+	NMConfigWave(fname, "SmthNum", numwin, 0, "Filter parameter number")
 	
 	NMConfigWave(fname, "ChanSelect", numwin, 0, "Channel to analyze")
 	
@@ -601,7 +601,7 @@ Function MakeStats(force) // create Stats tab controls
 		return 0 // Stats tab controls exist
 	endif
 	
-	if (DataFolderExists(StatsDF()) == 0)
+	if (DataFolderExists(df) == 0)
 		return 0 // stats has not been initialized yet
 	endif
 	
@@ -632,11 +632,11 @@ Function MakeStats(force) // create Stats tab controls
 	SetVariable ST_AmpXSet, title="t =", pos={x0+xinc,y0+2*yinc}, size={80,50}, limits={-inf,inf,0}, win=NMPanel
 	SetVariable ST_AmpXSet, value=$(df+"AmpXV"), format=outFormat, frame=0, proc=StatsSetVariable, win=NMPanel, fsize=fs
 	
-	SetVariable ST_SmthNSet, title="Smooth", pos={x0+18,y0+3*yinc}, size={100,50}, limits={0,inf,1}, win=NMPanel
-	SetVariable ST_SmthNSet, value=$(df+"SmoothN"), proc=StatsSetVariable, win=NMPanel, fsize=fs
+	SetVariable ST_FilterNSet, title="Filter", pos={x0+18,y0+3*yinc}, size={100,50}, limits={0,inf,1}, win=NMPanel
+	SetVariable ST_FilterNSet, value=$(df+"SmoothN"), proc=StatsSetVariable, win=NMPanel, fsize=fs
 	
-	SetVariable ST_SmthASet, title=" ", pos={x0+xinc,y0+3*yinc}, size={80,50}, win=NMPanel, fsize=fs
-	SetVariable ST_SmthASet, value=$(df+"SmoothA"), frame=0, proc=StatsSetVariable, win=NMPanel
+	SetVariable ST_FilterASet, title=" ", pos={x0+xinc,y0+3*yinc}, size={80,50}, win=NMPanel, fsize=fs
+	SetVariable ST_FilterASet, value=$(df+"SmoothA"), frame=0, proc=StatsSetVariable, win=NMPanel
 	
 	Checkbox ST_Baseline, title="Baseline", pos={x0,y0+4*yinc}, size={200,50}, value=0, proc=StatsCheckBox, win=NMPanel, fsize=fs
 	SetVariable ST_BslnWin, title="b =", pos={x0+16,y0+4*yinc}, size={140,20}, win=NMPanel, proc=StatsSetVariable
@@ -691,13 +691,14 @@ End // MakeStats
 Function UpdateStats1() // update/display current window result values
 
 	Variable off, offset, v1, v2, modeNum, dis, xdis, yframe, xframe
-	String ttl, xtl, ytl, select, df = StatsDF(), cdf = ChanDF(-1)
+	String tstr, xtl, ytl, select, df = StatsDF(), cdf = ChanDF(-1)
 
 	if ((DataFolderExists(df) == 0) || (IsCurrentNMTab("Stats") == 0))
 		return 0
 	endif
 
 	Variable CurrentChan = NMCurrentChan()
+	Variable filterExists = ChanFilterFxnExists()
 	
 	CheckStatsWindowSelect()
 	
@@ -705,9 +706,9 @@ Function UpdateStats1() // update/display current window result values
 	NVAR AmpBV = $(df+"AmpBV"); NVAR AmpEV = $(df+"AmpEV")
 	NVAR AmpYV = $(df+"AmpYV"); NVAR AmpXV = $(df+"AmpXV")
 	NVAR BslnYV = $(df+"BslnYV")
-	NVAR SmoothN = $(df+"SmoothN")
+	NVAR FilterN = $(df+"SmoothN")
 	
-	SVAR SmoothA = $(df+"SmoothA")
+	SVAR FilterA = $(df+"SmoothA")
 	SVAR AmpYVS = $(df+"AmpYVS")
 	
 	Wave AmpB = $(df+"AmpB"); Wave AmpE = $(df+"AmpE")
@@ -722,8 +723,8 @@ Function UpdateStats1() // update/display current window result values
 	Wave DcayP = $(df+"DcayP"); Wave DcayT = $(df+"DcayT")
 	
 	Wave dtFlag = $(df+"dtFlag")
-	Wave SmthNum = $(df+"SmthNum")
-	Wave /T SmthAlg = $(df+"SmthAlg")
+	Wave FilterNum = $(df+"SmthNum")
+	Wave /T FilterAlg = $(df+"SmthAlg")
 	
 	//Wave ST_PntX = $(df+"ST_PntX"); Wave ST_PntY = $(df+"ST_PntY")
 	//Wave ST_WinX = $(df+"ST_WinX"); Wave ST_WinY = $(df+"ST_WinY")
@@ -746,18 +747,53 @@ Function UpdateStats1() // update/display current window result values
 	
 	AmpYVS = num2str(AmpYV)
 	
-	SmoothN = SmthNum[AmpNV]
-	SmoothA = SmthAlg[AmpNV]
+	FilterN = FilterNum[AmpNV]
+	FilterA = FilterAlg[AmpNV]
 	
-	if (SmoothN > 0)
-		SetVariable ST_SmthASet, title="s =", win=NMPanel
-	else
-		SetVariable ST_SmthASet, title=" ", win=NMPanel
+	if ( filterExists == 0 )
+	
+		strswitch( FilterA )
+			case "low-pass":
+			case "high-pass":
+				FilterA = "error" // FilterIIR function does not exist
+				FilterN = 0
+				break
+		endswitch
+	
 	endif
 	
+	tstr = " "
+	
+	if ( filterN > 0 )
+		tstr = "s ="
+	endif
+	
+	SetVariable ST_FilterASet, title=tstr, win=NMPanel
+	
+	tstr = "Filter"
+	
+	if ( filterExists == 0 )
+		tstr = "Smooth"
+	else
+	
+		strswitch( FilterA )
+			case "binomial":
+			case "boxcar":
+				tstr = "Smooth"
+				break
+			case "low-pass":
+			case "high-pass":
+				tstr = "Filter"
+				break
+		endswitch
+	
+	endif
+	
+	SetVariable ST_FilterNSet, title=tstr, win=NMPanel
+	
 	if ((Bflag[AmpNV] == 1) && (off == 0))
-		sprintf ttl, "Bsln (" + BslnSlct[AmpNV] + ": %.1f - %.1f)", BslnB[AmpNV], BslnE[AmpNV]
-		SetNMstr(df+"BslnXVS", ttl)
+		sprintf tstr, "Bsln (" + BslnSlct[AmpNV] + ": %.1f - %.1f)", BslnB[AmpNV], BslnE[AmpNV]
+		SetNMstr(df+"BslnXVS", tstr)
 		Checkbox ST_Baseline, disable=0, value=1, win=NMPanel, title= " "
 		SetVariable ST_BslnSet, disable=0, win=NMPanel
 	else
@@ -1048,12 +1084,12 @@ End // StatsSetVariable
 //****************************************************************
 //****************************************************************
 
-Function StatsSetSmooth(ctrlName, varNum, varStr, varName) : SetVariableControl
+Function StatsSetFilter(ctrlName, varNum, varStr, varName) : SetVariableControl
 	String ctrlName; Variable varNum; String varStr; String varName
 	
-	StatsCall("SmthNSet", varStr)
+	StatsCall("FilterNSet", varStr)
 	
-End // StatsSetSmooth
+End // StatsSetFilter
 
 //****************************************************************
 //****************************************************************
@@ -1111,12 +1147,14 @@ Function StatsCall(fxn, select)
 			StatsMaxMinWinSetCall(snum)
 			break
 			
-		case "SmthNSet":
-			StatsSmoothCall(snum, "old")
+		case "SmthNSet": // OLD
+		case "FilterNSet":
+			StatsFilterCall("old", snum)
 			break
 			
-		case "SmthASet":
-			StatsSmoothCall(-1, select)
+		case "SmthASet": // OLD
+		case "FilterASet":
+			StatsFilterCall(select, -1)
 			break
 	
 		case "Baseline":
@@ -1871,81 +1909,122 @@ End // StatsLevel
 //****************************************************************
 //****************************************************************
 
-Function StatsSmoothCall(smthN, smthA)
-	Variable smthN
-	String smthA
+Function StatsFilterCall( alg, fnum )
+	String alg
+	Variable fnum
 	
-	String vlist = "", df = StatsDF()
+	String vlist, df = StatsDF()
+	
+	Variable filterExists = ChanFilterFxnExists()
 	
 	Variable win = NumVarOrDefault(df+"AmpNV", 0)
 	
-	Wave SmthNum = $(df+"SmthNum")
-	Wave /T SmthAlg = $(df+"SmthAlg")
+	Wave /T FilterAlg = $( df+"SmthAlg" ) // smooth/filter waves
+	Wave FilterNum = $( df+"SmthNum" )
 	
-	if (smthN == -1)
-		smthN = SmthNum[win]
+	if ( fnum == -1 )
+		fnum = FilterNum[ win ]
 	endif
 	
-	strswitch(smthA)
+	strswitch( alg )
+	
 		case "old":
-			smthA = SmthAlg[win]
+			alg = FilterAlg[ win ]
 			break
+			
 		case "binomial":
 		case "boxcar":
 			break
+			
+		case "low-pass":
+		case "high-pass":
+			if ( filterExists == 0 )
+				alg = ""
+			endif
+			break
+			
 		default:
-			smthA = ChanSmthAlgAsk(-1)
+			alg = ""
+			
 	endswitch
 	
-	vlist = NMCmdNum(win, vlist)
-	vlist = NMCmdNum(smthN, vlist)
-	vlist = NMCmdStr(smthA, vlist)
-	NMCmdHistory("StatsSmooth", vlist)
+	if ( ( strlen( alg ) == 0 ) && ( fnum > 0 ) )
 	
-	return StatsSmooth(win, smthN, smthA)
+		alg = ChanFilterAlgAsk( -1 )
+		
+		if ( strlen( alg ) == 0 )
+			fnum = 0
+		endif
+		
+	endif
 	
-End // StatsSmoothCall
+	if ( fnum == 0 )
+		alg = ""
+	endif
+	
+	vlist = NMCmdNum( win, "" )
+	vlist = NMCmdStr( alg, vlist )
+	vlist = NMCmdNum( fnum, vlist )
+	NMCmdHistory( "StatsFilter", vlist )
+	
+	return StatsFilter( win, alg, fnum )
+	
+End // StatsFilterCall
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function StatsSmooth(win, smthNum, smthAlg)
+Function StatsFilter(win, alg, fnum)
 	Variable win
-	Variable smthNum
-	String smthAlg
+	String alg
+	Variable fnum
 	
 	String df = StatsDF(), cdf = ChanDF(-1)
 	String wname = df + "SmthAlg"
 	
-	if ((numtype(smthNum) > 0) || (smthNum < 0))
-		smthNum = 0
+	Variable filterExists = ChanFilterFxnExists()
+	
+	if ((numtype(fnum) > 0) || (fnum < 0))
+		fnum = 0
 	endif
 	
 	if ((win < 0) || (win > numpnts($wname)))
 		return -1
 	endif
 	
-	strswitch(smthAlg)
+	strswitch( alg )
+	
 		case "binomial":
 		case "boxcar":
 			break
-		default:
-			if (smthNum > 0)
-				smthAlg = ChanSmthAlgAsk(-1)
+			
+		case "low-pass":
+		case "high-pass":
+			if ( filterExists == 0 )
+				DoAlert 0, "StatsFilter error: Igor 6.0 FilterIIR operation does not appear to exist."
+				alg = ""
 			endif
+			break
+			
+		default:
+		
+			if (fnum > 0)
+				alg = ChanFilterAlgAsk(-1)
+			endif
+			
 	endswitch
 	
-	if (WhichListItemLax(smthAlg, "binomial;boxcar;", ";") == -1)
-		return -1
+	if (fnum == 0)
+		alg = ""
+	else
+		if (WhichListItemLax(alg, "binomial;boxcar;low-pass;high-pass;", ";") == -1)
+			return -1
+		endif
 	endif
 	
-	if (smthNum == 0)
-		smthAlg = ""
-	endif
-	
-	SetNMtwave(wname, win, smthAlg)
-	SetNMwave(df+"SmthNum", win, smthNum)
+	SetNMtwave(wname, win, alg)
+	SetNMwave(df+"SmthNum", win, fnum)
 	
 	StatsChanControlsUpdate(-1, -1, 1)
 	ChanGraphUpdate(-1, 1)
@@ -1954,13 +2033,38 @@ Function StatsSmooth(win, smthNum, smthAlg)
 	
 	return 0
 
+End // StatsFilter
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StatsSmoothCall( smthN, smthA ) // DEPRECATED
+	Variable smthN
+	String smthA
+	
+	return StatsFilterCall( smthA, smthN )
+	
+End // StatsSmoothCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function StatsSmooth( win, smthN, smthA ) // DEPRECATED
+	Variable win
+	Variable smthN
+	String smthA
+	
+	return StatsFilter( win, smthA, smthN )
+
 End // StatsSmooth
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function StatsBslnCallStr(bslnStr)
+Function StatsBslnCallStr( bslnStr )
 	String bslnStr
 	
 	Variable icnt, jcnt, tbgn = Nan, tend = Nan, last = strlen(bslnStr) - 1
@@ -2077,7 +2181,7 @@ Function StatsBslnCall(on, tbgn, tend)
 			bend = 2*bcntr - AmpB[win]
 	
 			if ((bstart < leftx($CurrentWaveName())) || (bend <= bstart))
-				DoAlert 0, "Alert: error in computing time window of reflected baseline window."
+				NMDoAlert("Alert: error in computing time window of reflected baseline window.")
 				reflect = 1 // cancel reflect
 			else
 				tbgn = bstart
@@ -2219,15 +2323,15 @@ Function StatsRiseTimeOnset()
 	String slopeyname = StatsWaveName(win, "RTslpY", chan, 1)
 	
 	if (WaveExists($bslnname) == 0)
-		DoAlert 0, "Error: cannot located Stats wave " + slopexname + "."
+		NMDoAlert("Error: cannot located Stats wave " + slopexname + ".")
 	endif
 	
 	if (WaveExists($slopexname) == 0)
-		DoAlert 0, "Error: cannot located Stats wave " + slopexname + "."
+		NMDoAlert("Error: cannot located Stats wave " + slopexname + ".")
 	endif
 	
 	if (WaveExists($slopeyname) == 0)
-		DoAlert 0, "Error: cannot located Stats wave " + slopeyname + "."
+		NMDoAlert("Error: cannot located Stats wave " + slopeyname + ".")
 	endif
 	
 	Wave bsln = $bslnname
@@ -2603,7 +2707,7 @@ Function StatsOffsetCall(on)
 				wlist = WaveList("*Offset*", ";", WaveListText0())
 				
 				if (ItemsInList(wlist) == 0)
-					DoAlert 0, "Detected no time-offset waves. " + txt
+					NMDoAlert("Detected no time-offset waves. " + txt)
 					on = -1
 					break
 				endif
@@ -2618,7 +2722,7 @@ Function StatsOffsetCall(on)
 				create = 1
 				
 				if (StringMatch(wname, "*Offset*") == 0)
-					DoAlert 0, "Bad time-offset wave name. " + txt
+					NMDoAlert("Bad time-offset wave name. " + txt)
 					on = -1
 					break
 				endif
@@ -2641,7 +2745,7 @@ Function StatsOffsetCall(on)
 				DoPrompt "Select Wave Time-Offset Wave", wname
 				
 				if ((V_flag == 0) && (numpnts($wname) != nwaves))
-					DoAlert 0, "Warning: time-offset wave length does not match the number of data waves."
+					NMDoAlert("Warning: time-offset wave length does not match the number of data waves.")
 				endif
 			
 			endif
@@ -2749,7 +2853,7 @@ Function StatsOffsetWave(wname, wtype) // create offset (time-shift) wave
 	Variable ngrps = NumVarOrDefault("NumGrps", 0)
 	
 	if (StringMatch(wname, "*Offset*") == 0)
-		DoAlert 0, "Bad time-offset wave name. A time-offset wave name should contain the string sequence \"Offset\"."
+		NMDoAlert("Bad time-offset wave name. A time-offset wave name should contain the string sequence \"Offset\".")
 		return -1
 	endif
 	
@@ -2988,8 +3092,8 @@ Function StatsAmpBegin()
 		
 	//SetNMwave(df+"ChanSelect", win, chan)
 	SetNMwave(df+"dtFlag", win, ChanFuncGet(chan))
-	SetNMwave(df+"SmthNum", win, ChanSmthNumGet(chan))
-	SetNMtwave(df+"SmthAlg", win, ChanSmthAlgGet(chan))
+	SetNMwave(df+"SmthNum", win, ChanFilterNumGet(chan))
+	SetNMtwave(df+"SmthAlg", win, ChanFilterAlgGet(chan))
 	
 	SetNMtwave(df+"AmpSlct", win, "Max")
 	SetNMwave(df+"AmpB", win, tbgn)
@@ -3028,9 +3132,9 @@ Function StatsAmpInit(win)
 	Wave BslnSubt = $(df+"BslnSubt"); Wave BslnRflct = $(df+"BslnRflct")
 	Wave /T BslnSlct = $(df+"BslnSlct")
 	
-	Wave dtFlag = $(df+"dtFlag")
-	Wave smthNum = $(df+"SmthNum")
-	Wave /T smthAlg = $(df+"SmthAlg")
+	//Wave dtFlag = $(df+"dtFlag")
+	//Wave FilterNum = $(df+"SmthNum")
+	//Wave /T FilterAlg = $(df+"SmthAlg")
 	
 	if (win < 0)
 		win = NumVarOrDefault(df+"AmpNV", 0)
@@ -3055,8 +3159,8 @@ Function StatsAmpInit(win)
 		
 		//ChanSelect[win] = ChanSelect[winLast]
 		//dtFlag[win] = dtFlag[winLast]
-		//smthNum[win] = smthNum[winLast]
-		//smthAlg[win] = smthAlg[winLast]
+		//FilterNum[win] = FilterNum[winLast]
+		//FilterAlg[win] = FilterAlg[winLast]
 		
 		if ((numtype(AmpB[win]) > 0) && (numtype(AmpE[win]) > 0) && (win > 0))
 		
@@ -3152,8 +3256,8 @@ Function StatsChanControlsEnable(chanNum, win, enable)
 	Wave BslnE = $(sdf+"BslnE")
 	
 	Wave dtFlag = $(sdf+"dtFlag")
-	Wave smthNum = $(sdf+"SmthNum")
-	Wave /T smthAlg = $(sdf+"SmthAlg")
+	Wave FilterNum = $(sdf+"SmthNum")
+	Wave /T FilterAlg = $(sdf+"SmthAlg")
 	
 	chanNum = ChanNumCheck(chanNum)
 	
@@ -3164,8 +3268,8 @@ Function StatsChanControlsEnable(chanNum, win, enable)
 	if (enable == 1)
 	
 		SetNMvar(sdf+"Ft", dtFlag[win]) // for channel graph display
-		SetNMvar(sdf+"SmoothN", SmthNum[win]) // for channel graph display
-		SetNMstr(sdf+"SmoothA", SmthAlg[win]) // for channel graph display
+		SetNMvar(sdf+"SmoothN", FilterNum[win]) // for channel graph display
+		SetNMstr(sdf+"SmoothA", FilterAlg[win]) // for channel graph display
 		
 		if (dtFlag[win] > 3)
 			SetNMvar(sdf+"Norm_Tbgn", AmpB[win])
@@ -3178,7 +3282,7 @@ Function StatsChanControlsEnable(chanNum, win, enable)
 		SetNMstr(ndf + "ChanPopupProc" + num2str(chanNum), "StatsChanPopup")
 		
 		SetNMstr(ndf + "ChanSmthDF" + num2str(chanNum), sdf)
-		SetNMstr(ndf + "ChanSmthProc" + num2str(chanNum), "StatsSetSmooth")
+		SetNMstr(ndf + "ChanSmthProc" + num2str(chanNum), "StatsSetFilter")
 		
 		SetNMstr(ndf + "ChanFuncDF" + num2str(chanNum), sdf)
 		SetNMstr(ndf + "ChanFuncProc" + num2str(chanNum), "StatsFuncCheckBox")
@@ -3438,7 +3542,7 @@ Function StatsDragTrigger(offsetStr)
 	endif
 	
 	Variable tbgn, tend, chan
-	String dwave, wname2, df = StatsDF()
+	String dwave, wname2 = "", df = StatsDF()
 	
 	String gname = StringByKey("GRAPH", offsetStr)
 	String wname = StringByKey("TNAME", offsetStr)
@@ -3596,12 +3700,12 @@ Function StatsAllWavesCall()
 	Variable winNum = NumVarOrDefault(df+"AmpNV", 0)
 	
 	if (ChanWavesCount(-1) <= 0)
-		DoAlert 0, "No waves selected!"
+		NMDoAlert("No waves selected!")
 		return -1
 	endif
 	
 	if (numWin <= 0)
-		DoAlert 0, "All Stats windows are off."
+		NMDoAlert("All Stats windows are off.")
 		return -1
 	elseif (numWin == 1)
 		allwin = 1
@@ -3633,7 +3737,7 @@ Function StatsAllWavesCall()
 	select = StatsAmpSelectGet(winNum)
 	
 	if ((allwin == 0) && (StringMatch(select, "Off") == 1))
-		DoAlert 0, "Current Stats window is off."
+		NMDoAlert("Current Stats window is off.")
 		return -1
 	endif
 		
@@ -3715,7 +3819,7 @@ Function StatsAllWaves(winNum, dsplyFlag, speed)
 	WaveStats /Q/Z WavSelect
 	
 	if (V_max != 1)
-		DoAlert 0, "No Waves Selected!"
+		NMDoAlert("No Waves Selected!")
 		return -1
 	endif
 	
@@ -3837,16 +3941,16 @@ Function StatsCompute(wName, chanNum, wavNum, win, saveflag, dsplyflag) // compu
 	Variable saveflag // save to table waves
 	Variable  dsplyflag // update channel display graph
 	
-	Variable acnt, afirst, alast, dFlag, dtFlagLast, smthNumLast, newWave
-	String smthAlgLast, waveLast, select, dName, df = StatsDF()
+	Variable acnt, afirst, alast, dFlag, dtFlagLast, filterNumLast, newWave
+	String filterAlgLast, waveLast, select, dName, df = StatsDF()
 	
 	String tName = "ST_WaveTemp"
 	
 	Variable ampNV = NumVarOrDefault(df+"AmpNV", 0)
 	
 	Wave dtFlag = $(df+"dtFlag")
-	Wave smthNum = $(df+"SmthNum")
-	Wave /T smthAlg = $(df+"SmthAlg")
+	Wave FilterNum = $(df+"SmthNum")
+	Wave /T FilterAlg = $(df+"SmthAlg")
 	
 	if (chanNum < 0)
 		chanNum = NMCurrentChan()
@@ -3869,8 +3973,8 @@ Function StatsCompute(wName, chanNum, wavNum, win, saveflag, dsplyflag) // compu
 	endif
 	
 	dtFlagLast = ChanFuncGet(chanNum)
-	smthNumLast = ChanSmthNumGet(chanNum)
-	smthAlgLast = ChanSmthAlgGet(chanNum)
+	filterNumLast = ChanFilterNumGet(chanNum)
+	filterAlgLast = ChanFilterAlgGet(chanNum)
 	waveLast = CurrentChanDisplayWave()
 
 	for (acnt = afirst; acnt < alast; acnt += 1)
@@ -3893,15 +3997,15 @@ Function StatsCompute(wName, chanNum, wavNum, win, saveflag, dsplyflag) // compu
 		
 		if ((WaveExists($dName) == 0) || (StringMatch(dName, waveLast) == 0))
 			newWave = 1
-		elseif ((dtFlag[acnt] != dtFlagLast) || (smthNum[acnt] != smthNumLast))
+		elseif ((dtFlag[acnt] != dtFlagLast) || (FilterNum[acnt] != filterNumLast))
 			newWave = 1
-		elseif ((smthNum[acnt] > 0) && (StringMatch(smthAlg[acnt], smthAlgLast) == 0))
+		elseif ((FilterNum[acnt] > 0) && (StringMatch(FilterAlg[acnt], filterAlgLast) == 0))
 			newWave = 1
 		endif
 		
 		if (newWave == 1)
-			smthNumLast = smthNum[acnt]
-			smthAlgLast = smthAlg[acnt]
+			filterNumLast = FilterNum[acnt]
+			filterAlgLast = FilterAlg[acnt]
 			dtFlagLast = dtFlag[acnt]
 		endif
 		
@@ -3960,17 +4064,17 @@ Function StatsComputeWin(win, wName, dsplyflag) // compute window stats
 	endif
 	
 	if (DataFolderExists(df) == 0)
-		//DoAlert 0, "StatsComputeWin Error: Stats data folder does not exist."
+		//NMDoAlert("StatsComputeWin Error: Stats data folder does not exist.")
 		return -1 // stats has not been initialized yet
 	endif
 	
 	if (WaveExists($wName) == 0)
-		//DoAlert 0, "StatsComputeWin Error: wave " + wName + " does not exist."
+		//NMDoAlert("StatsComputeWin Error: wave " + wName + " does not exist.")
 		return -1
 	endif
 	
 	if (WavesExist(df+"AmpB;" + df + "ST_DragBYB;") == 0)
-		//DoAlert 0, "StatsComputeWin Error: Stats waves do not exist."
+		//NMDoAlert("StatsComputeWin Error: Stats waves do not exist.")
 		return -1
 	endif
 	
@@ -4522,7 +4626,7 @@ End // StatsWavesTables
 Function /S StatsWavesMake(chanNum)
 	Variable chanNum // channel number
 
-	Variable acnt, wselect, offset, xwave = 1, ywave = 1
+	Variable acnt, wselect, offset, xwave, ywave
 	String wname, header, statsnote, wnote, xl, yl, select, wlist = "", rf = "Rise"
 	
 	String df = StatsDF()
@@ -4551,14 +4655,14 @@ Function /S StatsWavesMake(chanNum)
 	Wave RiseBP = $(df+"RiseBP"); Wave RiseEP = $(df+"RiseEP")
 	Wave DcayP = $(df+"DcayP")
 	
-	Wave SmthNum = $(df+"SmthNum")
-	Wave /T SmthAlg = $(df+"SmthAlg")
+	Wave FilterNum = $(df+"SmthNum")
+	Wave /T FilterAlg = $(df+"SmthAlg")
 	Wave dtFlag = $(df+"dtFlag")
 	
 	xl = wPrefix + "#"
 
 	for (acnt = 0; acnt < numpnts(AmpB); acnt += 1)
-		
+	
 		if ((wselect == 1) && (WinSelect[acnt] == 0))
 			continue
 		endif
@@ -4568,6 +4672,9 @@ Function /S StatsWavesMake(chanNum)
 		if (StringMatch(select, "Off") == 1)
 			continue
 		endif
+		
+		xwave = 1
+		ywave = 1
 		
 		offset = max(0, StatsOffsetValue(acnt))
 		
@@ -4584,8 +4691,8 @@ Function /S StatsWavesMake(chanNum)
 			statsnote += "\rStats Baselined:no"
 		endif
 		
-		if (SmthNum[acnt] > 0)
-			statsnote += "\rSmth Alg:" + SmthAlg[acnt] + ";Smth Num:" + num2str(SmthNum[acnt]) + ";"
+		if (FilterNum[acnt] > 0)
+			statsnote += "\rFilter Alg:" + FilterAlg[acnt] + ";Filter Num:" + num2str(FilterNum[acnt]) + ";"
 		endif
 		
 		if (dtFlag[acnt] == 1)
@@ -4803,6 +4910,11 @@ Function /S StatsAmpName(win)
 			return ""
 	endswitch
 	
+	fxn = ReplaceString(".", fxn, "p")
+	fxn = ReplaceString("+", fxn, "p")
+	fxn = ReplaceString("-", fxn, "n")
+	fxn = ReplaceString(" ", fxn, "")
+	
 	return fxn
 
 End // StatsAmpName
@@ -4826,12 +4938,20 @@ Function StatsWinNum(wName) // return the amplitude/window number, given wave na
 		return -1
 	endif
 	
-	for (icnt = iend - 1; icnt >= iend - 3; icnt -= 1)
-		if ((StringMatch(wName[icnt, icnt], "X") == 1) || (StringMatch(wName[icnt, icnt], "Y") == 1))
-			ibgn = icnt + 1
-			break
-		endif
-	endfor
+	if ( StringMatch(wName[0,6], "ST_Bsln") == 1 ) // baseline wave
+	
+		ibgn = 7
+		
+	else
+	
+		for (icnt = iend - 1; icnt >= iend - 3; icnt -= 1)
+			if ((StringMatch(wName[icnt, icnt], "X") == 1) || (StringMatch(wName[icnt, icnt], "Y") == 1) || (StringMatch(wName[icnt, icnt], "T") == 1))
+				ibgn = icnt + 1
+				break
+			endif
+		endfor
+	
+	endif
 	
 	win = str2num(wName[ibgn, iend])
 	
@@ -5582,8 +5702,8 @@ Function /S StatsPlot(wName) // plot a Stats1 wave
 	
 	String type = NMNoteStrByKey(wName, "Type")
 	String ft = NMNoteStrByKey(wName, "F(t)")
-	String smtha = NMNoteStrByKey(wName, "Smth Alg")
-	Variable smthn = NMNoteVarByKey(wName, "Smth Num")
+	String filterA = NMNoteStrByKey(wName, "Filter Alg")
+	Variable filterN = NMNoteVarByKey(wName, "Filter Num")
 	
 	String xLabel = NMNoteStrByKey(wName, "XLabel")
 	String yLabel = NMNoteStrByKey(wName, "YLabel")
@@ -5620,8 +5740,8 @@ Function /S StatsPlot(wName) // plot a Stats1 wave
 		txt += ";" + ft
 	endif
 	
-	if (strlen(smtha) > 0)
-		txt += ";" + smtha + " smooth,N=" + num2str(smthn)
+	if (strlen(filterA) > 0)
+		txt += ";" + filterA + ",N=" + num2str( filterN )
 	endif
 	
 	txt += ")"
@@ -5814,7 +5934,7 @@ Function /S StatsSortWave(wName)
 	gName = NextGraphName(gPrefix, -1, overwrite)
 	gTitle = NMFolderListName("") + " : " + wName + " : " + mthd
 	
-	success = SortWave(wName, dName, method, xv, yv, nv) // function located in "Utility.ipf"
+	success = NMSortWave(wName, dName, method, xv, yv, nv) // function located in "Utility.ipf"
 	
 	DoWindow /K $gName
 	

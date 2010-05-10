@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -11,10 +11,9 @@
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
-//	By Jason Rothman (Jason@ThinkRandom.com)
+//	By Jason Rothman ( Jason@ThinkRandom.com )
 //
 //	Began 5 May 2002
-//	Last Modified 25 July 2005
 //
 //****************************************************************
 //****************************************************************
@@ -23,84 +22,88 @@
 Menu "NeuroMatic", dynamic // define main NeuroMatic drop-down menu
 
 	Submenu "Data Folder"
-		"New", NMFolderCall("New")
-		"Open", NMFolderCall("Open")
-		//"Open | Append", NMFolderCall("Append")
-		"Save", NMFolderCall("Save")
-		"Close", NMFolderCall("Close")
-		"Duplicate", NMFolderCall("Duplicate")
-		"Rename", NMFolderCall("Rename")
-		"Change", NMFolderCall("Change")
-		//"Merge", NMFolderCall("Merge")
-		"Convert", NMFileCall("Convert")
+		"New", NMFolderCall( "New" )
+		"Open", NMFolderCall( "Open" )
+		//"Open | Append", NMFolderCall( "Append" )
+		"Save", NMFolderCall( "Save" )
+		"Close", NMFolderCall( "Close" )
+		"Duplicate", NMFolderCall( "Duplicate" )
+		"Rename", NMFolderCall( "Rename" )
+		"Change", NMFolderCall( "Change" )
+		//"Merge", NMFolderCall( "Merge" )
+		"Convert", NMFileCall( "Convert" )
 		"-"
-		"Open All", NMFolderCall("Open All")
-		//"Append All", NMFolderCall("Append All")
-		"Save All", NMFolderCall("Save All")
-		"Close All", NMFolderCall("Close All")
+		"Open All", NMFolderCall( "Open All" )
+		//"Append All", NMFolderCall( "Append All" )
+		"Save All", NMFolderCall( "Save All" )
+		"Close All", NMFolderCall( "Close All" )
 	End
 	
 	Submenu "Stim Folder"
-		NMStimMenu(), SubStimCall("Details")
+		NMStimMenu( ), SubStimCall( "Details" )
 		"-"
-		"Pulse Table", SubStimCall("Pulse Table")
-		"ADC Table", SubStimCall("ADC Table")
-		"DAC Table", SubStimCall("DAC Table")
-		"TTL Table", SubStimCall("TTL Table")
-		"Stim Waves", SubStimCall("Stim Waves")
+		"Pulse Table", SubStimCall( "Pulse Table" )
+		"ADC Table", SubStimCall( "ADC Table" )
+		"DAC Table", SubStimCall( "DAC Table" )
+		"TTL Table", SubStimCall( "TTL Table" )
+		"Stim Waves", SubStimCall( "Stim Waves" )
 	End
 	
-	//Submenu "Import Waves"
-	//	"Axograph", NMFileCall("Axograph")
-	//	"Pclamp", NMFileCall("Pclamp")
-	//End
+	Submenu "Paths"
+		"Set Open Path", NMFolderCall( "Open Path" )
+		"Set Save Path", NMFolderCall( "Save Path" )
+	End
 
-	"Import Waves", NMFileCall("Import")
-	"Reload Waves", NMFileCall("Reload Waves")
-	"Rename Waves", NMFolderCall("Rename Waves")
-	"Set Open Path", NMFolderCall("Open Path")
-	"Set Save Path", NMFolderCall("Save Path")
+	"Import Waves", NMFileCall( "Import" )
+	"Reload Waves", NMFileCall( "Reload Waves" )
+	"Rename Waves", NMFolderCall( "Rename Waves" )
 	
 	"-"
 	
 	Submenu "Configs"
-		"Edit", NMConfigCall("Edit")
-		"Open", NMConfigCall("Open")
-		"Save", NMConfigCall("Save")
-		"Kill", NMConfigCall("Kill")
+		"Edit", NMConfigCall( "Edit" )
+		"Open", NMConfigCall( "Open" )
+		"Save", NMConfigCall( "Save" )
+		"Kill", NMConfigCall( "Kill" )
 	End
 	
 	Submenu "Tabs"
-		"Add", NMCall("Add Tab")
-		"Remove", NMCall("Remove Tab")
-		"Kill", NMCall("Kill Tab")
+		"Add", NMCall( "Add Tab" )
+		"Remove", NMCall( "Remove Tab" )
+		"Kill", NMCall( "Kill Tab" )
 	End
 	
 	Submenu "Analysis"
-		"Stability | Stationarity", NMCall("Stability")
-		"Significant Difference", NMCall("KSTest")
+		"Stability | Stationarity", NMCall( "Stability" )
+		"Significant Difference", NMCall( "KSTest" )
 	End
 	
 	"-"
 	
-	"Make Main Panel", NMCall("Panel")
-	"Set Progress Position", NMCall("Progress XY")
-	"Screen Size", NMCall("Computer")
-	"Reset Cascade", NMCall("Reset Cascade")
-	"Chan Graphs On", NMCall("Graphs On")
-	NMOnMenu(), NMCall("Off")
-	"Update NeuroMatic", NMCall("Update")
-	"NeuroMatic Webpage", NMCall("Webpage")
-	//AboutNM()
+	Submenu "Channel Graphs"
+		"Display All", NMCall( "Chan Graphs On" )
+		"Reset Positions", NMCall( "Chan Graphs Reset" )
+		
+	End
+	
+	"Screen Size", NMCall( "Computer" )
+	"Make Main Panel", NMCall( "Panel" )
+	"Set Progress Position", NMCall( "Progress XY" )
+	"Reset Cascade", NMCall( "Reset Cascade" )
+	
+	NMOnMenu( ), NMCall( "Off" )
+	"NeuroMatic Update", NMCall( "Update" )
+	"NeuroMatic Webpage", NMCall( "Webpage" )
+	//AboutNM( )
 	
 	"-"
 	
 	Submenu "Main Hot Keys"
-		"Next Wave/0", NMCall("Next")
-		"Previous Wave/9", NMCall("Last")
-		NMSetsDisplayName(0) + " Checkbox/1", NMCall("Set1 Toggle")
-		NMSetsDisplayName(1) +" Checkbox/2", NMCall("Set2 Toggle")
-		NMSetsDisplayName(2) +" Checkbox/3", NMCall("SetX Toggle")
+		"Next Wave/0", NMCall( "Next" )
+		"Previous Wave/9", NMCall( "Last" )
+		NMSetsDisplayName( 0 ) + " Checkbox/1", NMCall( "Set1 Toggle" )
+		NMSetsDisplayName( 1 ) + " Checkbox/2", NMCall( "Set2 Toggle" )
+		NMSetsDisplayName( 2 ) + " Checkbox/3", NMCall( "SetX Toggle" )
 	End
 
 End // NeuroMatic Menu
@@ -109,10 +112,10 @@ End // NeuroMatic Menu
 //****************************************************************
 //****************************************************************
 
-Function /S AboutNM() // executes every time NM menu is accessed
+Function /S AboutNM( ) // executes every time NM menu is accessed
 
-	CheckNM(0)
-	CheckNMVersionNum()
+	CheckNM( 0 )
+	CheckNMVersionNum( )
 	
 	return ""
 	//return "About NeuroMatic"
@@ -123,11 +126,11 @@ End // AboutNM
 //****************************************************************
 //****************************************************************
 
-Function /S NMOnMenu()
+Function /S NMOnMenu( )
 
-	String df = NMDF()
+	String df = NMDF( )
 	
-	if (NumVarOrDefault(df+"NMOn", 1) == 1)
+	if ( NumVarOrDefault( df+"NMOn", 1 ) == 1 )
 		return "Turn NeuroMatic Off"
 	else
 		return "Turn NeuroMatic On"
@@ -139,14 +142,14 @@ End // NMOnMenu
 //****************************************************************
 //****************************************************************
 
-Function /S NMStimMenu()
+Function /S NMStimMenu( )
 
-	String df = SubStimName("")
+	String df = SubStimName( "" )
 	
-	if (strlen(df) == 0)
+	if ( strlen( df ) == 0 )
 		return "No Stim"
 	else
-		return SubStimName("")
+		return SubStimName( "" )
 	endif
 
 End // NMStimMenu
@@ -155,14 +158,14 @@ End // NMStimMenu
 //****************************************************************
 //****************************************************************
 
-Function /S NMQuickLoadMenu()
+Function /S NMQuickLoadMenu( )
 
-	Variable flag = NumVarOrDefault(NMDF() + "FastLoad", 0)
+	Variable flag = NumVarOrDefault( NMDF( ) + "FastLoad", 0 )
 	
-	if (flag == 0)
+	if ( flag == 0 )
 		return "Quick Load" // unchecked
 	else	
-		return "!" +  num2char(18) + "Quick Load" // checked
+		return "!" + num2char( 18 ) + "Quick Load" // checked
 	endif
 
 End // NMQuickLoadMenu
@@ -171,14 +174,14 @@ End // NMQuickLoadMenu
 //****************************************************************
 //****************************************************************
 
-Function /S NMAutoPlotMenu()
+Function /S NMAutoPlotMenu( )
 
-	Variable flag = NumVarOrDefault(NMDF() + "AutoPlot", 0)
+	Variable flag = NumVarOrDefault( NMDF( ) + "AutoPlot", 0 )
 	
-	if (flag == 0)
+	if ( flag == 0 )
 		return "Auto Plot" // unchecked
 	else	
-		return "!" +  num2char(18) + "Auto Plot" // checked
+		return "!" + num2char( 18 ) + "Auto Plot" // checked
 	endif
 
 End // NMAutoPlotMenu
@@ -187,12 +190,12 @@ End // NMAutoPlotMenu
 //****************************************************************
 //****************************************************************
 
-Function /S NMProgressMenu() // return appropriate Progress menu item
+Function /S NMProgressMenu( ) // return appropriate Progress menu item
 
-	Variable progflag = NumVarOrDefault(NMDF() + "ProgFlag", 1)
+	Variable progflag = NumVarOrDefault( NMDF( ) + "ProgFlag", 1 )
 	
-	if (progflag == 1)
-		return "!" +  num2char(18) + "ProgWin On" // checked
+	if ( progflag == 1 )
+		return "!" + num2char( 18 ) + "ProgWin On" // checked
 	else	
 		return "ProgWin On" // unchecked
 	endif
@@ -203,14 +206,14 @@ End // NMProgressMenu
 //****************************************************************
 //****************************************************************
 
-Function /S NMNameFormatMenu() // return appropriate quick load menu item
+Function /S NMNameFormatMenu( ) // return appropriate quick load menu item
 
-	Variable flag = NumVarOrDefault(NMDF() + "NameFormat", 0)
+	Variable flag = NumVarOrDefault( NMDF( ) + "NameFormat", 0 )
 	
-	if (flag == 0)
+	if ( flag == 0 )
 		return "Long Name Format" // unchecked
 	else	
-		return "!" +  num2char(18) + "Long Name Format" // checked
+		return "!" + num2char( 18 ) + "Long Name Format" // checked
 	endif
 
 End // NMNameFormatMenu
@@ -219,15 +222,15 @@ End // NMNameFormatMenu
 //****************************************************************
 //****************************************************************
 
-Function /S NMCmdHistoryMenu()
-	String df = NMDF()
+Function /S NMCmdHistoryMenu( )
+	String df = NMDF( )
 
-	Variable flag = NumVarOrDefault(df+"CmdHistory", 0)
+	Variable flag = NumVarOrDefault( df+"CmdHistory", 0 )
 	
-	if (flag == 0)
+	if ( flag == 0 )
 		return "Command History" // unchecked
 	else	
-		return "!" +  num2char(18) + "Command History" // checked
+		return "!" + num2char( 18 ) + "Command History" // checked
 	endif
 
 End // NMCmdHistoryMenu
@@ -236,14 +239,14 @@ End // NMCmdHistoryMenu
 //****************************************************************
 //****************************************************************
 
-Function /S NMHistoryMenu()
+Function /S NMHistoryMenu( )
 
-	Variable flag = NumVarOrDefault(NMDF() + "WriteHistory", 0)
+	Variable flag = NumVarOrDefault( NMDF( ) + "WriteHistory", 0 )
 	
-	if (flag == 0)
+	if ( flag == 0 )
 		return "Results History" // unchecked
 	else	
-		return "!" +  num2char(18) + "Results History" // checked
+		return "!" + num2char( 18 ) + "Results History" // checked
 	endif
 
 End // NMHistoryMenu
@@ -252,86 +255,91 @@ End // NMHistoryMenu
 //****************************************************************
 //****************************************************************
 
-Function NMCall(fxn)
+Function NMCall( fxn )
 	String fxn
 	
-	String setList = NMSetsDisplayList()
+	String setList = NMSetsDisplayList( )
 	
-	strswitch(fxn)
+	strswitch( fxn )
 			
 		case "Stability":
 		case "Stationarity":
-			Execute "NMStabilityCall0()"
+			Execute "NMStabilityCall0( )"
 			return 0
 		
 		case "KSTest":
-			Execute "KSTestCall()" // NM_Kolmogorov.ipf
+			Execute "KSTestCall( )" // NM_Kolmogorov.ipf
 			return 0
 	
 		case "Update":
-			return ResetNMCall()
+			return ResetNMCall( )
 	
 		case "Add Tab":
-			return NMTabAddCall()
+			return NMTabAddCall( )
 			
 		case "Remove Tab":
-			return NMTabRemoveCall()
+			return NMTabRemoveCall( )
 			
 		case "Kill Tab":
-			return NMTabKillCall()
+			return NMTabKillCall( )
 	
 		case "Progress":
-			return NMProgressToggle()
+			return NMProgressToggle( )
 			
 		case "Progress XY":
-			return NMProgressXYPanel()
+			return NMProgressXYPanel( )
 	
 		case "History":
-			return NMHistoryCall()
+			return NMHistoryCall( )
 			
 		case "CmdHistory":
-			return NMCmdHistoryCall()
+			return NMCmdHistoryCall( )
 			
 		case "Panel":
 		case "Main Panel":
 		case "Make Main Panel":
-			return MakeNMpanelCall()
+			return MakeNMpanelCall( )
 			
 		case "Graphs On":
-			return ChanOnAllCall()
+		case "Chan Graphs On":
+			return ChanOnAllCall( )
+			
+		case "Graphs Reset":
+		case "Chan Graphs Reset":
+			return ChanGraphsResetCoordinates( )
 			
 		case "Computer":
 		case "Computer Stats":
-			return NMComputerCall(1)
+			return NMComputerCall( 1 )
 			
 		case "ResetCascade":
 		case "Reset Cascade":
 		case "Reset Window Cascade":
-			return ResetCascadeCall()
+			return ResetCascadeCall( )
 			
 		case "Next":
-			return NMNextWaveCall(+1)
+			return NMNextWaveCall( +1 )
 			
 		case "Last":
-			return NMNextWaveCall(-1)
+			return NMNextWaveCall( -1 )
 			
 		case "Set1Toggle":
 		case "Set1 Toggle":
-			return NMSetsToggleCall(StringFromList(0, setList))
+			return NMSetsToggleCall( StringFromList( 0, setList ) )
 		
 		case "Set2Toggle":
 		case "Set2 Toggle":
-			return NMSetsToggleCall(StringFromList(1, setList))
+			return NMSetsToggleCall( StringFromList( 1, setList ) )
 		
 		case "SetXToggle":
 		case "SetX Toggle":
-			return NMSetsToggleCall(StringFromList(2, setList))
+			return NMSetsToggleCall( StringFromList( 2, setList ) )
 			
 		case "Off":
-			return NMOn(-1)
+			return NMOn( -1 )
 			
 		case "Webpage":
-			return NMwebpage()
+			return NMwebpage( )
 	
 	endswitch
 	
@@ -343,25 +351,25 @@ End // NMCall
 //****************************************************************
 //****************************************************************
 
-Function NMConfigCall(select)
+Function NMConfigCall( select )
 	String select
 
-	strswitch(select)
+	strswitch( select )
 	
 		case "Edit":
-			return NMConfigEditCall("")
+			return NMConfigEditCall( "" )
 			
 		case "Update":
-			return NMConfigKillCall("")
+			return NMConfigKillCall( "" )
 		
 		case "Open":
-			return NMConfigOpenCall()
+			return NMConfigOpenCall( )
 		
 		case "Save":
-			return NMReturnStr2Num(NMConfigSaveCall(""))
+			return NMReturnStr2Num( NMConfigSaveCall( "" ) )
 			
 		case "Kill":
-			return NMConfigKillCall("")
+			return NMConfigKillCall( "" )
 	
 	endswitch
 

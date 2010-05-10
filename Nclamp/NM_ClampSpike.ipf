@@ -1,6 +1,6 @@
 #pragma rtGlobals = 1
 #pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -20,7 +20,6 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 April 2007
-//	Last modified 9 April 2007
 //
 //****************************************************************
 //****************************************************************
@@ -348,7 +347,7 @@ Function ClampSpikeDisplay(enable)
 	
 	String wlist, wname
 	String df = StimSpikeDF()
-	Variable wcnt, winE = StimWaveLength("")
+	Variable wcnt, winE = StimWaveLength("", 0)
 	Variable nwaves = StimNumWavesTotal("")
 	
 	String gName = ClampSpikeRaster()
@@ -376,7 +375,7 @@ Function ClampSpikeDisplay(enable)
 	if (gexists == 0)
 		Make /O/N=0 CT_DummyWave
 		DoWindow /K $gName
-		Display /K=1/N=$gName/W=(0,0,200,100) CT_DummyWave as "NClamp Spike"
+		Display /K=1/N=$gName/W=(0,0,200,100) CT_DummyWave as "NM Online Spike Analysis"
 		RemoveFromGraph /Z CT_DummyWave
 		KillWaves /Z CT_DummyWave
 		ClampSpikeDisplaySetPosition()
@@ -428,11 +427,13 @@ Function ClampSpikeDisplaySavePosition()
 	String sdf = StimSpikeDF()
 	
 	if (WinType(raster) == 1)
-		GetWindow $raster wsize	
-		SetNMvar(sdf+"CSR_X0", V_left)
-		SetNMvar(sdf+"CSR_Y0", V_top)
-		SetNMvar(sdf+"CSR_X1", V_right)
-		SetNMvar(sdf+"CSR_Y1", V_bottom)
+		GetWindow $raster wsize
+		if ((V_right > V_left) && (V_top < V_bottom))
+			SetNMvar(sdf+"CSR_X0", V_left)
+			SetNMvar(sdf+"CSR_Y0", V_top)
+			SetNMvar(sdf+"CSR_X1", V_right)
+			SetNMvar(sdf+"CSR_Y1", V_bottom)
+		endif
 	endif
 
 End // ClampSpikeDisplaySavePosition
