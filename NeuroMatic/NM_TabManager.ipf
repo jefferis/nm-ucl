@@ -64,7 +64,7 @@ Function MakeTabs(tabList) // set up tab controls
 					// for example: "Main,MN_;Stats,ST_;MyTab,MY_;NMPanel,mytabcntrl"
 	
 	if (TabExists(tabList) == 0) // "empty" tab control should have already been created
-		//Abort "Abort: tab control does not exist."
+		NMDoAlert( "MakeTabs Abort: tab control does not exist: " + TabCntrlName(tabList) )
 		return -1
 	endif
 
@@ -87,7 +87,7 @@ Function ClearTabs(tabList) // clear tab control
 					// for example: "Main,MN_;Stats,ST_;MyTab,MY_;NMPanel,mytabcntrl"
 	
 	if (TabExists(tabList) == 0) // "empty" tab control should have already been created
-		//Abort "Abort: tab control does not exist."
+		NMDoAlert( "MakeTabs Abort: tab control does not exist: " + TabCntrlName(tabList) )
 		return -1
 	endif
 
@@ -110,7 +110,7 @@ Function ChangeTab(fromTab, toTab, tabList) // change to new tab window
 	String tabList // list of tab names
 	
 	if (TabExists(tabList) == 0)
-		//Abort "Abort: tab control does not exist."
+		NMDoAlert( "MakeTabs Abort: tab control does not exist: " + TabCntrlName(tabList) )
 		return -1
 	endif
 
@@ -119,7 +119,7 @@ Function ChangeTab(fromTab, toTab, tabList) // change to new tab window
 	if (toTab < 0)
 	
 		tName = TabName(fromTab, tabList)
-		Execute /Z  tName + "(" + num2str(toTab) + ")" // if toTab < 0, pass this variable
+		Execute /Z  tName + "(" + num2istr(toTab) + ")" // if toTab < 0, pass this variable
 		
 	else
 	
@@ -169,7 +169,7 @@ Function EnableTab(tabNum, tabList, enable) // enable/disable a tab window
 	String wName = TabWinName(tabList)
 	
 	if (TabExists(tabList) == 0)
-		//Abort "Abort: tab control does not exist."
+		NMDoAlert( "MakeTabs Abort: tab control does not exist: " + TabCntrlName(tabList) )
 		return -1
 	endif
 	
@@ -240,14 +240,14 @@ Function KillTab(tabNum, tabList, dialogue) // kill global variables, controls a
 	String tname = TabName(tabNum, tabList)
 	
 	if (TabExists(tabList) == 0)
-		//Abort "Abort: tab control does not exist."
+		NMDoAlert( "MakeTabs Abort: tab control does not exist: " + TabCntrlName(tabList) )
 		return -1
 	endif
 	
 	Execute /Z tname + "(-1)" // remove graph waves
 	
 	If (dialogue == 1)
-		DoAlert 1, "Kill \"" + tname + "\" plots and tables?"
+		DoAlert 1, "Kill " + NMQuotes( tname ) + " plots and tables?"
 	endif
 		
 	if ((V_Flag == 1) || (dialogue == 0))
@@ -255,21 +255,21 @@ Function KillTab(tabNum, tabList, dialogue) // kill global variables, controls a
 	endif
 	
 	If (dialogue == 1)
-		DoAlert 1, "Kill \"" + tname + "\" output waves?"
+		DoAlert 1, "Kill " + NMQuotes( tname ) + " output waves?"
 	endif
 		
 	if ((V_Flag == 1) || (dialogue == 0))
 		KillGlobals(GetDataFolder(1), prefix, "001") // kill waves
-		Execute /Z "Kill" + tname + "(\"waves\")" // execute user-defined kill function, if it exists
+		Execute /Z "Kill" + tname + "(" + NMQuotes( "waves" ) + ")" // execute user-defined kill function, if it exists
 	endif
 	
 	If (dialogue == 1)
-		DoAlert 1, "Kill \"" + tname + "\" strings and variables?"
+		DoAlert 1, "Kill " + NMQuotes( tname ) + " strings and variables?"
 	endif
 	
 	if ((V_Flag == 1) || (dialogue == 0))
 		KillGlobals(GetDataFolder(1), prefix, "110") // kill variables and strings in current folder
-		Execute /Z "Kill" + tname + "(\"folder\")" // execute user-defined kill function, if it exists
+		Execute /Z "Kill" + tname + "(" + NMQuotes( "folder" ) + ")" // execute user-defined kill function, if it exists
 		//KillControls(TabWinName(tabList), prefix) // kill controls
 	endif
 	
@@ -283,7 +283,7 @@ Function KillTabs(tabList) // kill all tabs, no dialogue
 	String tabList // list of tab names
 	
 	if (TabExists(tabList) == 0)
-		//Abort "Abort: tab control does not exist."
+		NMDoAlert( "MakeTabs Abort: tab control does not exist: " + TabCntrlName(tabList) )
 		return -1
 	endif
 	
@@ -307,7 +307,7 @@ Function KillTabControls(tabNum, tabList) // kill tab controls
 	String tname = TabName(tabNum, tabList)
 	
 	if (TabExists(tabList) == 0)
-		//Abort "Abort: tab control does not exist."
+		NMDoAlert( "MakeTabs Abort: tab control does not exist: " + TabCntrlName(tabList) )
 		return -1
 	endif
 
@@ -328,7 +328,7 @@ Function CallTabFunction(funcPrefix, tabNum, tabList) // call a tab's function, 
 	// for example, if the prefix is "Auto"  and tab name is "Main", AutoMain() will be executed.
 	
 	if (TabExists(tabList) == 0)
-		//Abort "Abort: tab control does not exist."
+		NMDoAlert( "MakeTabs Abort: tab control does not exist: " + TabCntrlName(tabList) )
 		return -1
 	endif
 	

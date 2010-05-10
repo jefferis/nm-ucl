@@ -1,5 +1,4 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
 #pragma version = 2
 
 //****************************************************************
@@ -106,7 +105,7 @@ Function NotesBasicUpdate()
 
 	String cdf = ClampDF(), ndf = NotesDF()
 	
-	SetNMstr(ndf+"F_Folder", StrVarOrDefault("FileName", ""))
+	SetNMstr(ndf+"F_Folder", GetDataFolder(0))
 	SetNMstr(ndf+"F_Stim", StimCurrent())
 	SetNMstr(ndf+"F_Tbgn", StrVarOrDefault("FileTime", ""))
 	SetNMstr(ndf+"F_Tend", StrVarOrDefault("FileFinish", ""))
@@ -221,13 +220,13 @@ Function NotesTable(update) // create table to edit note vars
 	String hnlist = NotesVarList(ndf, "H_", "numeric")
 	String fslist = NotesVarList(ndf, "F_", "string")
 	String fnlist = NotesVarList(ndf, "F_", "numeric")
-	String notelist = GetListItems("*note*", fslist, ";") // note strings
+	String notelist = ListMatch(fslist, "*note*", ";") // note strings
 	
 	notelist = SortList(notelist, ";", 16)
 	
-	fnlist = RemoveListFromList(NotesBasicList("F",0), fnlist, ";")
-	fslist = RemoveListFromList(NotesBasicList("F",1), fslist, ";")
-	fslist = RemoveListFromList(notelist, fslist, ";") // remove note strings
+	fnlist = RemoveFromList(NotesBasicList("F",0), fnlist, ";")
+	fslist = RemoveFromList(NotesBasicList("F",1), fslist, ";")
+	fslist = RemoveFromList(notelist, fslist, ";") // remove note strings
 	
 	items = ItemsInList(hslist) + ItemsInList(hnlist) + ItemsInList(fslist) + ItemsInList(fnlist)
 	
@@ -243,7 +242,7 @@ Function NotesTable(update) // create table to edit note vars
 	
 		Edit /K=1/N=$tName/W=(0,0,0,0) VarName, NumValue, StrValue as tTitle
 		SetCascadeXY(tName)
-		Execute "ModifyTable title(Point)= \"Entry\""
+		Execute "ModifyTable title(Point)= " + NMQuotes( "Entry" )
 		Execute "ModifyTable alignment(" + cdf + "VarName)=0, alignment(" + cdf + "StrValue)=0"
 		Execute "ModifyTable width(" + cdf + "NumValue)=60, width(" + cdf + "StrValue)=200"
 		
@@ -345,8 +344,8 @@ Function NotesTable2Vars() // save table values to note vars
 	String nlist = NotesVarList(ndf, "H_", "numeric") + NotesVarList(ndf, "F_", "numeric")
 	String slist = NotesVarList(ndf, "H_", "string") + NotesVarList(ndf, "F_", "string")
 	
-	nlist = RemoveListFromList(NotesBasicList("F",0), nlist, ";")
-	slist = RemoveListFromList(NotesBasicList("F",1), slist, ";")
+	nlist = RemoveFromList(NotesBasicList("F",0), nlist, ";")
+	slist = RemoveFromList(NotesBasicList("F",1), slist, ";")
 	
 	String tName = NotesTableName()
 
@@ -384,8 +383,8 @@ Function NotesTable2Vars() // save table values to note vars
 		
 		type = 0 // undefined
 		
-		nitem = WhichListItemLax(objName, nlist, ";")
-		sitem = WhichListItemLax(objName, slist, ";")
+		nitem = WhichListItem(objName, nlist, ";", 0, 0)
+		sitem = WhichListItem(objName, slist, ";", 0, 0)
 		
 		if (nitem >= 0) // numeric variable
 			type = 1
@@ -521,7 +520,7 @@ Function NotesKillVar(df, vlist, ask)
 		objName = StringFromList(icnt, vlist)
 		
 		if (ask == 1)
-			Prompt kill, "kill variable \"" + objName + "\"?", popup "no;yes;"
+			Prompt kill, "kill variable " + NMQuotes( objName ) + "?", popup "no;yes;"
 			DoPrompt "Encountered Unused Note Variable", kill
 		endif
 		
@@ -549,7 +548,7 @@ Function NotesKillStr(df, vlist, ask)
 		objName = StringFromList(icnt, vlist)
 		
 		if (ask == 1)
-			Prompt kill, "kill variable \"" + objName + "\"?", popup "no;yes;"
+			Prompt kill, "kill variable " + NMQuotes( objName ) + "?", popup "no;yes;"
 			DoPrompt "Encountered Unused Note Variable", kill
 		endif
 		
@@ -667,8 +666,8 @@ Function NotesCopyFolder(df) // save note variables to appropriate data folders
 	String cdf = ClampDF(), ndf = NotesDF()
 	String path = GetPathName(df, 1)
 	
-	df = LastPathColon(df, 0)
-	path = LastPathColon(path, 0)
+	df = RemoveEnding( df, ":" )
+	path = RemoveEnding( path, ":" )
 	
 	if (DataFolderExists(path) == 0)
 		return 0
@@ -713,7 +712,7 @@ Function NotesAddNote(usernote) // add user note
 	
 	do
 	
-		varname = ndf + "F_Note" + num2str(icnt)
+		varname = ndf + "F_Note" + num2istr(icnt)
 		
 		if (exists(varname) == 0)
 			break

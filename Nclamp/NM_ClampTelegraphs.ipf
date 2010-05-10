@@ -259,7 +259,7 @@ Function /S ClampTGainStr( board, chan, instrument )
 		chan = Nan
 	endif
 	
-	return "TGain=B" + num2str( board ) + "_C" + num2str( chan ) + "_" + instrument
+	return "TGain=B" +  num2istr( board ) + "_C" +  num2istr( chan ) + "_" + instrument
 	
 End // ClampTGainStr
 
@@ -279,7 +279,7 @@ Function /S ClampTGainStrMultiClamp( chan, output )
 		output = 1
 	endif
 	
-	return "TGain=C" + num2str( chan ) + "_O" + num2str( output ) + "_MultiClamp700"
+	return "TGain=C" +  num2istr( chan ) + "_O" +  num2istr( output ) + "_MultiClamp700"
 	
 End // ClampTGainStrMultiClamp
 
@@ -351,7 +351,7 @@ Function /S ClampTGainConfigNameList()
 	String TGainList = StrVarOrDefault( cdf+"TGainList", "" )
 	
 	for ( icnt = 0; icnt < ItemsInList( TGainList ); icnt += 1 )
-		nlist = AddListItem( "TGain_" + num2str( icnt ), nlist, ";", inf )
+		nlist = AddListItem( "TGain_" +  num2istr( icnt ), nlist, ";", inf )
 	endfor
 	
 	return nlist
@@ -412,7 +412,7 @@ Function ClampTGainConfigEditOld( config )
 	Prompt instr, "telegraphed instrument:", popup ClampTelegraphInstrList()
 	Prompt kill, "or delete this telegraph configuration:", popup "no;yes;"
 	
-	DoPrompt "ADC Telegraph Gain Config " + num2str( config ), gchan, achan, instr, kill
+	DoPrompt "ADC Telegraph Gain Config " +  num2istr( config ), gchan, achan, instr, kill
 		
 	if ( V_flag == 1 )
 		return -1 // cancel
@@ -426,7 +426,7 @@ Function ClampTGainConfigEditOld( config )
 				continue
 			endif
 			
-			item = num2str( gchan ) + "," + num2str( achan ) + "," + instr
+			item =  num2istr( gchan ) + "," +  num2istr( achan ) + "," + instr
 			
 		else
 		
@@ -453,7 +453,7 @@ Function ClampTGainValue( df, config, waveNum )
 	
 	Variable npnts
 	
-	String wname = df + "CT_TGain" + num2str( config ) // telegraph gain wave
+	String wname = df + "CT_TGain" +  num2istr( config ) // telegraph gain wave
 	
 	if ( WaveExists( $wname ) == 0 )
 		return -1
@@ -995,7 +995,7 @@ Function /S TModeList( device )
 	strswitch( device )
 	
 		case "Axopatch200B":
-			return "Dont Care;V-clamp;I-clamp;I-clamp Normal;I-clamp Fast;"
+			return "V-clamp;I-clamp;I-clamp Normal;I-clamp Fast;"
 			
 		case "MultiClamp700":
 			return "Dont Care;V-clamp;I-clamp;"
@@ -1390,12 +1390,12 @@ Function NMMultiClampTelegraphMode( modeStr )
 	output = ClampTGainStrSearch( modeStr, "_O" )
 		
 	if ( ( chanNum != 1 ) && ( chanNum != 2 ) )
-		DoAlert 0, "MultiClamp Telegraph Error: bad channel number: " + num2str( chanNum )
+		DoAlert 0, "MultiClamp Telegraph Error: bad channel number: " +  num2istr( chanNum )
 		return 0
 	endif
 	
 	if ( ( output != 1 ) && ( output != 2 ) )
-		DoAlert 0, "MultiClamp Telegraph Error: bad output number: " + num2str( output )
+		DoAlert 0, "MultiClamp Telegraph Error: bad output number: " +  num2istr( output )
 		return 0
 	endif
 
@@ -1407,26 +1407,7 @@ End // NMMultiClampTelegraphMode
 //****************************************************************
 //****************************************************************
 
-Function NMMultiClampScale( chanNum, output )
-	Variable chanNum // 1 or 2
-	Variable output // 1 - primary, 2 - secondary
-	
-	switch( output )
-		case 1:
-			return NMMultiClampValue( chanNum, "ScaleFactor" ) * NMMultiClampValue( chanNum, "Alpha" )
-		case 2:
-			return NMMultiClampValue( chanNum, "RawScaleFactor" ) * NMMultiClampValue( chanNum, "SecondaryAlpha" )
-	endswitch
-	
-	return Nan
-	
-End // NMMultiClampScale
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function NMMultiClampScale2( modeStr )
+Function NMMultiClampScaleCall( modeStr )
 	String modeStr
 	
 	Variable chanNum, output
@@ -1440,7 +1421,49 @@ Function NMMultiClampScale2( modeStr )
 	
 	return NMMultiClampScale( chanNum, output )
 
-End // NMMultiClampScale2
+End // NMMultiClampScaleCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMMultiClampScale( chanNum, output )
+	Variable chanNum // 1 or 2
+	Variable output // 1 - primary, 2 - secondary
+	
+	Variable scale, alpha
+	
+	String unitsStr = NMMultiClampUnits( chanNum, output )
+	
+	switch( output )
+	
+		case 1:
+		
+			scale = NMMultiClampValue( chanNum, "ScaleFactor" )
+			alpha = NMMultiClampValue( chanNum, "Alpha" )
+		
+			if ( StringMatch( unitsStr, "V/V" ) == 1 )
+				scale /= 1000 // convert to V/mV
+			endif
+			
+			return scale * alpha
+			
+		case 2:
+		
+			scale = NMMultiClampValue( chanNum, "RawScaleFactor" )
+			alpha = NMMultiClampValue( chanNum, "SecondaryAlpha" )
+			
+			if ( StringMatch( unitsStr, "V/V" ) == 1 )
+				scale /= 1000 // convert to V/mV
+			endif
+		
+			return scale * alpha
+			
+	endswitch
+	
+	return Nan
+	
+End // NMMultiClampScale
 
 //****************************************************************
 //****************************************************************
@@ -1529,12 +1552,12 @@ Function NMMultiClampValue( chanNum, varName )
 		if ( chanID == chanNum )
 		
 			Variable /G NM_TempValue = Nan
-		
+					
 			if ( serialNum < 0 ) // 700A
-				params = num2str( comPortID ) + ", " + num2str( axoBusID ) + ", " + num2str( chanID ) + ", " + StrQuotes( varName ) 
+				params = num2istr( comPortID ) + ", " + num2istr( axoBusID ) + ", " + num2istr( chanID ) + ", " + NMQuotes( varName ) 
 				Execute /Q/Z "NM_TempValue = AxonTelegraphAGetDataNum( " + params + " )"
 			else // 700B
-				params = num2str( serialNum ) + ", " + num2str( chanID ) + ", " + StrQuotes( varName ) 
+				params = num2istr( serialNum ) + ", " + num2istr( chanID ) + ", " + NMQuotes( varName )
 				Execute /Q/Z "NM_TempValue = AxonTelegraphGetDataNum( " + params + " )"
 			endif
 			
@@ -1600,10 +1623,10 @@ Function /S NMMultiClampStrValue( chanNum, varName, strLengthFlag )
 			String /G NM_TempStr = ""
 		
 			if ( serialNum < 0 ) // 700A
-				params = num2str( comPortID ) + ", " + num2str( axoBusID ) + ", " + num2str( chanID ) + ", " + StrQuotes( varName ) + ", " + num2str( strLengthFlag )
+				params = num2istr( comPortID ) + ", " +  num2istr( axoBusID ) + ", " +  num2istr( chanID ) + ", " + NMQuotes( varName ) + ", " +  num2istr( strLengthFlag )
 				Execute /Q/Z "NM_TempStr = AxonTelegraphAGetDataString( " + params + " )"
 			else // 700B
-				params = num2str( serialNum ) + ", " + num2str( chanID ) + ", " + StrQuotes( varName )  + ", " + num2str( strLengthFlag )
+				params =  num2istr( serialNum ) + ", " +  num2istr( chanID ) + ", " + NMQuotes( varName )  + ", " +  num2istr( strLengthFlag )
 				Execute /Q/Z "NM_TempStr = AxonTelegraphGetDataString( " + params + " )"
 			endif
 			
@@ -1669,10 +1692,10 @@ Function NMMultiClampTelegraphsSave( folder )
 	subfolder1 = folder + "MultiClampTelegraphs:"
 	
 	if ( DataFolderExists( subfolder1 ) == 1 )
-		KillDataFolder /Z $LastPathColon( subfolder1, 0 )
+		KillDataFolder /Z $RemoveEnding( subfolder1, ":" )
 	endif
 	
-	NewDataFolder /O $LastPathColon( subfolder1, 0 )
+	NewDataFolder /O $RemoveEnding( subfolder1, ":" )
 	
 	for ( scnt = 0 ; scnt < numServers ; scnt += 1 )
 	
@@ -1682,25 +1705,25 @@ Function NMMultiClampTelegraphsSave( folder )
 		axoBusID = servers[ scnt ][ 3 ]
 	
 		if ( serialNum < 0 ) // 700A
-			folder = "port" + num2str( comPortID ) + "_bus" + num2str( axoBusID ) + "_chan" + num2str( chanID ) + ":"
-			params = num2str( comPortID ) + ", " + num2str( axoBusID ) + ", " + num2str( chanID ) + ", "
+			folder = "port" +  num2istr( comPortID ) + "_bus" +  num2istr( axoBusID ) + "_chan" +  num2istr( chanID ) + ":"
+			params =  num2istr( comPortID ) + ", " +  num2istr( axoBusID ) + ", " +  num2istr( chanID ) + ", "
 		else // 700B
-			folder = "serial" + num2str( serialNum ) + "_chan" + num2str( chanID ) + ":"
-			params = num2str( serialNum ) + ", " + num2str( chanID ) + ", "
+			folder = "serial" +  num2istr( serialNum ) + "_chan" +  num2istr( chanID ) + ":"
+			params =  num2istr( serialNum ) + ", " +  num2istr( chanID ) + ", "
 		endif
 		
 		subfolder2 = subfolder1 + folder
 		
-		NewDataFolder /O $LastPathColon( subfolder2, 0 )
+		NewDataFolder /O $RemoveEnding( subfolder2, ":" )
 		
 		for ( icnt = 0 ; icnt < ItemsInList( varList ) ; icnt += 1 )
 			
 			varName = StringFromList( icnt, varList )
 			
 			if ( serialNum < 0 ) // 700A
-				Execute /Q/Z "NM_TempValue = AxonTelegraphAGetDataNum( " + params + StrQuotes( varName ) + " )"
+				Execute /Q/Z "NM_TempValue = AxonTelegraphAGetDataNum( " + params + NMQuotes( varName ) + " )"
 			else // 700B
-				Execute /Q/Z "NM_TempValue = AxonTelegraphGetDataNum( " + params + StrQuotes( varName ) + " )"
+				Execute /Q/Z "NM_TempValue = AxonTelegraphGetDataNum( " + params + NMQuotes( varName ) + " )"
 			endif
 			
 			Variable /G $subfolder2+varName = NM_TempValue
@@ -1712,9 +1735,9 @@ Function NMMultiClampTelegraphsSave( folder )
 			varName = StringFromList( icnt, strVarList )
 			
 			if ( serialNum < 0 ) // 700A
-				Execute /Q/Z "NM_TempStr = AxonTelegraphAGetDataString( " + params + StrQuotes( varName ) + ", " + num2str( strLength ) + " )"
+				Execute /Q/Z "NM_TempStr = AxonTelegraphAGetDataString( " + params + NMQuotes( varName ) + ", " +  num2istr( strLength ) + " )"
 			else // 700B
-				Execute /Q/Z "NM_TempStr = AxonTelegraphGetDataString( " + params + StrQuotes( varName ) + ", " + num2str( strLength ) + " )"
+				Execute /Q/Z "NM_TempStr = AxonTelegraphGetDataString( " + params + NMQuotes( varName ) + ", " +  num2istr( strLength ) + " )"
 			endif
 			
 			String /G $subfolder2+varName+"Str" = NM_TempStr

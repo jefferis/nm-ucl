@@ -1,6 +1,5 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -92,7 +91,7 @@ Function ReadAxograph(file, df, saveTheData)  // read Axograph file
 				success = ReadAxoColumns(file, df, numColumns, saveTheData, format)
 				break
 			default:
-				Print "Import File Aborted:  Axograph file format version " + num2str(format) + " not supported."
+				Print "Import File Aborted:  Axograph file format version " + num2istr(format) + " not supported."
 				return -1
 		endswitch
 	
@@ -115,7 +114,7 @@ Function ReadAxograph(file, df, saveTheData)  // read Axograph file
 			success = ReadAxoColumns(file, df, numColumns, saveTheData, format)
 		
 		else
-			Print "Import File Aborted:  Axograph file format version " + num2str(format) + " not supported."
+			Print "Import File Aborted:  Axograph file format version " + num2istr(format) + " not supported."
 			return -1
 		endif
 	
@@ -128,7 +127,7 @@ Function ReadAxograph(file, df, saveTheData)  // read Axograph file
 	endif
 	
 	SetNMvar(df+"FileFormat", format)
-	SetNMvar(df+"TotalNumWaves", numColumns)
+	//SetNMvar(df+"TotalNumWaves", numColumns)
 	SetNMstr(df+"AcqMode", "5 (Episodic)")
 	
 	if (CallProgress(1) == 1)
@@ -166,21 +165,18 @@ Function ReadAxoColumns(file, df, numColumns, saveTheData, format)  // read Axog
 	Variable waveBgn = NumVarOrDefault(df+"WaveBgn", 0)
 	Variable waveEnd = NumVarOrDefault(df+"WaveEnd", -1)
 	
-	CheckNMwave(df+"FileScaleFactors", 20, 1)  // increase size
-	CheckNMwave(df+"MyScaleFactors", 20, 1)
+	CheckNMwave(df+"FileScaleFactors", 20, 1)
 	CheckNMtwave(df+"yLabel", 20, "")
 	
 	Wave FileScaleFactors = $(df+"FileScaleFactors")
-	Wave MyScaleFactors = $(df+"MyScaleFactors")
-	Wave /T yLabel = $(df+"yLabel")
+	Wave /T ytemp = $(df+"yLabel")
 	
 	FileScaleFactors = 1
-	MyScaleFactors = 1
-	yLabel = ""
+	ytemp = ""
 	
 	Make /O DumWave0 // where ReadAxoFile puts data
 	
-	NMProgressStr("Reading Axograph File...")
+	SetNeuroMaticStr( "ProgressStr", "Reading Axograph File...")
 	CallProgress(-1)
 	
 	xLabel = ReadAxoColumnX(file, df, saveTheData, format)
@@ -226,7 +222,7 @@ Function ReadAxoColumns(file, df, numColumns, saveTheData, format)  // read Axog
 		
 		if (nomorechannels == 0)
 	
-			if ((StringMatch(tLabel[0,5], "Column") == 1) || (AxoLabelExists(tLabel, yLabel) == 1))
+			if ((StringMatch(tLabel[0,5], "Column") == 1) || (AxoLabelExists(tLabel, ytemp) == 1))
 			
 				nomorechannels = 1
 				ccnt = 0 // return to first channel
@@ -242,11 +238,11 @@ Function ReadAxoColumns(file, df, numColumns, saveTheData, format)  // read Axog
 				numChannels += 1 // found a new channel
 				ccnt += 1
 				
-				yLabel[ccnt] = tLabel
-				MyScaleFactors[ccnt] = scale
+				ytemp[ccnt] = tLabel
+				FileScaleFactors[ccnt] = scale
 				
 				if (dbug == 1)
-					Print "Channel " + num2str(icnt) + " Y-label:", yLabel[ccnt]
+					Print "Channel " + num2istr(icnt) + " Y-label:", ytemp[ccnt]
 				endif
 			
 			endif
@@ -255,7 +251,7 @@ Function ReadAxoColumns(file, df, numColumns, saveTheData, format)  // read Axog
 		
 		if ((saveTheData == 1) && (wcnt >= WaveBgn) && (wcnt <= WaveEnd))
 		
-			DumWave0 *= MyScaleFactors[ccnt]
+			DumWave0 *= FileScaleFactors[ccnt]
 			
 			wName = GetWaveName(wprefix, ccnt, ncnt)
 			
@@ -265,10 +261,10 @@ Function ReadAxoColumns(file, df, numColumns, saveTheData, format)  // read Axog
 			wNote = "Folder:" + GetDataFolder(0)
 			wNote += "\rFile:" + NMNoteCheck(file)
 			wNote += "\rChan:" + ChanNum2Char(ccnt)
-			wNote += "\rWave:" + num2str(ncnt)
+			wNote += "\rWave:" + num2istr(ncnt)
 			wNote += "\rScale:" + num2str(scale)
 	
-			NMNoteType(wName, "Axograph", xLabel, yLabel[ccnt], wNote)
+			NMNoteType(wName, "Axograph", xLabel, ytemp[ccnt], wNote)
 		
 		endif
 		
@@ -287,7 +283,6 @@ Function ReadAxoColumns(file, df, numColumns, saveTheData, format)  // read Axog
 	endfor
 	
 	CheckNMwave(df+"FileScaleFactors", numChannels, 1)
-	CheckNMwave(df+"MyScaleFactors", numChannels, 1)
 	CheckNMtwave(df+"yLabel", numChannels, "")
 	
 	SetNMvar(df+"NumChannels", numChannels)

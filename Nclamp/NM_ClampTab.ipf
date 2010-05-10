@@ -1,5 +1,4 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
 #pragma version = 2
 
 //****************************************************************
@@ -30,16 +29,17 @@ Function ClampTabEnable( enable )
 	
 	if ( enable == 1 )
 	
-		if ( CheckClampTabDF( ) == 1 )
-			CheckClampTab( )
+		if ( CheckClampTabDF() == 1 )
+			CheckClampTab()
 		endif
 		
-		ClampTabMake( ) // make controls if necessary
-		ClampTabUpdate( )
+		DisableNMPanel( 1 )
+		ClampTabMake() // make controls if necessary
+		ClampTabUpdate()
 		
 	else
 	
-		ClampTabDisable( )
+		ClampTabDisable()
 		
 	endif
 	
@@ -49,9 +49,9 @@ End // ClampTabEnable
 //****************************************************************
 //****************************************************************
 
-Function /S ClampTabDF( ) // full-path name of TabObjects folder
+Function /S ClampTabDF() // full-path name of TabObjects folder
 
-	return ClampDF( ) + "TabObjects:"
+	return ClampDF() + "TabObjects:"
 	
 End // ClampTabDF
 
@@ -59,11 +59,11 @@ End // ClampTabDF
 //****************************************************************
 //****************************************************************
 
-Function CheckClampTabDF( ) // check to see if folder exists
-	String tdf = ClampTabDF( )
+Function CheckClampTabDF() // check to see if folder exists
+	String tdf = ClampTabDF()
 
 	if ( DataFolderExists( tdf ) == 0 )
-		NewDataFolder $LastPathColon( tdf, 0 )
+		NewDataFolder $RemoveEnding( tdf, ":" )
 		return 1
 	endif
 	
@@ -75,14 +75,14 @@ End // CheckClampTabDF
 //****************************************************************
 //****************************************************************
 
-Function CheckClampTab( ) // declare Clamp Tab global variables
-	String tdf = ClampTabDF( ), cdf = ClampDF( )
+Function CheckClampTab() // declare Clamp Tab global variables
+	String tdf = ClampTabDF(), cdf = ClampDF()
 	
 	if ( DataFolderExists( tdf ) == 0 )
 		return 0 // folder doesnt exist
 	endif
 	
-	CheckNMstr( tdf+"TabList", "File,CT1_;Configs,CT2_;Stim,CT3_;NMpanel,CT0_Tab;" )
+	CheckNMstr( tdf+"TabControlList", "File,CT1_;Configs,CT2_;Stim,CT3_;NMpanel,CT0_Tab;" )
 	
 	CheckNMvar( tdf+"CurrentTab", 0 )
 	CheckNMvar( tdf+"StatsOn", 0 )
@@ -180,30 +180,19 @@ End // ClampFindShortName
 //****************************************************************
 //****************************************************************
 
-Function /S ClampCtrlNameShort( ctrlName )
-	String ctrlName
-	
-	return ctrlName[4, inf] // remove "CT#_" prefix
-	
-End // ClampCtrlNameShort
+Function ClampTabMake()
 
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampTabMake( )
-
-	Variable icnt, x0, y0, xinc, yinc, fs = NMPanelFsize( )
+	Variable icnt, x0, y0, xinc, yinc, fs = NMPanelFsize()
 	Variable nDACon = 4
 	Variable nADCon = 8
 	Variable nTTLon = 4
-	Variable pwidth = NMPanelWidth( ), pheight = NMPanelHeight( ), taby = NMPanelTabY( )
+	Variable pwidth = NMPanelWidth(), pheight = NMPanelHeight(), taby = NMPanelTabY()
 	
 	Variable r = NMpanelRGB( "r" )
 	Variable g = NMpanelRGB( "g" )
 	Variable b = NMpanelRGB( "b" )
 	
-	String cdf = ClampDF( ), tdf = ClampTabDF( ), ndf = NotesDF( )
+	String cdf = ClampDF(), tdf = ClampTabDF(), ndf = NotesDF()
 
 	ControlInfo /W=NMpanel CT0_StimList 
 	
@@ -232,11 +221,11 @@ Function ClampTabMake( )
 	Button CT0_StartRecord, title="Record", pos={x0+110,y0+yinc}, size={60,20}, proc=ClampButton, fsize=fs, win=NMpanel
 	Button CT0_Note, title="Note", pos={x0+185,y0+yinc}, size={40,20}, proc=ClampButton, fsize=fs, win=NMpanel
 	
-	SetVariable CT0_ErrorMssg, title=" ", pos={x0,585}, size={260,50}, value=$( cdf+"ClampErrorStr" ), fsize=fs, win=NMpanel
+	SetVariable CT0_ErrorMssg, title=" ", pos={x0,605}, size={260,50}, value=$( cdf+"ClampErrorStr" ), fsize=fs, win=NMpanel
 	
 	TabControl CT0_Tab, pos={2, taby+110}, size={pwidth-4, 640}, labelBack=( r, g, b ), proc=ClampTabControl, fsize=fs, win=NMpanel
 	
-	MakeTabs( StrVarOrDefault( tdf+"TabList", "" ) )
+	MakeTabs( StrVarOrDefault( tdf+"TabControlList", "" ) )
 	
 	// File tab
 	
@@ -301,7 +290,7 @@ Function ClampTabMake( )
 	yinc = 28
 	
 	PopupMenu CT2_InterfaceMenu, pos={x0+150,y0}, size={0,0}, bodyWidth=100, mode=1, disable=1, fsize=fs, title=" ", proc=ConfigsTabPopup, win=NMpanel
-	PopupMenu CT2_InterfaceMenu, value=ConfigsTabPopupList( ), popvalue=StrVarOrDefault( ClampDF( )+"BoardSelect", "Demo" ), win=NMpanel
+	PopupMenu CT2_InterfaceMenu, value=ConfigsTabPopupList(), popvalue=StrVarOrDefault( ClampDF()+"BoardSelect", "Demo" ), win=NMpanel
 	
 	
 	Button CT2_Hide, title="Hide", pos={x0+190,y0+1}, size={50,20}, proc=ConfigsTabButton, disable=1, fsize=fs, win=NMpanel
@@ -351,8 +340,8 @@ Function ClampTabMake( )
 	yinc = 24
 	
 	for ( icnt = 0; icnt < 7; icnt += 1 )
-		Button $"CT2_IObnum"+num2str( icnt ), title=num2str( icnt ), pos={x0-10+( icnt+1 )*xinc,y0+1*yinc}, win=NMpanel
-		Button $"CT2_IObnum"+num2str( icnt ), size={20,20}, proc=ConfigsTabButton, disable=1, fsize=fs, win=NMpanel
+		Button $"CT2_IObnum"+num2istr( icnt ), title=num2istr( icnt ), pos={x0-10+( icnt+1 )*xinc,y0+1*yinc}, win=NMpanel
+		Button $"CT2_IObnum"+num2istr( icnt ), size={20,20}, proc=ConfigsTabButton, disable=1, fsize=fs, win=NMpanel
 	endfor
 	
 	SetVariable CT2_IOnum,pos={x0+42+6*xinc+2,y0+1*yinc+2}, size={40,15},limits={0,20,1}, title=" ", win=NMpanel
@@ -449,20 +438,22 @@ Function ClampTabMake( )
 	SetVariable CT3_NumStimWaves, title= "number", pos={x0+xinc,y0+1*yinc}, size={110,50}, limits={1,inf,0}, win=NMpanel
 	SetVariable CT3_NumStimWaves, value=$( tdf+"NumStimWaves" ), proc=StimTabSetTau, disable=1, fsize=fs, win=NMpanel
 	
-	SetVariable CT3_WaveLength, title= "length ( ms )", pos={x0+xinc+120,y0+1*yinc}, size={110,50}, fsize=fs, win=NMpanel
+	SetVariable CT3_WaveLength, title= "length (ms)", pos={x0+xinc+120,y0+1*yinc}, size={110,50}, fsize=fs, win=NMpanel
 	SetVariable CT3_WaveLength, limits={0.001,inf,0}, value=$( tdf+"WaveLength" ), proc=StimTabSetTau, disable=1, win=NMpanel
 	
-	SetVariable CT3_SampleInterval, title= "delta ( ms )", pos={x0+xinc,y0+2*yinc}, size={110,50}, fsize=fs, win=NMpanel
+	SetVariable CT3_SampleInterval, title= "tstep (ms)", pos={x0+xinc,y0+2*yinc}, size={110,50}, fsize=fs, win=NMpanel
 	SetVariable CT3_SampleInterval, limits={0.001,inf,0}, value=$( tdf+"SampleInterval" ), proc=StimTabSetTau, disable=1, win=NMpanel
 	
 	SetVariable CT3_SamplesPerWave, title= "samples :", pos={x0+xinc+120,y0+2*yinc}, size={110,50}, fsize=fs, win=NMpanel
 	SetVariable CT3_SamplesPerWave, limits={0,inf,0}, value=$( tdf+"SamplesPerWave" ), proc=StimTabSetTau, disable=1, frame=0, win=NMpanel
 	
-	SetVariable CT3_InterStimTime, title= "interlude ( ms )", pos={x0+xinc,y0+3*yinc}, size={110,50}, fsize=fs, win=NMpanel
+	SetVariable CT3_InterStimTime, title= "interlude (ms)", pos={x0+xinc,y0+3*yinc}, size={110,50}, fsize=fs, win=NMpanel
 	SetVariable CT3_InterStimTime, limits={0,inf,0}, value=$( tdf+"InterStimTime" ), proc=StimTabSetTau, disable=1, win=NMpanel
 	
-	SetVariable CT3_StimRate, title= "stim rate ( Hz ) :", pos={x0+xinc+120,y0+3*yinc}, size={110,50}, fsize=fs, win=NMpanel
+	SetVariable CT3_StimRate, title= "stim rate (Hz) :", pos={x0+xinc+120,y0+3*yinc}, size={110,50}, fsize=fs, win=NMpanel
 	SetVariable CT3_StimRate, limits={0,inf,0}, value=$( tdf+"StimRate" ), proc=StimTabSetTau, disable=1, frame=0, win=NMpanel
+	
+	x0 += 5
 	
 	y0 += 110
 	
@@ -471,13 +462,13 @@ Function ClampTabMake( )
 	SetVariable CT3_NumStimReps, title= "number", pos={x0+xinc,y0+1*yinc}, size={110,50}, fsize=fs, win=NMpanel
 	SetVariable CT3_NumStimReps, limits={1,inf,0}, value=$( tdf+"NumStimReps" ), proc=StimTabSetTau, disable=1, win=NMpanel
 	
-	SetVariable CT3_TotalTime, title= "total time ( sec ) :", pos={x0+xinc+120,y0+1*yinc}, size={110,50}, fsize=fs, win=NMpanel
+	SetVariable CT3_TotalTime, title= "total time (sec) :", pos={x0+xinc+120,y0+1*yinc}, size={110,50}, fsize=fs, win=NMpanel
 	SetVariable CT3_TotalTime, limits={0,inf,0}, value=$( tdf+"TotalTime" ), disable=1, frame=0, win=NMpanel
 	
-	SetVariable CT3_InterRepTime, title= "interlude ( ms )", pos={x0+xinc,y0+2*yinc}, size={110,50}, fsize=fs, win=NMpanel
+	SetVariable CT3_InterRepTime, title= "interlude (ms)", pos={x0+xinc,y0+2*yinc}, size={110,50}, fsize=fs, win=NMpanel
 	SetVariable CT3_InterRepTime, limits={0,inf,0}, value=$( tdf+"InterRepTime" ), proc=StimTabSetTau, disable=1, win=NMpanel
 	
-	SetVariable CT3_RepRate, title= "rep rate ( Hz ) :", pos={x0+xinc+120,y0+2*yinc}, size={110,50}, fsize=fs, win=NMpanel
+	SetVariable CT3_RepRate, title= "rep rate (Hz) :", pos={x0+xinc+120,y0+2*yinc}, size={110,50}, fsize=fs, win=NMpanel
 	SetVariable CT3_RepRate, limits={0,inf,0}, value=$( tdf+"RepRate" ), proc=StimTabSetTau, disable=1, frame=0, win=NMpanel
 	
 	// Stim Board Tab
@@ -489,22 +480,22 @@ Function ClampTabMake( )
 	GroupBox CT3_ADCgrp, title = "ADC in", pos={x0,y0-18}, size={xinc+2,185}, disable=1, fsize=fs, labelBack=( r, g, b ), win=NMpanel
 	
 	for ( icnt = 0; icnt < 8; icnt += 1 )
-		PopupMenu $"CT3_ADC"+num2str( icnt ),pos={x0+4,y0+icnt*yinc}, size={80,0}, bodywidth=80, disable=1, win=NMpanel
-		PopupMenu $"CT3_ADC"+num2str( icnt ), mode=1, title="", value="", proc=StimTabIOPopup, fsize=fs, win=NMpanel
+		PopupMenu $"CT3_ADC"+num2istr( icnt ),pos={x0+4,y0+icnt*yinc}, size={80,0}, bodywidth=80, disable=1, win=NMpanel
+		PopupMenu $"CT3_ADC"+num2istr( icnt ), mode=1, title="", value="", proc=StimTabIOPopup, fsize=fs, win=NMpanel
 	endfor
 	
 	GroupBox CT3_DACgrp, title = "DAC out", pos={x0+xinc,y0-18}, size={xinc+2,185}, disable=1, fsize=fs, labelBack=( r, g, b ), win=NMpanel
 	
 	for ( icnt = 0; icnt < 8; icnt += 1 )
-		PopupMenu $"CT3_DAC"+num2str( icnt ),pos={x0+1*xinc+4,y0+icnt*yinc}, size={80,0}, bodywidth=80, disable=1, win=NMpanel
-		PopupMenu $"CT3_DAC"+num2str( icnt ), mode=1, title="", value="", proc=StimTabIOPopup, fsize=fs, win=NMpanel
+		PopupMenu $"CT3_DAC"+num2istr( icnt ),pos={x0+1*xinc+4,y0+icnt*yinc}, size={80,0}, bodywidth=80, disable=1, win=NMpanel
+		PopupMenu $"CT3_DAC"+num2istr( icnt ), mode=1, title="", value="", proc=StimTabIOPopup, fsize=fs, win=NMpanel
 	endfor
 	
 	GroupBox CT3_TTLgrp, title = "TTL out", pos={x0+2*xinc,y0-18}, size={xinc+2,185}, disable=1, fsize=fs, labelBack=( r, g, b ), win=NMpanel
 	
 	for ( icnt = 0; icnt < 8; icnt += 1 )
-		PopupMenu $"CT3_TTL"+num2str( icnt ),pos={x0+2*xinc+4,y0+icnt*yinc}, size={80,0}, bodywidth=80, disable=1, win=NMpanel
-		PopupMenu $"CT3_TTL"+num2str( icnt ), mode=1, title="", value="", proc=StimTabIOPopup, fsize=fs, win=NMpanel
+		PopupMenu $"CT3_TTL"+num2istr( icnt ),pos={x0+2*xinc+4,y0+icnt*yinc}, size={80,0}, bodywidth=80, disable=1, win=NMpanel
+		PopupMenu $"CT3_TTL"+num2istr( icnt ), mode=1, title="", value="", proc=StimTabIOPopup, fsize=fs, win=NMpanel
 	endfor
 	
 	Checkbox CT3_GlobalConfigs, pos={x0+5,y0+9*yinc}, title="use global configs", size={10,20}, win=NMpanel
@@ -549,7 +540,7 @@ End // ClampTabMake
 //****************************************************************
 //****************************************************************
 
-Function ClampTabUpdate( )
+Function ClampTabUpdate()
 	
 	ControlInfo /W=NMpanel CT0_StimList 
 	
@@ -557,17 +548,17 @@ Function ClampTabUpdate( )
 		return 0 // tab controls dont exist
 	endif
 
-	String tdf = ClampTabDF( )
+	String tdf = ClampTabDF()
 	
-	StimCurrentCheck( )
+	StimCurrentCheck()
 	
-	Variable select = WhichListItemLax( StimCurrent( ), StimMenuList( ), ";" ) + 1
+	Variable select = WhichListItem( StimCurrent(), StimMenuList(), ";", 0, 0 ) + 1
 	
-	PopupMenu CT0_StimList, win=NMpanel, mode=select, value=StimMenuList( )
+	PopupMenu CT0_StimList, win=NMpanel, mode=select, value=StimMenuList()
 	
 	Variable currentTab = NumVarOrDefault( tdf+"CurrentTab", 0 )
 	
-	String TabList = StrVarOrDefault( tdf+"TabList", "" )
+	String TabList = StrVarOrDefault( tdf+"TabControlList", "" )
 	String TabName = StringFromList( currentTab, TabList )
 	
 	TabName = StringFromList( 0, TabName, "," ) // current tab name
@@ -582,10 +573,10 @@ End // ClampTabUpdate
 //****************************************************************
 //****************************************************************
 
-Function ClampTabDisable( )
+Function ClampTabDisable()
 	Variable icnt
 	
-	String tlist = StrVarOrDefault( ClampTabDF( )+"TabList", "" )
+	String tlist = StrVarOrDefault( ClampTabDF()+"TabControlList", "" )
 
 	for ( icnt = 0; icnt < ItemsInList( tlist )-1; icnt += 1 )
 		EnableTab( icnt, tlist, 0 ) // disable tab controls
@@ -597,10 +588,10 @@ End // ClampTabDisable
 //****************************************************************
 //****************************************************************
 
-Function /S StimMenuList( )
+Function /S StimMenuList()
 
-	String d = NMmenuDivider( )
-	String mList = "Stimulus Protocols;" + d + StimList( )
+	String d = " ;---; ;"
+	String mList = "Stimulus Protocols;" + d + StimList()
 
 	return mList + d + "Open;Save;Save As;Close;Reload;" + d + "Open All;Save All;Close All;" + d + "New;Copy;Rename;Retrieve;" + d + "Set Stim List;Set Stim Path; ;"
 
@@ -616,10 +607,10 @@ Function StimCall( select )
 	Variable new, ask, stimexists
 	
 	String sname = "", newname = ""
-	String gdf, dp = StimParent( ), sdf = StimDF( )
-	String slist = StimList( )
+	String gdf, dp = StimParent(), sdf = StimDF()
+	String slist = StimList()
 	
-	String currentStim = StimCurrent( )
+	String currentStim = StimCurrent()
 	String currentFile = StrVarOrDefault( sdf+"CurrentFile", "" )
 	
 	if ( strlen( currentStim ) > 0 )
@@ -657,13 +648,13 @@ Function StimCall( select )
 				break
 			endif
 			
-			if ( StimStatsOn( ) == 1 )
-				StimStatsUpdate( )
-				ClampStatsDisplaySavePositions( )
+			if ( NMStimStatsOn() == 1 )
+				NMStimStatsUpdate()
+				ClampStatsDisplaySavePositions()
 			endif
 			
-			if ( StimSpikeOn( ) == 1 )
-				ClampSpikeDisplaySavePosition( )
+			if ( NMStimSpikeOn() == 1 )
+				ClampSpikeDisplaySavePosition()
 			endif
 			
 			ClampGraphsCopy( -1, 1 )
@@ -688,8 +679,8 @@ Function StimCall( select )
 				break
 			endif
 			
-			if ( StimStatsOn( ) == 1 )
-				StimStatsUpdate( )
+			if ( NMStimStatsOn() == 1 )
+				NMStimStatsUpdate()
 			endif
 			
 			ClampGraphsCopy( -1, 1 )
@@ -714,7 +705,7 @@ Function StimCall( select )
 			if ( ItemsInList( slist ) > 0 )
 				StimCurrentSet( StringFromList( 0,slist ) ) // set to new stim
 			else
-				ClampTabUpdate( )
+				ClampTabUpdate()
 			endif
 			
 			break
@@ -728,7 +719,7 @@ Function StimCall( select )
 			
 			StimClose( slist )
 			
-			ClampTabUpdate( )
+			ClampTabUpdate()
 			
 			break
 			
@@ -780,7 +771,7 @@ Function StimCall( select )
 			gdf = GetDataFolder( 1 )
 			
 			if ( ItemsInList( slist ) == 0 )
-				DoAlert 0, "No Stim folder located in current data folder \"" + GetDataFolder( 0 ) + "\""
+				DoAlert 0, "No Stim folder located in current data folder " + NMQuotes( GetDataFolder( 0 ) )
 				break
 			endif
 			
@@ -796,21 +787,21 @@ Function StimCall( select )
 			DuplicateDataFolder $( gdf + sname ), $newname
 			SetNMvar( newname+":StatsOn", 0 ) // make sure stats is OFF when retrieving
 			StimCurrentSet( GetPathName( newname, 0 ) )
-			StimWavesCheck( StimDF( ), 0 )
+			StimWavesCheck( StimDF(), 0 )
 			
 			break
 			
 		case "Set Stim Path":
-			ClampStimPathAsk( )
+			ClampStimPathAsk()
 			break
 			
 		case "Set Stim List":
-			ClampStimListAsk( )
+			ClampStimListAsk()
 			break
 			
 		default: // should be a stim
 		
-			if ( WhichListItemLax( select, slist, ";" ) >= 0 )
+			if ( WhichListItem( select, slist, ";", 0, 0 ) >= 0 )
 				ClampGraphsCopy( -1, 1 ) // save Chan graphs configs before changing
 				StimCurrentSet( select )
 			else
@@ -819,11 +810,12 @@ Function StimCall( select )
 			
 	endswitch
 	
-	StimWavesCheck( StimDF( ), 0 )
+	StimWavesCheck( StimDF(), 0 )
 	
 	UpdateNMPanel( 0 )
-	ClampTabUpdate( )
-	ChanGraphsUpdate( )
+	ClampTabUpdate()
+	ChanGraphsUpdate()
+	ClampGraphsCloseUnecessary()
 	
 	PulseGraph( 0 )
 	PulseTableManager( 0 )
@@ -841,7 +833,7 @@ Function StimListPopup( ctrlName, popNum, popStr ) : PopupMenuControl
 	
 	StimCall( popStr )
 	
-	//ClampTabUpdate( )
+	//ClampTabUpdate()
 	
 End // StimListPopup
 
@@ -853,8 +845,10 @@ Function ClampButton( ctrlName ) : ButtonControl
 	String ctrlName
 	
 	ClampError( 0, "" )
+	
+	ctrlName = ctrlName[ 4, inf ]
 
-	strswitch( ClampCtrlNameShort( ctrlName ) )
+	strswitch( ctrlName )
 	
 		case "StartPreview":
 			ClampAcquireCall( 0 )
@@ -869,7 +863,7 @@ Function ClampButton( ctrlName ) : ButtonControl
 			break
 			
 		//case "TGain":
-		//	ClampTGainConfigCall( )
+		//	ClampTGainConfigCall()
 		//	break
 			
 	endswitch
@@ -916,16 +910,16 @@ End // ClampTabControl
 Function ClampTabChange( tab )
 	Variable tab
 	
-	String cdf = ClampDF( ), tdf = ClampTabDF( )
+	String cdf = ClampDF(), tdf = ClampTabDF()
 	
 	Variable lastTab = NumVarOrDefault( tdf+"CurrentTab", 0 )
 	
-	String CurrentStim = StimCurrent( )
+	String CurrentStim = StimCurrent()
 	
 	ClampError( 0, "" )
 	
 	SetNMvar( tdf+"CurrentTab", tab )
-	ChangeTab( lastTab, tab, StrVarOrDefault( tdf+"TabList", "" ) ) // NM_TabManager.ipf
+	ChangeTab( lastTab, tab, StrVarOrDefault( tdf+"TabControlList", "" ) ) // NM_TabManager.ipf
 	
 	if ( tab == 2 ) // Pulse
 		DoWindow /F PG_PulseGraph
@@ -938,12 +932,12 @@ End // ClampTabChange
 //****************************************************************
 //****************************************************************
 
-Function /S ClampTabName( ) // return current tab name
-	String tdf = ClampTabDF( )
+Function /S ClampTabName() // return current tab name
+	String tdf = ClampTabDF()
 
 	Variable tabnum = NumVarOrDefault( tdf+"CurrentTab", 0 )
 	
-	return TabName( tabnum, StrVarOrDefault( tdf+"TabList", "" ) )
+	return TabName( tabnum, StrVarOrDefault( tdf+"TabControlList", "" ) )
 
 End // ClampTabName
 
@@ -960,7 +954,7 @@ End // ClampTabName
 Function FileTab( enable ) // NM Clamp configure tab enable
 	Variable enable
 	
-	String str, cdf = ClampDF( ), tdf = ClampTabDF( ), sdf = StimDF( )
+	String str, cdf = ClampDF(), tdf = ClampTabDF(), sdf = StimDF()
 	
 	if ( enable == 1 )
 		
@@ -1027,7 +1021,9 @@ End // FileTab
 Function FileTabCheckbox( ctrlName, checked ) : CheckboxControl
 	String ctrlName; Variable checked
 	
-	FileTabCall( ClampCtrlNameShort( ctrlName ), checked, "" )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	FileTabCall( ctrlName, checked, "" )
 	
 End // FileTabCheckbox
 
@@ -1038,7 +1034,9 @@ End // FileTabCheckbox
 Function FileTabSetVariable( ctrlName, varNum, varStr, varName ) : SetVariableControl
 	String ctrlName; Variable varNum; String varStr; String varName
 	
-	FileTabCall( ClampCtrlNameShort( ctrlName ), varNum, varStr )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	FileTabCall( ctrlName, varNum, varStr )
 	
 End // FileTabSetVariable
 
@@ -1049,7 +1047,9 @@ End // FileTabSetVariable
 Function FileTabPopup( ctrlName, popNum, popStr ) : PopupMenuControl
 	String ctrlName; Variable popNum; String popStr
 	
-	FileTabCall( ClampCtrlNameShort( ctrlName ), popNum, popStr )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	FileTabCall( ctrlName, popNum, popStr )
 	
 End // FileTabPopup
 
@@ -1060,7 +1060,9 @@ End // FileTabPopup
 Function FileTabButton( ctrlName ) : ButtonControl
 	String ctrlName
 	
-	FileTabCall( ClampCtrlNameShort( ctrlName ), Nan, "" )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	FileTabCall( ctrlName, Nan, "" )
 	
 End // FileTabButton
 
@@ -1078,7 +1080,7 @@ Function FileTabCall( select, varNum, varStr )
 	strswitch( select )
 	
 		case "SaveConfig":
-			ClampSaveAsk( )
+			ClampSaveAsk()
 			break
 			
 		case "CloseFolder":
@@ -1103,25 +1105,25 @@ Function FileTabCall( select, varNum, varStr )
 			
 		case "FileCellSet":
 			if ( numtype( varNum ) == 0 )
-				ClampDataFolderSeqReset( )
+				ClampDataFolderSeqReset()
 			endif
 			break
 			
 		case "FileNewCell":
-			ClampDataFolderNewCell( )
+			ClampDataFolderNewCell()
 			break
 			
 		case "UserName":
 		case "UserLab":
 		case "ExpTitle":
-			if ( WinType( NotesTableName( ) ) == 2 )
+			if ( WinType( NotesTableName() ) == 2 )
 				NotesTable( 0 ) // update Notes table
 			endif
 			break
 			
 		case "NotesEdit":
 			NotesTable( 1 )
-			DoWindow /F $NotesTableName( )
+			DoWindow /F $NotesTableName()
 			break
 			
 		case "LogMenu":
@@ -1151,7 +1153,7 @@ Function StimTab( enable )
 	Variable misc, tim, board, pulse
 	
 	Variable chain = StimChainOn( "" )
-	String select = StimTabMode( )
+	String select = StimTabMode()
 	
 	if ( enable == 1 )
 	
@@ -1210,8 +1212,8 @@ Function StimTabMisc( enable )
 	Variable enable
 	
 	Variable chain = StimChainOn( "" )
-	Variable pn = ClampPN( )
-	String pnstr, tdf = ClampTabDF( ), sdf = StimDF( )
+	Variable pn = ClampPN()
+	String pnstr, tdf = ClampTabDF(), sdf = StimDF()
 		
 	SetNMstr( tdf+"StimTag", StrVarOrDefault( sdf+"StimTag", "" ) )
 	SetNMstr( tdf+"DataPrefix", StrVarOrDefault( sdf+"WavePrefix", "" ) )
@@ -1228,17 +1230,17 @@ Function StimTabMisc( enable )
 	if ( pn == 0 )
 		pnstr = "P / N"
 	else
-		pnstr = "P / " + num2str( pn )
+		pnstr = "P / " + num2istr( pn )
 	endif
 	
-	Checkbox CT3_StatsCheck, win=NMpanel, disable=!enable, value=StimStatsOn( )
-	Checkbox CT3_SpikeCheck, win=NMpanel, disable=!enable, value=StimSpikeOn( )
+	Checkbox CT3_StatsCheck, win=NMpanel, disable=!enable, value=NMStimStatsOn()
+	Checkbox CT3_SpikeCheck, win=NMpanel, disable=!enable, value=NMStimSpikeOn()
 	Checkbox CT3_PNCheck, win=NMpanel, disable=!enable, value=pn, title=pnstr
 	SetVariable CT3_ADCprefix, win=NMpanel, disable=!enable
 	SetVariable CT3_StimSuffix, win=NMpanel, disable=!enable
-	PopupMenu CT3_PreAnalysis, win=NMpanel, disable=!enable, mode=1, value="Pre;---;"+StrVarOrDefault( StimDF( )+"PreStimFxnList", "" )+"---;Add to List;Remove from List;Clear List;"
-	PopupMenu CT3_InterAnalysis, win=NMpanel, disable=!enable, mode=1, value="Inter;---;"+StrVarOrDefault( StimDF( )+"InterStimFxnList", "" )+"---;Add to List;Remove from List;Clear List;"
-	PopupMenu CT3_PostAnalysis, win=NMpanel, disable=!enable, mode=1, value="Post;---;"+StrVarOrDefault( StimDF( )+"PostStimFxnList", "" )+"---;Add to List;Remove from List;Clear List;"
+	PopupMenu CT3_PreAnalysis, win=NMpanel, disable=!enable, mode=1, value="Pre;---;"+StrVarOrDefault( StimDF()+"PreStimFxnList", "" )+"---;Add to List;Remove from List;Clear List;"
+	PopupMenu CT3_InterAnalysis, win=NMpanel, disable=!enable, mode=1, value="Inter;---;"+StrVarOrDefault( StimDF()+"InterStimFxnList", "" )+"---;Add to List;Remove from List;Clear List;"
+	PopupMenu CT3_PostAnalysis, win=NMpanel, disable=!enable, mode=1, value="Post;---;"+StrVarOrDefault( StimDF()+"PostStimFxnList", "" )+"---;Add to List;Remove from List;Clear List;"
 	SetVariable CT3_PreAnalysisList, win=NMpanel, disable=!enable
 	SetVariable CT3_InterAnalysisList, win=NMpanel, disable=!enable
 	SetVariable CT3_PostAnalysisList, win=NMpanel, disable=!enable
@@ -1253,8 +1255,8 @@ Function StimTabTime( enable )
 	Variable enable
 	
 	Variable dis, tempvar, driver, slave, total
-	String cdf = ClampDF( ), sdf = StimDF( ), tdf = ClampTabDF( )
-	String alist = StimAcqModeList( )
+	String cdf = ClampDF(), sdf = StimDF(), tdf = ClampTabDF()
+	String alist = StimAcqModeList()
 	
 	Variable amode = NumVarOrDefault( sdf+"AcqMode", 0 )
 	Variable WaveLength = NumVarOrDefault( sdf+"WaveLength", 0 )
@@ -1283,25 +1285,25 @@ Function StimTabTime( enable )
 	
 	switch( amode )
 		case 0:
-			amode = 1+ WhichListItemLax( "epic precise", alist, ";" )
+			amode = 1+ WhichListItem( "epic precise", alist, ";", 0, 0 )
 			break
 		case 1:
-			amode = 1+ WhichListItemLax( "continuous", alist, ";" )
+			amode = 1+ WhichListItem( "continuous", alist, ";", 0, 0 )
 			dis = 1
 			break
 		case 2:
-			amode = 1+ WhichListItemLax( "episodic", alist, ";" )
+			amode = 1+ WhichListItem( "episodic", alist, ";", 0, 0 )
 			break
 		case 3:
-			amode = 1+ WhichListItemLax( "epic triggered", alist, ";" )
+			amode = 1+ WhichListItem( "epic triggered", alist, ";", 0, 0 )
 			break
 		case 4:
-			amode = 1+ WhichListItemLax( "continuous triggered", alist, ";" )
+			amode = 1+ WhichListItem( "continuous triggered", alist, ";", 0, 0 )
 			dis = 1
 			break
 	endswitch
 	
-	PopupMenu CT3_AcqMode, win=NMpanel, value=StimAcqModeList( ), mode=amode, disable=!enable
+	PopupMenu CT3_AcqMode, win=NMpanel, value=StimAcqModeList(), mode=amode, disable=!enable
 		
 	// acq board popup
 	
@@ -1320,7 +1322,7 @@ Function StimTabTime( enable )
 		tempvar = 1
 	endif
 	
-	PopupMenu CT3_TauBoard, win=NMpanel, mode=( tempvar ), value=StrVarOrDefault( ClampDF( )+"BoardList", "" ), disable=!enable
+	PopupMenu CT3_TauBoard, win=NMpanel, mode=( tempvar ), value=StrVarOrDefault( ClampDF()+"BoardList", "" ), disable=!enable
 	
 	GroupBox CT3_WaveGrp, win=NMpanel, disable=!enable
 	SetVariable CT3_NumStimWaves, win=NMpanel, disable=!enable
@@ -1392,13 +1394,13 @@ Function StimTabPulse( enable )
 	
 	Variable md
 	String wPrefix, wlist
-	String sdf = StimDF( ), tdf = ClampTabDF( )
-	String gname = PulseGraphName( )
+	String sdf = StimDF(), tdf = ClampTabDF()
+	String gname = PulseGraphName()
 	
 	wPrefix = StrVarOrDefault( tdf+"PulsePrefix", "" )
 	wlist = StimPrefixListAll( sdf )
 	
-	if ( WhichListItemLax( wPrefix, wlist, ";" ) == -1 )
+	if ( WhichListItem( wPrefix, wlist, ";", 0, 0 ) == -1 )
 		wPrefix = ""
 	endif
 
@@ -1413,15 +1415,15 @@ Function StimTabPulse( enable )
 		SetNMstr( tdf+"PulsePrefix", wPrefix )
 		PopupMenu CT3_WavePrefix, win=NMpanel, mode=1, value="no outputs;", disable=!enable
 	else
-		md = WhichListItemLax( wPrefix, wlist, ";" ) + 1
-		PopupMenu CT3_WavePrefix, win=NMpanel, mode=md, value=StimNameListAll( StimDF( ) ), disable=!enable
+		md = WhichListItem( wPrefix, wlist, ";", 0, 0 ) + 1
+		PopupMenu CT3_WavePrefix, win=NMpanel, mode=md, value=StimNameListAll( StimDF() ), disable=!enable
 	endif
 	
 	Button CT3_Display, win=NMpanel, disable=!enable
 	
-	PulseConfigCheck( )
+	PulseConfigCheck()
 	
-	GroupBox CT3_PulseGrp, win=NMpanel, title = "Pulse Config ( n = " + num2str( PulseCount( sdf,wPrefix ) ) + " )", disable=!enable
+	GroupBox CT3_PulseGrp, win=NMpanel, title = "Pulse Config ( n = " + num2istr( PulseCount( sdf,wPrefix ) ) + " )", disable=!enable
 
 	Button CT3_New, title="New", win=NMpanel, disable=!enable
 	Button CT3_Clear, title="Clear", win=NMpanel, disable=!enable
@@ -1449,9 +1451,9 @@ End // StimTabPulse
 //****************************************************************
 //****************************************************************
 
-Function /S StimTabMode( )
+Function /S StimTabMode()
 
-	return StrVarOrDefault( ClampTabDF( )+"StimTabMode", "Time" )
+	return StrVarOrDefault( ClampTabDF()+"StimTabMode", "Time" )
 
 End // StimTabMode
 
@@ -1492,7 +1494,7 @@ Function /S StimTabIOList( io, config )
 	endfor
 	
 	if ( StringMatch( io, "ADC" ) == 1 )
-		slist += ClampTGainConfigNameList( )
+		slist += ClampTGainConfigNameList()
 	endif
 	
 	slist = AddListItem( "ERROR", slist, ";", inf )
@@ -1512,7 +1514,7 @@ Function StimTabIOMode( io, config )
 	Variable mode = 1
 	String configName
 	
-	String bdf = StimBoardDF( StimDF( ) )
+	String bdf = StimBoardDF( StimDF() )
 	String mlist = StimTabIOList( io, config )
 	
 	if ( ( WaveExists( $bdf+io+"name" ) == 0 ) || ( ItemsInList( mlist ) == 0 ) )
@@ -1525,11 +1527,11 @@ Function StimTabIOMode( io, config )
 	
 	if ( strlen( configName ) > 0 )
 	
-		mode = WhichListItemLax( configName, mlist, ";" )
+		mode = WhichListItem( configName, mlist, ";", 0, 0 )
 		
 		if ( ( mode < 0 ) && ( StringMatch( configName[0,5], "TGain_" ) == 0 ) )
 			mode = 1 + WhichListItem( "ERROR", mlist )
-			ClampError( 0, "failed to find config \"" + configName + "\". Please reselect " + io + " config #" + num2str( config ) )
+			ClampError( 0, "failed to find config " + NMQuotes( configName ) + ". Please reselect " + io + " config #" + num2istr( config ) )
 		else
 			mode += 1
 		endif
@@ -1551,8 +1553,8 @@ Function StimTabCall( select, varNum, varStr )
 	
 	ClampError( 0, "" )
 	
-	String tdf = ClampTabDF( )
-	String sdf = StimDF( )
+	String tdf = ClampTabDF()
+	String sdf = StimDF()
 	
 	strswitch( select )
 	
@@ -1574,14 +1576,14 @@ Function StimTabCall( select, varNum, varStr )
 	
 		case "ChainCheck":
 			StimChainSet( "", varNum )
-			ClampTabUpdate( )
+			ClampTabUpdate()
 			return 0
 			
 		case "StatsCheck":
-			return StimStatsOnSet( varNum )
+			return NMStimStatsOnSet( varNum )
 			
 		case "SpikeCheck":
-			return StimSpikeOnSet( varNum )
+			return NMStimSpikeOnSet( varNum )
 			
 		case "PNCheck":
 			return ClampPNenable( varNum )
@@ -1609,7 +1611,7 @@ Function StimTabCall( select, varNum, varStr )
 		case "AcqMode":
 			StimAcqModeSet( "", varStr )
 			StimWavesCheck( sdf, 1 )
-			StimTabTauCheck( )
+			StimTabTauCheck()
 			break
 			
 		case "TauBoard":
@@ -1621,12 +1623,12 @@ Function StimTabCall( select, varNum, varStr )
 			break
 			
 		case "IOtable":
-			StimIOtable( )
+			StimIOtable()
 			break
 			
 		case "Tab":
 		case "Globals":
-			ConfigsTabMake( )
+			ConfigsTabMake()
 			return 0
 	
 	endswitch
@@ -1642,7 +1644,9 @@ End // StimTabCall
 Function StimTabButton( ctrlName ) : ButtonControl
 	String ctrlName
 	
-	return StimTabCall( ClampCtrlNameShort( ctrlName ), Nan, "" )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	return StimTabCall( ctrlName, Nan, "" )
 	
 End // StimTabButton
 
@@ -1653,7 +1657,9 @@ End // StimTabButton
 Function StimTabCheckbox( ctrlName, checked ) : CheckboxControl
 	String ctrlName; Variable checked
 	
-	StimTabCall( ClampCtrlNameShort( ctrlName ), checked, "" )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	StimTabCall( ctrlName, checked, "" )
 	
 End // StimTabCheckbox
 
@@ -1664,7 +1670,9 @@ End // StimTabCheckbox
 Function StimTabSetVariable( ctrlName, varNum, varStr, varName ) : SetVariableControl
 	String ctrlName; Variable varNum; String varStr; String varName
 	
-	StimTabCall( ClampCtrlNameShort( ctrlName ), varNum, varStr )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	StimTabCall( ctrlName, varNum, varStr )
 	
 End // StimTabSetVariable
 
@@ -1675,7 +1683,9 @@ End // StimTabSetVariable
 Function StimTabPopup( ctrlName, popNum, popStr ) : PopupMenuControl
 	String ctrlName; Variable popNum; String popStr
 	
-	StimTabCall( ClampCtrlNameShort( ctrlName ), popNum, popStr )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	StimTabCall( ctrlName, popNum, popStr )
 	
 End // StimTabPopup
 
@@ -1686,7 +1696,7 @@ End // StimTabPopup
 Function StimTabFxnPopup( ctrlName, popNum, popStr ) : PopupMenuControl
 	String ctrlName; Variable popNum; String popStr
 	
-	String select = ClampCtrlNameShort( ctrlName )
+	String select = ctrlName[ 4, inf ]
 	
 	ClampError( 0, "" )
 	
@@ -1727,7 +1737,7 @@ Function StimTabSetTau( ctrlName, varNum, varStr, varName ) : SetVariableControl
 	ClampError( 0, "" )
 	
 	Variable inter, update = 1, updateNM
-	String tdf = ClampTabDF( ), sdf = StimDF( )
+	String tdf = ClampTabDF(), sdf = StimDF()
 	
 	Variable NumStimWaves = NumVarOrDefault( tdf+"NumStimWaves", 0 )
 	Variable InterStimTime = NumVarOrDefault( tdf+"InterStimTime", 0 )
@@ -1775,7 +1785,7 @@ Function StimTabSetTau( ctrlName, varNum, varStr, varName ) : SetVariableControl
 			
 	endswitch
 	
-	StimTabTauCheck( )
+	StimTabTauCheck()
 	
 	if ( update == 1 )
 		StimWavesCheck( sdf, 1 )
@@ -1794,10 +1804,10 @@ End // StimTabSetTau
 //****************************************************************
 //****************************************************************
 
-Function StimTabTauCheck( ) // check and save stim time variables
+Function StimTabTauCheck() // check and save stim time variables
 
 	String varName
-	String cdf = ClampDF( ), tdf = ClampTabDF( ), sdf = StimDF( )
+	String cdf = ClampDF(), tdf = ClampTabDF(), sdf = StimDF()
 	
 	Variable acqMode = StimAcqMode( sdf )
 	
@@ -1872,13 +1882,13 @@ Function StimTabIOPopup( ctrlName, popNum, popStr ) : PopupMenuControl
 	String ctrlName; Variable popNum; String popStr
 	
 	Variable config, boardConfig, board, chan
-	String io, tgain, oldName, cdf = ClampDF( ), tdf = ClampTabDF( )
+	String io, tgain, oldName, cdf = ClampDF(), tdf = ClampTabDF()
 	
-	String tlist = ClampTGainConfigNameList( )
+	String tlist = ClampTGainConfigNameList()
 	
 	ClampError( 0, "" )
 	
-	ctrlName = ClampCtrlNameShort( ctrlName )
+	ctrlName = ctrlName[ 4, inf ]
 	
 	io = ctrlName[0,2]
 	
@@ -1909,7 +1919,7 @@ End // StimTabIOPopup
 //****************************************************************
 //****************************************************************
 
-Function StimIOtable( )
+Function StimIOtable()
 	
 	StimBoardNamesTable( "", 1 )
 	
@@ -1926,9 +1936,9 @@ End // StimIOtable
 //****************************************************************
 //****************************************************************
 
-Function /S ConfigsTabIOselect( )
+Function /S ConfigsTabIOselect()
 	
-	return ClampIOcheck( StrVarOrDefault( ClampTabDF( )+"ConfigsTabIOselect", "ADC" ) )
+	return ClampIOcheck( StrVarOrDefault( ClampTabDF()+"ConfigsTabIOselect", "ADC" ) )
 
 End // ConfigsTabIOselect
 
@@ -1936,9 +1946,9 @@ End // ConfigsTabIOselect
 //****************************************************************
 //****************************************************************
 
-Function ConfigsTabIOnum( )
+Function ConfigsTabIOnum()
 
-	return NumVarOrDefault( ClampTabDF( )+"IOnum", 0 )
+	return NumVarOrDefault( ClampTabDF()+"IOnum", 0 )
 
 End // ConfigsTabIOnum
 
@@ -1950,14 +1960,14 @@ Function ConfigsTab( enable )
 	Variable enable
 	
 	Variable tempvar, icnt, config, board, chan, adc
-	String tempstr, instr, cdf = ClampDF( ), tdf = ClampTabDF( )
+	String tempstr, instr, cdf = ClampDF(), tdf = ClampTabDF()
 	
 	Variable driver = NumVarOrDefault( cdf+"BoardDriver", 0 )
 	String blist = StrVarOrDefault( cdf+"BoardList", "" )
-	String io = ConfigsTabIOselect( )
-	Variable tabNum = TabNumber( "Configs", StrVarOrDefault( tdf+"TabList", "" ) )
+	String io = ConfigsTabIOselect()
+	Variable tabNum = TabNumber( "Configs", StrVarOrDefault( tdf+"TabControlList", "" ) )
 	
-	config = ConfigsTabIOnum( )
+	config = ConfigsTabIOnum()
 	
 	if ( strlen( io ) == 0 )
 		return -1
@@ -1965,7 +1975,7 @@ Function ConfigsTab( enable )
 	
 	if ( ( enable == 1 ) && ( tabNum >= 0 ) )
 	
-		PopupMenu CT2_InterfaceMenu, win=NMpanel, mode=1, value=ConfigsTabPopupList( ), popvalue=StrVarOrDefault( ClampDF( )+"BoardSelect", "Demo" )
+		PopupMenu CT2_InterfaceMenu, win=NMpanel, mode=1, value=ConfigsTabPopupList(), popvalue=StrVarOrDefault( ClampDF()+"BoardSelect", "Demo" )
 		
 		if ( WaveExists( $cdf+io+"board" ) == 0 )
 			return -1
@@ -2006,7 +2016,7 @@ Function ConfigsTab( enable )
 				tempstr += "\\K( 21760,21760,21760 )"
 			endif
 			
-			Button $( "CT2_IObnum"+num2str( icnt ) ), win=NMpanel, title=tempstr + num2str( icnt )
+			Button $( "CT2_IObnum"+num2istr( icnt ) ), win=NMpanel, title=tempstr + num2istr( icnt )
 			
 		endfor
 		
@@ -2020,19 +2030,19 @@ Function ConfigsTab( enable )
 		
 		tempstr = ClampBoardName( board )
 		
-		tempvar = WhichListItemLax( tempstr, blist, ";" )
+		tempvar = WhichListItem( tempstr, blist, ";", 0, 0 )
 		
 		if ( tempvar < 0 )
-			DoAlert 0, "Config Error: cannot locate board #" + num2str( board ) + ". Please select a new board."
+			DoAlert 0, "Config Error: cannot locate board #" + num2istr( board ) + ". Please select a new board."
 		endif
 		
-		PopupMenu CT2_IOboard, win=NMpanel, mode=( tempvar+1 ), value=StrVarOrDefault( ClampDF( )+"BoardList", "" )
+		PopupMenu CT2_IOboard, win=NMpanel, mode=( tempvar+1 ), value=StrVarOrDefault( ClampDF()+"BoardList", "" )
 		
 		// units popup
 		
 		tempstr = WaveStrOrDefault( cdf+io+"units", config, "" )
-		tempvar = WhichListItemLax( tempstr, StrVarOrDefault( tdf+"UnitsList", "" ), ";" ) + 1
-		PopupMenu CT2_IOunits, win=NMpanel, mode=( tempvar ), value=StrVarOrDefault( ClampTabDF( )+"UnitsList", "" ) + "Other...;"
+		tempvar = WhichListItem( tempstr, StrVarOrDefault( tdf+"UnitsList", "" ), ";", 0, 0 ) + 1
+		PopupMenu CT2_IOunits, win=NMpanel, mode=( tempvar ), value=StrVarOrDefault( ClampTabDF()+"UnitsList", "" ) + "Other...;"
 		
 		// scale
 		
@@ -2077,11 +2087,11 @@ Function ConfigsTab( enable )
 		
 		strswitch( io )
 			case "ADC":
-				GroupBox CT2_IOgrp2, win=NMpanel, title = io + " Input Config " + num2str( config )
+				GroupBox CT2_IOgrp2, win=NMpanel, title = io + " Input Config " + num2istr( config )
 				break
 			case "DAC":
 			case "TTL":
-				GroupBox CT2_IOgrp2, win=NMpanel, title = io + " Output Config " + num2str( config )
+				GroupBox CT2_IOgrp2, win=NMpanel, title = io + " Output Config " + num2istr( config )
 				break
 		endswitch
 		
@@ -2093,9 +2103,9 @@ End // ConfigsTab
 //****************************************************************
 //****************************************************************
 
-Function /S ConfigsTabPopupList( )
+Function /S ConfigsTabPopupList()
 	String blist = "Demo;"
-	String board = StrVarOrDefault( ClampDF( )+"AcqBoard", "" )
+	String board = StrVarOrDefault( ClampDF()+"AcqBoard", "" )
 	
 	if ( StringMatch( "Demo", board ) == 1 )
 		return blist
@@ -2114,9 +2124,9 @@ Function ConfigsTabCall( select, varNum, varStr )
 	Variable varNum
 	String varStr
 	
-	Variable config = ConfigsTabIOnum( )
-	String io = ConfigsTabIOselect( )
-	String tdf = ClampTabDF( )
+	Variable config = ConfigsTabIOnum()
+	String io = ConfigsTabIOselect()
+	String tdf = ClampTabDF()
 	
 	ClampError( 0, "" )
 	
@@ -2148,7 +2158,7 @@ Function ConfigsTabCall( select, varNum, varStr )
 			
 		case "IOunits":
 			if ( strsearch( varStr, "Other", 0 ) >= 0 )
-				varStr = ConfigsTabUnitsAsk( )
+				varStr = ConfigsTabUnitsAsk()
 			endif
 			ClampBoardUnitsSet( io, config, varStr )
 			break
@@ -2174,19 +2184,19 @@ Function ConfigsTabCall( select, varNum, varStr )
 			break
 			
 		case "IOreset":
-			ConfigsTabWavesResetAsk( )
+			ConfigsTabWavesResetAsk()
 			break
 			
 		case "IOextract":
-			ConfigsTabConfigsFromStims( )
+			ConfigsTabConfigsFromStims()
 			break
 			
 		case "IOsave":
-			ClampBoardWavesSave( )
+			ClampBoardWavesSave()
 			break
 			
 		case "Hide":
-			ConfigsTabHide( )
+			ConfigsTabHide()
 			break
 			
 		default:
@@ -2208,7 +2218,9 @@ End // ConfigsTabCall
 Function ConfigsTabPopup( ctrlName, popNum, popStr ) : PopupMenuControl
 	String ctrlName; Variable popNum; String popStr
 	
-	return ConfigsTabCall( ClampCtrlNameShort( ctrlName ), popNum, popStr )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	return ConfigsTabCall( ctrlName, popNum, popStr )
 	
 End // ConfigsTabPopup
 
@@ -2219,7 +2231,9 @@ End // ConfigsTabPopup
 Function ConfigsTabSetVariable( ctrlName, varNum, varStr, varName ) : SetVariableControl
 	String ctrlName; Variable varNum; String varStr; String varName
 	
-	return ConfigsTabCall( ClampCtrlNameShort( ctrlName ), varNum, varStr )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	return ConfigsTabCall( ctrlName, varNum, varStr )
 	
 End // ConfigsTabSetVariable
 
@@ -2230,7 +2244,9 @@ End // ConfigsTabSetVariable
 Function ConfigsTabButton( ctrlName ) : ButtonControl
 	String ctrlName
 	
-	return ConfigsTabCall( ClampCtrlNameShort( ctrlName ), Nan, "" )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	return ConfigsTabCall( ctrlName, Nan, "" )
 	
 End // ConfigsTabButton
 
@@ -2241,7 +2257,9 @@ End // ConfigsTabButton
 Function ConfigsTabCheckbox( ctrlName, checked ) : CheckboxControl
 	String ctrlName; Variable checked
 	
-	return ConfigsTabCall( ClampCtrlNameShort( ctrlName ), checked, "" )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	return ConfigsTabCall( ctrlName, checked, "" )
 	
 End // ConfigsTabCheckbox
 
@@ -2249,12 +2267,12 @@ End // ConfigsTabCheckbox
 //****************************************************************
 //****************************************************************
 
-Function ConfigsTabHide( )
+Function ConfigsTabHide()
 
 	DoAlert 1, "Hide this tab?"
 	
 	if ( V_flag == 1 )
-		ConfigsTabKill( )
+		ConfigsTabKill()
 	endif
 
 End // ConfigsTabHide
@@ -2263,10 +2281,10 @@ End // ConfigsTabHide
 //****************************************************************
 //****************************************************************
 
-Function ConfigsTabKill( )
+Function ConfigsTabKill()
 
-	String tdf = ClampTabDF( )
-	String tabList = StrVarOrDefault( tdf+"TabList", "" )
+	String tdf = ClampTabDF()
+	String tabList = StrVarOrDefault( tdf+"TabControlList", "" )
 	Variable tabNum = TabNumber( "Configs", tabList )
 	
 	if ( tabNum < 0 )
@@ -2277,9 +2295,9 @@ Function ConfigsTabKill( )
 	
 	KillTabControls( tabNum, tabList )
 
-	SetNMstr( tdf+"TabList", "File,CT1_;Stim,CT3_;NMpanel,CT0_Tab;" )
+	SetNMstr( tdf+"TabControlList", "File,CT1_;Stim,CT3_;NMpanel,CT0_Tab;" )
 	
-	MakeNMpanel( )
+	MakeNMpanel()
 
 End // ConfigsTabKill
 
@@ -2287,22 +2305,28 @@ End // ConfigsTabKill
 //****************************************************************
 //****************************************************************
 
-Function ConfigsTabMake( )
+Function ConfigsTabMake()
 
-	String tdf = ClampTabDF( )
-	String tabList = StrVarOrDefault( tdf+"TabList", "" )
+	String tdf = ClampTabDF()
+	String tabList = StrVarOrDefault( tdf+"TabControlList", "" )
 	Variable tabNum = TabNumber( "Configs", tabList )
+	
+	if ( DataFolderExists( tdf ) == 0 )
+		return -1
+	endif
 	
 	if ( tabNum >= 0 )
 		ClampTabChange( 1 )
-		return -1 // tab exists
+		return 0 // tab exists
 	endif
 
-	SetNMstr( tdf+"TabList", "File,CT1_;Configs,CT2_;Stim,CT3_;NMpanel,CT0_Tab;" )
+	SetNMstr( tdf+"TabControlList", "File,CT1_;Configs,CT2_;Stim,CT3_;NMpanel,CT0_Tab;" )
 	
-	MakeNMpanel( )
+	MakeNMpanel()
 	
 	ClampTabChange( 1 )
+	
+	return 0
 
 End // ConfigsTabMake
 
@@ -2310,9 +2334,9 @@ End // ConfigsTabMake
 //****************************************************************
 //****************************************************************
 
-Function /S ConfigsTabUnitsAsk( )
+Function /S ConfigsTabUnitsAsk()
 
-	String unitstr = "", tdf = ClampTabDF( )
+	String unitstr = "", tdf = ClampTabDF()
 	String unitsList = StrVarOrDefault( tdf+"UnitsList", "" )
 	
 	Prompt unitstr "enter channel units:"
@@ -2322,7 +2346,7 @@ Function /S ConfigsTabUnitsAsk( )
 		return ""
 	endif
 
-	if ( WhichListItemLax( unitstr, unitsList, ";" ) == -1 )
+	if ( WhichListItem( unitstr, unitsList, ";", 0, 0 ) == -1 )
 		unitstr = unitsList + unitstr + ";"
 		SetNMStr( tdf+"UnitsList", unitstr )
 	endif
@@ -2338,8 +2362,8 @@ End // ConfigsTabUnitsAsk
 Function ConfigsTabIOset( io )
 	String io
 	
-	String cdf = ClampDF( ), tdf = ClampTabDF( )
-	Variable config = ConfigsTabIOnum( )
+	String cdf = ClampDF(), tdf = ClampTabDF()
+	Variable config = ConfigsTabIOnum()
 	
 	if ( strlen( ClampIOcheck( io ) ) == 0 )
 		return -1
@@ -2360,9 +2384,9 @@ End // ConfigsTabIOset
 Function ConfigsTabConfigNumSet( config )
 	Variable config
 	
-	String cdf = ClampDF( ), io = ConfigsTabIOselect( )
+	String cdf = ClampDF(), io = ConfigsTabIOselect()
 	
-	SetNMvar( ClampTabDF( )+"IOnum", config )
+	SetNMvar( ClampTabDF()+"IOnum", config )
 	
 	if ( config >= numpnts( $cdf+io+"name" ) )
 		ClampBoardWavesRedimen( io, config + 1 )
@@ -2374,15 +2398,15 @@ End // ConfigsTabConfigNumSet
 //****************************************************************
 //****************************************************************
 
-Function ConfigsTabWavesResetAsk( )
+Function ConfigsTabWavesResetAsk()
 
-	Variable config = ConfigsTabIOnum( )
-	String io = ConfigsTabIOselect( )
-	String tdf = ClampTabDF( )
+	Variable config = ConfigsTabIOnum()
+	String io = ConfigsTabIOselect()
+	String tdf = ClampTabDF()
 
 	Variable this = NumVarOrDefault( tdf+"ConfigsTabResetThis", 1 )
 	
-	Prompt this " ", popup "This " + io + " Config ( #" + num2str( config ) + " );All " + io + " Configs;All ADC, DAC and TTL Configs;"
+	Prompt this " ", popup "This " + io + " Config ( #" + num2istr( config ) + " );All " + io + " Configs;All ADC, DAC and TTL Configs;"
 	DoPrompt "Reset Board Configs", this
 		
 	if ( V_flag == 1 )
@@ -2437,7 +2461,7 @@ Function /S ConfigsTabPreSampAsk( on )
 					DoPrompt "Pre-sample ADC input", numSamples
 					
 					if ( V_flag == 0 )
-						modeStr = "PreSamp=" + num2str( numSamples )
+						modeStr = "PreSamp=" + num2istr( numSamples )
 					endif
 					
 					break
@@ -2490,16 +2514,86 @@ End // ConfigsTabPreSampAsk
 //****************************************************************
 //****************************************************************
 
-Function ConfigsTabConfigsFromStims( )
+Function /S ConfigsTabTGainPrompt()
+
+	Variable board, chan, output
+	String name, chanStr, modeStr = ""
+	
+	String tdf = ClampTabDF(), cdf = ClampDF()
+
+	Variable config = ConfigsTabIOnum()
+	String instr = StrVarOrDefault( tdf+"TelegraphInstrument", "" )
+	String blist = StrVarOrDefault( cdf+"BoardList", "" )
+
+	Prompt instr "telegraphed instrument:", popup ClampTelegraphInstrList()
+	
+	DoPrompt "Telegraph Gain", instr
+	
+	if ( V_flag == 1 )
+		return "" // cancel
+	endif
+	
+	SetNMstr( tdf+"TelegraphInstrument", instr )
+	
+	if ( StringMatch( instr, "MultiClamp700" ) == 1 )
+	
+		chan = 1
+		output = 1
+		
+		Prompt chan "this ADC input is connected to channel:", popup "1;2;"
+		Prompt output " ", popup "primary output;secondary output;"
+		
+		DoPrompt "MultiClamp700 Telegraph Gain", chan, output
+		
+		if ( V_flag == 1 )
+			return "" // cancel
+		endif
+		
+		return ClampTGainStrMultiClamp( chan, output )
+	
+	endif
+	
+	Prompt chan "ADC input channel to scale:"
+	Prompt board "on board number:", popup blist
+	
+	if ( ItemsInList( blist ) > 1 )
+		DoPrompt instr + " Telegraph Gain", chan, board
+	else
+		DoPrompt instr + " Telegraph Gain", chan
+	endif
+	
+	if ( V_flag == 1 )
+		return "" // cancel
+	endif
+	
+	name = "TGain_" + instr[0, 2]
+
+	modeStr = ClampTGainStr( board, chan, instr )
+	
+	ClampBoardNameSet( "ADC", config, name )
+	ClampBoardUnitsSet( "ADC", config, "V" )
+	ClampBoardScaleSet( "ADC", config, 1 )
+	
+	SetNMstr( tdf+"TelegraphInstrument", instr )
+	
+	return modeStr
+	
+End // ConfigsTabTGainPrompt
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ConfigsTabConfigsFromStims()
 	String ctrlName
 	
 	Variable scnt
-	String sdf, sname, sList = StimList( ), cdf = ClampDF( )
+	String sdf, sname, sList = StimList(), cdf = ClampDF()
 	
 	for ( scnt = 0; scnt < ItemsInList( sList ); scnt += 1 )
 	
 		sname = StringFromList( scnt, sList )
-		sdf = StimParent( ) + sname + ":"
+		sdf = StimParent() + sname + ":"
 		
 		if ( WaveExists( $sdf+"ADCname" ) == 0 )
 			sList = RemoveFromList( sname, sList ) // old board config waves do not exist
@@ -2545,9 +2639,9 @@ End // ConfigsTabConfigsFromStims
 //****************************************************************
 //****************************************************************
 
-Function /S PulseTabPrefixSelect( )
+Function /S PulseTabPrefixSelect()
 
-	return StrVarOrDefault( ClampTabDF( )+"PulsePrefix", "" )
+	return StrVarOrDefault( ClampTabDF()+"PulsePrefix", "" )
 
 End // PulseTabPrefixSelect
 
@@ -2561,10 +2655,16 @@ Function PulseTabCall( select, varNum, varStr )
 	String varStr
 	
 	Variable icnt, updateWaves = 1, updateTab = 1
-	String tdf = ClampTabDF( ), sdf = StimDF( )
-	String wPrefix = PulseTabPrefixSelect( )
+	String tdf = ClampTabDF(), sdf = StimDF()
+	
+	String wPrefix = PulseTabPrefixSelect()
 	
 	ClampError( 0, "" )
+	
+	if ( strlen( wPrefix ) == 0 )
+		DoAlert 0, "There is currently no selected DAC or TTL output for this stimulus protocol."
+		return -1
+	endif
 	
 	strswitch( select )
 	
@@ -2605,26 +2705,27 @@ Function PulseTabCall( select, varNum, varStr )
 					break
 					
 				default:
-					return 0
+					DoAlert 0, "There is no currently selected DAC or TTL output."
+					return -1
 					
 			endswitch
 			
 			break
 			
 		case "Clear":
-			if ( PulseClearCall( ) == -1 )
+			if ( PulseClearCall() == -1 )
 				return 0 // cancel
 			endif
 			break
 			
 		case "Edit":
-			if ( PulseEditCall( ) == -1 )
+			if ( PulseEditCall() == -1 )
 				return 0 // cancel
 			endif
 			break
 			
 		case "Train":
-			 if ( PulseTrainCall( ) == -1 )
+			 if ( PulseTrainCall() == -1 )
 			 	return 0 // cancel
 			 endif
 			 break
@@ -2657,7 +2758,7 @@ Function PulseTabCall( select, varNum, varStr )
 			
 		case "AutoScale":
 			SetNMvar( tdf+"PulseAutoScale", varNum )
-			PulseGraphAxesSave( )
+			PulseGraphAxesSave()
 			PulseGraph( 1 )
 			return 0
 	
@@ -2680,7 +2781,9 @@ End // PulseTabCall
 Function PulseTabPopup( ctrlName, popNum, popStr ) : PopupMenuControl
 	String ctrlName; Variable popNum; String popStr
 	
-	PulseTabCall( ClampCtrlNameShort( ctrlName ), popNum, popStr )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	PulseTabCall( ctrlName, popNum, popStr )
 	
 End // PulseTabPopup
 
@@ -2691,7 +2794,9 @@ End // PulseTabPopup
 Function PulseTabButton( ctrlName ) : ButtonControl
 	String ctrlName
 	
-	PulseTabCall( ClampCtrlNameShort( ctrlName ), Nan, "" )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	PulseTabCall( ctrlName, Nan, "" )
 
 End // PulseTabButton
 
@@ -2702,7 +2807,9 @@ End // PulseTabButton
 Function PulseTabCheckbox( ctrlName, checked ) : CheckboxControl
 	String ctrlName; Variable checked
 	
-	PulseTabCall( ClampCtrlNameShort( ctrlName ), checked, "" )
+	ctrlName = ctrlName[ 4, inf ]
+	
+	PulseTabCall( ctrlName, checked, "" )
 	
 End // PulseTabCheckbox
 
@@ -2722,14 +2829,16 @@ End // PulseSetVar
 //****************************************************************
 //****************************************************************
 
-Function PulseEditCall( )
+Function PulseEditCall()
 	Variable pnum
 	
-	String plist = PulseConfigList( )
+	String plist = PulseConfigList()
+	String wPrefix = PulseTabPrefixSelect()
 	
-	String tdf = ClampTabDF( )
-	
-	String wPrefix = StrVarOrDefault( tdf+"PulsePrefix", "" )
+	if ( strlen( wPrefix ) == 0 )
+		DoAlert 0, "There is currently no selected DAC or TTL output for this stimulus protocol."
+		return -1
+	endif
 	
 	if ( ItemsInList( plist ) == 0 )
 		DoAlert 0, "No pulses to edit."
@@ -2769,17 +2878,22 @@ Function PulseEditDAC( pulseNum )
 	if ( pulseNum == -1 )
 		title = "New DAC Pulse Config"
 	else
-		title = "Edit DAC Pulse Config " + num2str( pulseNum )
+		title = "Edit DAC Pulse Config " + num2istr( pulseNum )
 	endif
 
-	String tdf = ClampTabDF( ), sdf = StimDF( )
+	String tdf = ClampTabDF(), sdf = StimDF()
 	
 	String wPrefix = StrVarOrDefault( tdf+"PulsePrefix", "" )
 	
 	Variable nwaves = NumVarOrDefault( sdf+"NumStimWaves", 1 )
 	
+	if ( strlen( wPrefix ) == 0 )
+		DoAlert 0, "There is currently no selected DAC or TTL output for this stimulus protocol."
+		return -1
+	endif
+	
 	for ( icnt = 0; icnt < nwaves; icnt += 1 )
-		wlist = AddListItem( "Wave"+num2str( icnt ), wlist, ";", inf )
+		wlist = AddListItem( "Wave"+num2istr( icnt ), wlist, ";", inf )
 	endfor
 	
 	Variable sh = NumVarOrDefault( tdf+"PulseShape", 1 )
@@ -2832,7 +2946,7 @@ Function PulseEditDAC( pulseNum )
 	
 	if ( sh == 5 )
 	
-		sh = PulseGetUserWave( )
+		sh = PulseGetUserWave()
 		
 		if ( sh < 5 )
 			return -1 // something wrong
@@ -2944,17 +3058,22 @@ Function PulseEditTTL( pulseNum )
 	if ( pulseNum == -1 )
 		title = "New TTL Pulse Config"
 	else
-		title = "Edit TTL Pulse Config " + num2str( pulseNum )
+		title = "Edit TTL Pulse Config " + num2istr( pulseNum )
 	endif
 
-	String tdf = ClampTabDF( ), sdf = StimDF( )
+	String tdf = ClampTabDF(), sdf = StimDF()
 	
 	String wPrefix = StrVarOrDefault( tdf+"PulsePrefix", "" )
 	
 	Variable nwaves = NumVarOrDefault( sdf+"NumStimWaves", 1 )
 	
+	if ( strlen( wPrefix ) == 0 )
+		DoAlert 0, "There is currently no selected DAC or TTL output for this stimulus protocol."
+		return -1
+	endif
+	
 	for ( icnt = 0; icnt < nwaves; icnt += 1 )
-		wlist = AddListItem( "Wave"+num2str( icnt ), wlist, ";", inf )
+		wlist = AddListItem( "Wave"+num2istr( icnt ), wlist, ";", inf )
 	endfor
 	
 	wlist += "All;"
@@ -3025,13 +3144,18 @@ End // PulseEditTTL
 //****************************************************************
 //****************************************************************
 
-Function PulseClearCall( )
+Function PulseClearCall()
 	Variable pnum = 1
-	String plist = PulseConfigList( )
+	String plist = PulseConfigList()
 
-	String tdf = ClampTabDF( ), sdf = StimDF( )
+	String tdf = ClampTabDF(), sdf = StimDF()
 	
 	String wPrefix = StrVarOrDefault( tdf+"PulsePrefix", "" )
+	
+	if ( strlen( wPrefix ) == 0 )
+		DoAlert 0, "There is currently no selected DAC or TTL output for this stimulus protocol."
+		return -1
+	endif
 	
 	if ( ItemsInList( plist ) == 0 )
 		DoAlert 0, "No pulses to clear."
@@ -3057,19 +3181,24 @@ End // PulseClearCall
 //****************************************************************
 //****************************************************************
 
-Function PulseTrainCall( )
+Function PulseTrainCall()
 
 	Variable icnt, wbgn, wend
 	String wlist = "", wlist2 = "", wname = ""
 	
-	String tdf = ClampTabDF( ), sdf = StimDF( ), cdf = ClampDF( )
+	String tdf = ClampTabDF(), sdf = StimDF(), cdf = ClampDF()
 	
 	String wPrefix = StrVarOrDefault( tdf+"PulsePrefix", "" )
 	
 	Variable nwaves = NumVarOrDefault( sdf+"NumStimWaves", 1 )
 	
+	if ( strlen( wPrefix ) == 0 )
+		DoAlert 0, "There is currently no selected DAC or TTL output for this stimulus protocol."
+		return -1
+	endif
+	
 	for ( icnt = 0; icnt < nwaves; icnt += 1 )
-		wlist = AddListItem( "Wave"+num2str( icnt ), wlist, ";", inf )
+		wlist = AddListItem( "Wave"+num2istr( icnt ), wlist, ";", inf )
 	endfor
 	
 	wlist += "All;"
@@ -3209,7 +3338,7 @@ Function PulseTrainCall( )
 			DoPrompt "2-Exp Pulse Dimensions", amp, width, tau2
 			break
 		case 5:
-			shape = PulseGetUserWave( )
+			shape = PulseGetUserWave()
 			DoPrompt "User Pulse Dimensions", amp
 			break
 	endswitch
@@ -3250,10 +3379,15 @@ Function PulseRetrieve( pulseNum )
 	Variable pulseNum
 	Variable index, pNumVar = 12
 	
-	String tdf = ClampTabDF( ), sdf = StimDF( )
+	String tdf = ClampTabDF(), sdf = StimDF()
 
 	String wPrefix = StrVarOrDefault( tdf+"PulsePrefix", "" )
 	String wname = PulseWaveName( sdf, wPrefix )
+	
+	if ( strlen( wPrefix ) == 0 )
+		DoAlert 0, "There is currently no selected DAC or TTL output for this stimulus protocol."
+		return -1
+	endif
 	
 	if ( WaveExists( $wname ) == 0 )
 		return 0
@@ -3285,10 +3419,10 @@ End // PulseRetrieve
 //****************************************************************
 //****************************************************************
 
-Function PulseGetUserWave( )
+Function PulseGetUserWave()
 
 	Variable icnt
-	String pname, pname2, wname, sdf = StimDF( )
+	String pname, pname2, wname, sdf = StimDF()
 	
 	String pnameOLD = StrVarOrDefault( sdf+"UserPulseName", "" )
 	
@@ -3296,7 +3430,7 @@ Function PulseGetUserWave( )
 	
 		for ( icnt = 5; icnt < 25; icnt += 1 )
 		
-			pname = StrVarOrDefault( sdf+"UserPulseName"+num2str( icnt ), "" )
+			pname = StrVarOrDefault( sdf+"UserPulseName"+num2istr( icnt ), "" )
 			
 			if ( WaveExists( $sdf+pname ) == 1 )
 				break
@@ -3333,10 +3467,10 @@ Function PulseGetUserWave( )
 	
 	for ( icnt = 5; icnt < 25; icnt += 1 )
 	
-		pname2 = StrVarOrDefault( sdf+"UserPulseName"+num2str( icnt ), "" )
+		pname2 = StrVarOrDefault( sdf+"UserPulseName"+num2istr( icnt ), "" )
 		
 		if ( StringMatch( pname, pname2 ) == 1 )
-			SetNMStr( sdf+"UserPulseName"+num2str( icnt ), pname )
+			SetNMStr( sdf+"UserPulseName"+num2istr( icnt ), pname )
 			return icnt
 		endif
 		
@@ -3344,10 +3478,10 @@ Function PulseGetUserWave( )
 	
 	for ( icnt = 5; icnt < 25; icnt += 1 )
 	
-		pname2 = StrVarOrDefault( sdf+"UserPulseName"+num2str( icnt ), "" )
+		pname2 = StrVarOrDefault( sdf+"UserPulseName"+num2istr( icnt ), "" )
 		
 		if ( strlen( pname2 ) == 0 )
-			SetNMStr( sdf+"UserPulseName"+num2str( icnt ), pname )
+			SetNMStr( sdf+"UserPulseName"+num2istr( icnt ), pname )
 			return icnt
 		endif
 	endfor
@@ -3360,11 +3494,11 @@ End // PulseGetUserWave
 //****************************************************************
 //****************************************************************
 
-Function /S PulseConfigList( )
+Function /S PulseConfigList()
 	Variable pnum, icnt, npulses, index, pNumVar = 12
 	String item, plist = ""
 
-	String tdf = ClampTabDF( ), sdf = StimDF( )
+	String tdf = ClampTabDF(), sdf = StimDF()
 	
 	String wPrefix = StrVarOrDefault( tdf+"PulsePrefix", "" )
 	
@@ -3384,8 +3518,8 @@ Function /S PulseConfigList( )
 	
 	for ( icnt = 0; icnt < npulses; icnt += 1 )
 		index = icnt * pNumVar
-		item = num2str( icnt ) + " : "
-		item += "wave" + num2str( Pulse[index+2] ) + ","
+		item = num2istr( icnt ) + " : "
+		item += "wave" + num2istr( Pulse[index+2] ) + ","
 		item += PulseShape( sdf, Pulse[index+1] ) + ","
 		item += "@" + num2str( Pulse[index+4] ) + " ms"
 		plist = AddListItem( item, plist, ";", inf )
@@ -3399,17 +3533,23 @@ End // PulseConfigList
 //****************************************************************
 //****************************************************************
 
-Function PulseConfigCheck( )
+Function PulseConfigCheck()
+
 	Variable index, value, icnt, pcnt, npulses, pNumVar = 12
 	
-	String numstr = "", clearList = "", tdf = ClampTabDF( ), sdf = StimDF( )
+	String wname, numstr = "", clearList = "", tdf = ClampTabDF(), sdf = StimDF()
 	
 	Variable NumStimWaves = NumVarOrDefault( sdf+"NumStimWaves", 1 )
 	Variable pulseNum = NumVarOrDefault( tdf+"PulseNum", 0 )
 	
 	String wPrefix = StrVarOrDefault( tdf+"PulsePrefix", "" )
-	String wname = PulseWaveName( sdf, wPrefix )
-	String errorStr = "pulse config " + num2str( pulseNum )
+	String errorStr = "pulse config " + num2istr( pulseNum )
+	
+	if ( strlen( wPrefix ) == 0 )
+		return 0
+	endif
+	
+	wname = PulseWaveName( sdf, wPrefix )
 	
 	if ( WaveExists( $wname ) == 0 )
 		return 0
@@ -3423,7 +3563,7 @@ Function PulseConfigCheck( )
 	
 		index = pcnt * pNumVar
 		
-		errorStr = "pulse config " + num2str( pcnt )
+		errorStr = "pulse config " + num2istr( pcnt )
 		
 		value = Pulse[index+1]
 		
@@ -3436,16 +3576,16 @@ Function PulseConfigCheck( )
 		
 		if ( ( value < 0 ) || ( value >= NumStimWaves ) ) // waveN
 			for ( icnt = 0; icnt < NumStimWaves; icnt += 1 )
-				numstr = AddListItem( "wave"+num2str( icnt ), numstr, ";", inf )
+				numstr = AddListItem( "wave"+num2istr( icnt ), numstr, ";", inf )
 			endfor
 			Prompt value, "wave" + num2str( value ) + " out or range. choose new wave or clear:", popup numstr + "clear config;"
 			Print value, "wave" + num2str( value ) + " out or range."
 			value = 1
-			//DoPrompt "Pulse Config " + num2str( pcnt ) + " Error", value
+			//DoPrompt "Pulse Config " + num2istr( pcnt ) + " Error", value
 			if ( value <= NumStimWaves )
 				Pulse[index+2] = value - 1
 			else
-				clearList = AddListItem( num2str( pcnt ), clearList, ";", inf )
+				clearList = AddListItem( num2istr( pcnt ), clearList, ";", inf )
 			endif
 		endif
 		
@@ -3474,7 +3614,7 @@ End // PulseConfigCheck
 //****************************************************************
 //****************************************************************
 
-Function /S PulseGraphName( )
+Function /S PulseGraphName()
 
 	return "PG_PulseGraph"
 
@@ -3487,7 +3627,7 @@ End // PulseGraphName
 Function PulseGraph( force )
 	Variable force
 	
-	String sdf = StimDF( ) // stim data folder
+	String sdf = StimDF() // stim data folder
 	
 	Variable x0 = 100, y0 = 5, xinc = 140
 	Variable madeGraph
@@ -3495,11 +3635,11 @@ Function PulseGraph( force )
 	String yLabel
 	String wName, wList, wPrefix, wPrefixList
 
-	String tdf = ClampTabDF( )
+	String tdf = ClampTabDF()
 	
-	String gName = PulseGraphName( )
-	String gTitle = StimCurrent( )
-	String Computer = StrVarOrDefault( NMDF( )+"Computer", "mac" )
+	String gName = PulseGraphName()
+	String gTitle = StimCurrent()
+	String Computer = NMComputerType()
 	
 	Variable numStimWaves = NumVarOrDefault( sdf+"NumStimWaves", 1 )
 	
@@ -3514,7 +3654,7 @@ Function PulseGraph( force )
 		return 0
 	endif
 	
-	PulseGraphAxesSave( ) // save axes values
+	PulseGraphAxesSave() // save axes values
 	
 	//StimWavesCheck( sdf, 0 )
 	
@@ -3603,7 +3743,7 @@ Function PulseGraph( force )
 			if ( allout == 0 )
 			
 				if ( allwaves == 0 )
-					gTitle += " : " + wPrefix + " : " + "Wave" + num2str( wNum )
+					gTitle += " : " + wPrefix + " : " + "Wave" + num2istr( wNum )
 				else
 					gTitle += " : " + wPrefix + " : " + "All Waves"
 				endif
@@ -3611,7 +3751,7 @@ Function PulseGraph( force )
 			else
 			
 				if ( allwaves == 0 )
-					gTitle += " : " + "All Outputs : " + "Wave" + num2str( wNum )
+					gTitle += " : " + "All Outputs : " + "Wave" + num2istr( wNum )
 				else
 					gTitle += " : " + "All Outputs : " + "All Waves"
 				endif
@@ -3630,7 +3770,7 @@ Function PulseGraph( force )
 			DoWindow /F PG_PulseGraph
 		endif
 		
-		PulseGraphAxesSet( )
+		PulseGraphAxesSet()
 		
 	endif
 
@@ -3640,10 +3780,10 @@ End // PulseGraph
 //****************************************************************
 //****************************************************************
 
-Function PulseGraphRemoveWaves( )
+Function PulseGraphRemoveWaves()
 
 	Variable wcnt
-	String wList, wName, gName = PulseGraphName( )
+	String wList, wName, gName = PulseGraphName()
 	
 	if ( WinType( gName ) != 1 )
 		return 0
@@ -3662,10 +3802,10 @@ End // PulseGraphRemoveWaves
 //****************************************************************
 //****************************************************************
 
-Function PulseGraphAxesSave( )
+Function PulseGraphAxesSave()
 
-	String tdf = ClampTabDF( )
-	String gName = PulseGraphName( )
+	String tdf = ClampTabDF()
+	String gName = PulseGraphName()
 		
 	if ( WinType( gName ) == 1 )
 	
@@ -3687,10 +3827,10 @@ End // PulseGraphAxesSave
 //****************************************************************
 //****************************************************************
 
-Function PulseGraphAxesSet( )
+Function PulseGraphAxesSet()
 	
-	String tdf = ClampTabDF( )
-	String gName = PulseGraphName( )
+	String tdf = ClampTabDF()
+	String gName = PulseGraphName()
 	
 	Variable autoscale = NumVarOrDefault( tdf+"PulseAutoScale", 1 )
 	
@@ -3747,7 +3887,7 @@ Function PulseWaveCheck( io, config )
 	Variable config // config Num ( -1 ) for all
 	
 	Variable icnt, ibgn = config, iend = config
-	String wname, sdf = StimDF( )
+	String wname, sdf = StimDF()
 	
 	if ( config == -1 )
 		ibgn = 0
@@ -3756,7 +3896,7 @@ Function PulseWaveCheck( io, config )
 	
 	for ( icnt = ibgn; icnt <= iend; icnt += 1 )
 	
-		wname = PulseWaveName( sdf, io + "_" + num2str( icnt ) )
+		wname = PulseWaveName( sdf, io + "_" + num2istr( icnt ) )
 		
 		if ( StimBoardConfigIsActive( sdf, io, config ) == 0 )
 			continue
@@ -3785,10 +3925,15 @@ End // PulseWaveCheck
 Function PulseTableManager( select )
 	Variable select // ( 0 ) update ( 1 ) make ( 2 ) save
 
-	String sdf = StimDF( ), tdf = ClampTabDF( )
+	String pname, sdf = StimDF(), tdf = ClampTabDF()
 	
 	String wPrefix = StrVarOrDefault( tdf+"PulsePrefix", "" )
-	String pname = PulseWaveName( sdf, wPrefix )
+	
+	if ( strlen( wPrefix ) == 0 )
+		return 0
+	endif
+	
+	pname = PulseWaveName( sdf, wPrefix )
 	
 	switch( select )
 		case 0:
@@ -3812,10 +3957,14 @@ Function PulseTableUpdate( pName, force )
 	
 	String wName, prefix = "PG_"
 	String tName = prefix + "StimTable"
-	String sdf = StimDF( ), tdf = ClampTabDF( )
+	String sdf = StimDF(), tdf = ClampTabDF()
 	
 	String wPrefix = StrVarOrDefault( tdf+"PulsePrefix", "" )
 	String ioName = StimConfigStr( sdf, pName, "name" )
+	
+	if ( strlen( wPrefix ) == 0 )
+		return 0
+	endif
 	
 	if ( strlen( pName ) == 0 )
 		pname = PulseWaveName( sdf, wPrefix )
@@ -3852,7 +4001,7 @@ End // PulseTableUpdate
 Function /S PulseTableMake( pName, tdf, prefix )
 	String pName, tdf, prefix
 	
-	String tName = StimTable( StimDF( ), pName, tdf, prefix )
+	String tName = StimTable( StimDF(), pName, tdf, prefix )
 	
 	SetWindow $tName hook=PulseTableHook
 	
@@ -3878,7 +4027,7 @@ Function PulseTableHook( infoStr )
 		case "deactivate":
 		case "kill":
 			PulseTableManager( 2 )
-			StimWavesCheck( StimDF( ), 1 )
+			StimWavesCheck( StimDF(), 1 )
 			PulseGraph( 0 )
 	endswitch
 
@@ -3892,7 +4041,7 @@ Function PulseTableSave( pname )
 	String pname
 	
 	Variable icnt, index, ilmt, pNumVar = 12
-	String titlePname, tdf = ClampTabDF( )
+	String titlePname, tdf = ClampTabDF()
 	
 	String tName = "PG_StimTable"
 	

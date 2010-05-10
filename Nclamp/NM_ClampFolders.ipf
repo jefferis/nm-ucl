@@ -1,5 +1,4 @@
 #pragma rtGlobals=1
-#pragma IgorVersion = 5
 #pragma version = 2
 
 //****************************************************************
@@ -84,8 +83,8 @@ End // ClampDataFolderSeqReset
 Function /S ClampDataFolderName(next)
 	Variable next // (0) this data folder name (1) next data folder name
 	
-	Variable icnt
-	String fname = "", suffix = ""
+	Variable icnt, seqLimit = 999
+	String folderName = "", suffix = ""
 	
 	String cdf = ClampDF(), sdf = StimDF()
 	String path = ClampSavePathStr()
@@ -104,7 +103,7 @@ Function /S ClampDataFolderName(next)
 		SetNMstr(cdf+"UserFolderPrefix", prefix)
 	endif
 	
-	if (numtype(seq) > 0)
+	if ( ( numtype(seq) > 0 ) || ( seq >= seqLimit ) )
 		seq = 0
 	endif
 	
@@ -113,10 +112,10 @@ Function /S ClampDataFolderName(next)
 	endif
 	
 	if (numtype(cell) == 0)
-		prefix += "c" + num2str(cell)
+		prefix += "c" + num2istr(cell)
 	endif
 	
-	for (icnt = seq; icnt <= 999; icnt += 1)
+	for (icnt = seq; icnt <= seqLimit; icnt += 1)
 	
 		if (strlen(path) == 0)
 			break
@@ -130,33 +129,37 @@ Function /S ClampDataFolderName(next)
 			suffix += "0"
 		endif
 		
-		fname = prefix + suffix + num2str(icnt)
+		folderName = prefix + suffix + num2istr(icnt)
 		
-		if (ClampSaveTestStr(fname) == -1)
+		if (ClampSaveTestStr(folderName) == -1)
 			continue // ext file already exists
 		endif
 		
 		if (strlen(stag) > 0)
-			fname += "_" + stag
+			folderName += "_" + stag
 		endif
 		
-		if (ClampSaveTest(fname) == -1) // final check
+		if (ClampSaveTest(folderName) == -1) // final check
 			continue // ext file already exists
 		endif
 		
 		if (next == 0)
+		
 			break // found OK current folder name
+			
 		elseif (next == 1)
-			if (IsNMDataFolder(fname) == 0)
+		
+			if (IsNMDataFolder(folderName) == 0)
 				break // found OK next folder name
 			endif
+			
 		endif
 		
 	endfor
 	
 	SetNMVar(cdf+"DataFileSeq", icnt) // set new seq num
 	
-	return fname
+	return folderName
 
 End // ClampDataFolderName
 
@@ -165,12 +168,13 @@ End // ClampDataFolderName
 //****************************************************************
 
 Function ClampDataFolderCheck()
+
 	String cdf = ClampDF()
 	
-	String prefix = ClampFolderPrefix( )
+	String prefix = ClampFolderPrefix()
 	
 	String CurrentFolder = StrVarOrDefault(cdf+"CurrentFolder", "")
-	String fname = ClampDataFolderName(0)
+	String folderName = ClampDataFolderName(0)
 	
 	if (strlen(CurrentFolder) == 0) // no data folders yet
 		CurrentFolder = GetDataFolder(0)
@@ -187,7 +191,7 @@ Function ClampDataFolderCheck()
 	
 	if (IsNMDataFolder(thisFolder) == 1)
 	
-		if (StringMatch(fname, thisFolder) == 1)
+		if (StringMatch(folderName, thisFolder) == 1)
 		
 			if ((lastMode == 0) && (strlen(currentFile) == 0))
 				return 0
@@ -195,9 +199,9 @@ Function ClampDataFolderCheck()
 			
 		else
 		
-			if ((lastMode == 0) && (strlen(currentFile) == 0))
+			if ( 0 && (lastMode == 0) && (strlen(currentFile) == 0))
 			
-				thisFolder = NMFolderRename(thisFolder, fname)
+				thisFolder = NMFolderRename(thisFolder, folderName)
 				
 				if (strlen(thisFolder) > 0)
 					SetNMVar(cdf+"GetChanConfigs", 1)
@@ -218,13 +222,15 @@ End // ClampDataFolderCheck
 //****************************************************************
 
 Function ClampDataFolderNew() // create a new data folder
-	String cdf = ClampDF()
 
-	String df
+	String df, cdf = ClampDF()
+
 	String newfolder = ClampDataFolderName(1) // folder name
 	String oldfolder = StrVarOrDefault(cdf+"CurrentFolder", "")
 	
 	String extfile = StrVarOrDefault("CurrentFile", "")
+	
+	String wavePrefix = StimWavePrefix( "" )
 	
 	Variable autoClose = NumVarOrDefault(cdf+"AutoCloseFolder", 0)
 	Variable saveWhen = NumVarOrDefault(cdf+"SaveWhen", 0)
@@ -232,20 +238,19 @@ Function ClampDataFolderNew() // create a new data folder
 	if ((autoClose == 1) && (SaveWhen > 0) && (IsNMDataFolder(oldfolder) == 1))
 	
 		if (strlen(extfile) > 0)
-			SetNMvar(NMDF()+"ChanGraphCloseBlock", 1) // block closing chan graphs
+			SetNeuroMaticVar( "ChanGraphCloseBlock", 1 ) // block closing chan graphs
 			ClampGraphsUpdate(0)
 			ClampStatsRemoveWavesAll( 0 )
-			SetNMvar(NMDF()+"ChanGraphCloseBlock", 1) // block closing chan graphs
+			ClampSpikeRemoveWaves( 0 )
 			NMFolderClose(oldfolder) // close current folder before opening new one
 			ClampDataFolderCloseEmpty()
 		endif
 		
 	endif
 	
-	SetNMvar(NMDF()+"UpdateNMBlock", 1) // block update
-	SetNMvar(NMDF()+"ChanGraphCloseBlock", 1) // block closing chan graphs
+	SetNeuroMaticVar( "UpdateNMBlock", 1 ) // block update
 	newfolder = NMFolderNew(newfolder) // create a new folder
-	SetNMvar(NMDF()+"UpdateNMBlock", 0) // unblock
+	SetNeuroMaticVar( "UpdateNMBlock", 0 ) // unblock
 	
 	CheckNMwave("CT_TimeStamp", 0, Nan)
 	CheckNMwave("CT_TimeIntvl", 0, Nan)
@@ -256,7 +261,13 @@ Function ClampDataFolderNew() // create a new data folder
 	
 	SetNMstr(cdf+"CurrentFolder", newfolder)
 	
+	SetNMstr(newfolder+"WavePrefix", wavePrefix)
+	SetNMstr(newfolder+"CurrentPrefix", wavePrefix)
+	
+	NMPrefixFolderMake( newfolder, wavePrefix, 1, 0 )
+	
 	SetNMVar(cdf+"GetChanConfigs", 1) // get chan graph configs
+	SetNeuroMaticVar( "ChanGraphCloseBlock", 0 ) // block closing chan graphs
 	
 End // ClampDataFolderNew
 
@@ -265,23 +276,32 @@ End // ClampDataFolderNew
 //****************************************************************
 
 Function ClampDataFolderCloseEmpty()
-	Variable icnt, nwaves, match
-	String extfile, cdf = ClampDF()
+
+	Variable icnt, numWaves, match
+	String extfile, wavePrefix, prefixFolder, cdf = ClampDF()
 	
-	String prefix = ClampFolderPrefix( )
+	String prefix = ClampFolderPrefix()
 	
-	String fname, flist = NMDataFolderList()
+	String folderName, flist = NMDataFolderList()
 	
 	for (icnt = 0; icnt < ItemsInList(flist); icnt += 1)
 	
-		fname = StringFromList(icnt, flist)
+		folderName = StringFromList(icnt, flist)
 		
-		nwaves = NumVarOrDefault("root:" + fname + ":NumWaves", 0)
-		extfile = StrVarOrDefault("root:" + fname + ":CurrentFile", "")
-		match = strsearch(UpperStr(fname), UpperStr(prefix), 0)
+		wavePrefix = StrVarOrDefault( folderName+"WavePrefix", "" )
 		
-		if ((match >= 0) && (nwaves == 0) && (strlen(extfile) == 0))
-			NMFolderClose(fname)
+		if ( strlen( wavePrefix ) == 0 )
+			continue
+		endif
+		
+		prefixFolder = NMPrefixFolderDF( folderName, wavePrefix )
+		numWaves = NumVarOrDefault(prefixFolder+"NumWaves", 0)
+		
+		extfile = StrVarOrDefault("root:" + folderName + ":CurrentFile", "")
+		match = strsearch(UpperStr(folderName), UpperStr(prefix), 0)
+		
+		if ((match >= 0) && (numWaves == 0) && (strlen(extfile) == 0))
+			NMFolderClose(folderName)
 		endif
 		
 	endfor
@@ -302,7 +322,9 @@ Function ClampDataFolderUpdate(nwaves, mode)
 	String cdf = ClampDF(), sdf = StimDF(), ndf = NotesDF(), gdf = cdf+"Temp:", bdf = StimBoardDF(sdf)
 
 	Variable CopyStim2Folder = NumVarOrDefault(cdf+"CopyStim2Folder", 1)
+	
 	String CurrentStim = StimCurrent()
+	String prefixFolder = CurrentNMPrefixFolder()
 	
 	if (WaveExists($bdf+"ADCname") == 1)
 
@@ -310,11 +332,9 @@ Function ClampDataFolderUpdate(nwaves, mode)
 		Wave /T ADCunits = $(bdf+"ADCunits")
 		Wave /T ADCmode = $(bdf+"ADCmode")
 		
-		Wave /T yLabel
-		
 		nchans = StimBoardNumADCchan("")
 		
-		Redimension /N=(nchans) yLabel
+		Make /T/O/N=(nchans) yLabel
 		
 		for (config = 0; config < numpnts(ADCname); config += 1)
 		
@@ -339,24 +359,27 @@ Function ClampDataFolderUpdate(nwaves, mode)
 		
 	endif
 	
-	wPrefix = StimWavePrefix("")
-
-	SetNMVar("NumChannels", ccnt)
-	SetNMVar("NumWaves", nwaves)
-	SetNMVar("TotalNumWaves", ccnt*nwaves)
-	SetNMVar("FileDateTime", DateTime)
 	SetNMstr(cdf+"CurrentFolder", GetDataFolder(0))
-	SetNMVar("SamplesPerWave", NumVarOrDefault(sdf+"SamplesPerWave", 0))
-	SetNMVar("SampleInterval", NumVarOrDefault(sdf+"SampleInterval", 0))
-	SetNMvar("NumGrps", NumVarOrDefault(sdf+"NumStimWaves", 1))
-	SetNMvar ("FirstGrp", NMGroupFirstDefault())
-	SetNMvar("CT_RecordMode", mode)
+	
+	wPrefix = StimWavePrefix("")
 
 	SetNMstr("WavePrefix", wPrefix)
 	SetNMstr("CurrentPrefix", wPrefix)
+	SetNMstr( "xLabel", "msec" )
+
+	SetNMvar(prefixFolder+"NumChannels", ccnt)
+	SetNMvar(prefixFolder+"NumWaves", nwaves)
+	SetNMvar(prefixFolder+"NumGrps", NumVarOrDefault(sdf+"NumStimWaves", 1))
+	
+	SetNMvar("SamplesPerWave", NumVarOrDefault(sdf+"SamplesPerWave", 0))
+	SetNMvar("SampleInterval", NumVarOrDefault(sdf+"SampleInterval", 0))
+	
+	SetNMvar("CT_RecordMode", mode)
+	
+	SetNMvar("FileDateTime", DateTime)
+	
 	SetNMstr("FileDate", date())
 	SetNMstr("FileTime", time())
-	SetNMstr("FileName", GetDataFolder(0))
 	
 	switch(NumVarOrDefault(sdf+"AcqMode", 0))
 		case 0:
@@ -385,7 +408,7 @@ Function ClampDataFolderUpdate(nwaves, mode)
 	SetNMwave("CT_TimeStamp", -1, Nan)
 	SetNMwave("CT_TimeIntvl", -1, Nan)
 	
-	CheckNMDataFolderWaves() // redimension NM waves
+	//CheckNMPrefixFolderWaves( "" ) // redimension NM waves
 	
 	if ((mode == 1) && (copyStim2Folder == 1))
 	
@@ -414,8 +437,12 @@ Function ClampDataFolderUpdate(nwaves, mode)
 		KillWaves /Z $(StringFromList(icnt, wlist)) // kill existing input waves
 	endfor
 	
-	if (StimStatsOn() == 0)
+	if (NMStimStatsOn() == 0)
 		ClampStatsRemoveWavesAll( 1 )
+	endif
+	
+	if (NMStimSpikeOn() == 0)
+		ClampSpikeRemoveWaves( 1 )
 	endif
 
 End // ClampDataFolderUpdate
@@ -471,7 +498,7 @@ Function /S ClampSaveSubPath()
 
 	String subStr, cdf = ClampDF()
 	String ClampPathStr = StrVarOrDefault(cdf+"ClampPath", "")
-	String prefix = ClampFolderPrefix( )
+	String prefix = ClampFolderPrefix()
 	
 	Variable saveSub = NumVarOrDefault(cdf+"SaveInSubfolder", 1)
 	Variable cell = NumVarOrDefault(cdf+"DataFileCell", Nan)
@@ -481,7 +508,7 @@ Function /S ClampSaveSubPath()
 	endif
 	
 	if (numtype(cell) == 0)
-		prefix += "c" + num2str(cell)
+		prefix += "c" + num2istr(cell)
 	endif
 	
 	if ((strlen(ClampPathStr) > 0) && (strlen(prefix) > 0))
@@ -705,7 +732,7 @@ Function ClampSaveTestStr(folderName)
 	
 		file = StringFromList(icnt, slist)
 		
-		if (StrSearchLax(file, folderName, 0) >= 0)
+		if (StrSearch(file, folderName, 0, 2) >= 0)
 			return -1 // already exists
 		endif
 		
@@ -764,28 +791,28 @@ End // LogDF
 Function /S LogFolderName()
 	Variable icnt, ibgn = 0, iend = 99
 
-	String fname, cdf = ClampDF()
+	String folderName, cdf = ClampDF()
 	
 	Variable seq = NumVarOrDefault(cdf+"LogFileSeq", -1)
 	Variable cell = ClampDataFolderCell()
 	
-	String prefix = ClampFolderPrefix( )
+	String prefix = ClampFolderPrefix()
 	
 	if (numtype(cell) == 0)
-		prefix += "c" + num2str(cell)
+		prefix += "c" + num2istr(cell)
 	endif
 
 	if (seq >= 0)
-		return prefix + "_log" + num2str(seq)
+		return prefix + "_log" + num2istr(seq)
 	endif
 	
 	for (icnt = ibgn; icnt <= iend; icnt += 1)
 	
-		fname = prefix + "_log" + num2str(icnt)
+		folderName = prefix + "_log" + num2istr(icnt)
 		
-		fname = CheckFolderNameChar( fname )
+		folderName = CheckFolderNameChar( folderName )
 
-		if (ClampSaveTest(fname) == 0)
+		if (ClampSaveTest(folderName) == 0)
 			break
 		endif
 	
@@ -793,7 +820,7 @@ Function /S LogFolderName()
 	
 	SetNMvar(cdf+"LogFileSeq", icnt)
 	
-	return fname
+	return folderName
 
 End // LogFolderName
 
@@ -807,7 +834,7 @@ Function LogCheckFolder(ldf) // check log data folder exists
 	ldf = LastPathColon(ldf,1)
 	
 	if (DataFolderExists(ldf) == 0) // check Log folder exists
-		NewDataFolder $LastPathColon(ldf, 0)
+		NewDataFolder $RemoveEnding( ldf, ":" )
 		SetNMstr(ldf+"FileType", "NMLog")
 		SetNMstr(ldf+"FileDate", date())
 		SetNMstr(ldf+"FileTime", time())
@@ -847,12 +874,12 @@ Function LogNoteBookUpdate(ldf) // update existing notebook
 	String nbName = GetPathName(ldf,0) + "_notebook"
 	
 	if (DataFolderExists(ldf) == 0)
-		DoAlert 0, "Error: data folder \"" + ldf + "\" does not appear to exist."
+		DoAlert 0, "Error: data folder " + NMQuotes( ldf ) + " does not appear to exist."
 		return -1
 	endif
 	
 	if (StringMatch(StrVarOrDefault(ldf+"FileType", ""), "NMLog") == 0)
-		DoAlert 0, "Error: data folder \"" + ldf + "\" does not appear to be a NeuroMatic Log folder."
+		DoAlert 0, "Error: data folder " + NMQuotes( ldf ) + " does not appear to be a NeuroMatic Log folder."
 		return -1
 	endif
 	

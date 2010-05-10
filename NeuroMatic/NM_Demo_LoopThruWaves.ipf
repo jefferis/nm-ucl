@@ -1,6 +1,5 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -13,8 +12,6 @@
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 06 Aug 2007
-//
 //****************************************************************
 //****************************************************************
 //****************************************************************
@@ -22,33 +19,33 @@
 Function /S NMDemoLoop() // example function that loops thru all currently selected channels and waves
 	
 	Variable wcnt, ccnt, cancel
-	String wName, cList = "", wList = ""
+	String wname, cList = "", wList = ""
 	
-	Variable nwaves = NMNumWaves()
-	Variable nchans = NMNumChannels()
+	Variable numChannels = NMNumChannels()
+	Variable numWaves = NMNumWaves()
 	
-	NMProgressStr("My Demo Function...") // set progress title
+	SetNeuroMaticStr( "ProgressStr", "My Demo Function..." ) // set progress title
 	
-	for (ccnt = 0; ccnt < nchans; ccnt += 1) // loop thru channels
+	for ( ccnt = 0 ;  ccnt < numChannels ;  ccnt += 1 ) // loop thru channels
 	
-		if (NMChanSelected(ccnt) != 1)
+		if ( NMChanSelected( ccnt ) != 1 )
 			continue // channel not selected
 		endif
 		
-		for (wcnt = 0; wcnt < nwaves; wcnt += 1) // loop thru waves
+		for ( wcnt = 0 ;  wcnt < numWaves ;  wcnt += 1 ) // loop thru waves
 		
-			if (CallNMProgress(wcnt, nwaves) == 1) // progress display
+			if ( CallNMProgress( wcnt, numWaves ) == 1 ) // progress display
 				cancel = 1
 				break // cancel wave loop
 			endif
 		
-			wName = NMWaveSelected(ccnt, wcnt)
+			wname = NMWaveSelected( ccnt, wcnt )
 			
-			if ((strlen(wName) == 0) || (WaveExists($wName) == 0))
+			if ( strlen( wname ) == 0 )
 				continue // wave not selected, or does not exist... go to next wave
 			endif
 			
-			Wave tempWave = $wName // create local reference to wave
+			Wave tempWave = $wname // create local reference to wave
 			
 			//PutYourCodeStartingHere...PutYourCodeStartingHere
 			//PutYourCodeStartingHere...PutYourCodeStartingHere
@@ -56,21 +53,21 @@ Function /S NMDemoLoop() // example function that loops thru all currently selec
 			
 			//tempWave *= 1 // do something to the wave
 			
-			Print "Demo Loop wave: " + wName // as demo, we just print the wave name here
+			Print "Demo Loop wave: " + wname // as demo, we just print the wave name here
 			
 			//PutYourCodeEndingHere...PutYourCodeEndingHere
 			//PutYourCodeEndingHere...PutYourCodeEndingHere
 			//PutYourCodeEndingHere...PutYourCodeEndingHere
 			
-			cList = AddListItem(wName, cList, ";", inf)
+			cList = AddListItem( wname, cList, ";", inf )
 			
 		endfor
 		
-		NMMainHistory("Demo Loop", ccnt, cList, 0) // print results to history for this channel
+		NMMainHistory( "Demo Loop", ccnt, cList, 0 ) // print results to history for this channel
 		
 		wList += cList
 		
-		if (cancel == 1)
+		if ( cancel == 1 )
 			break // cancel channel loop
 		endif
 		

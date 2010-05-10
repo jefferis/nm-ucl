@@ -1,6 +1,5 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -12,8 +11,6 @@
 //	Code for WaveMetrics Igor Pro
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
-//
-//	Last modified 18 Nov 2004
 //
 //	Original code from Dr. Angus Silver
 //	Department of Physiology, University College London
@@ -33,7 +30,7 @@
 
 Function /S KSTestDF() // package full-path folder name
 
-	return PackDF("Stats")
+	return PackDF( "Stats" )
 	
 End // KSTestDF
 
@@ -42,9 +39,8 @@ End // KSTestDF
 //****************************************************************
 
 Function KSTestCall()
+
 	String vlist = "", df = KSTestDF()
-	
-	String opstr = WaveListText0()
 	
 	CheckPackage("Stats", 0) // create Stats folder if necessary
 	
@@ -52,8 +48,8 @@ Function KSTestCall()
 	String wName2 = StrVarOrDefault(df+"KSwname2", "")
 	Variable dsply = 1 + NumVarOrDefault(df+"KSdsply", 1)
 	
-	Prompt wName1,"select first data wave:",popup, Wavelist("*", ";", opstr)
-	Prompt wName2,"select second data wave for comparison:",popup, Wavelist("*", ";", opstr)
+	Prompt wName1,"select first data wave:",popup, Wavelist("*", ";", "Text:0")
+	Prompt wName2,"select second data wave for comparison:",popup, Wavelist("*", ";", "Text:0")
 	Prompt dsply,"display cumulative distributions?",popup,"no;yes"
 	
 	DoPrompt "Kolmogorov-Smirnov Test For Significant Difference", wName1, wName2, dsply
@@ -85,23 +81,30 @@ function KSTest(wName1, wName2, dsply)
 	String wName1, wName2 // input wave names
 	Variable dsply // display output graph (1- yes;0 - no)
 	
+	Variable j1, j2, d1, d2, dt, en, fn1, fn2, npnts1, npnts2
+	String message, df = KSTestDF()
+	
+	String tName1 = df + "KSTestWName1"
+	String tName2 = df + "KSTestWName2"
+	
 	if ((WaveExists($wName1) == 0) || (WaveType($wName1) == 0))
-		Abort "Abort: bad input wave 1."
+		Abort "Abort KSTest: bad input wave 1."
 	endif
 	
 	if ((WaveExists($wName2) == 0) || (WaveType($wName2) == 0))
-		Abort "Abort: bad input wave 2."
+		Abort "Abort KSTest: bad input wave 2."
 	endif
 	
-	Duplicate /O $wName1 temp1
-	Duplicate /O $wName2 temp2
+	Duplicate /O $wName1 $tName1
+	Duplicate /O $wName2 $tName2
+	
+	Wave temp1 = $tName1
+	Wave temp2 = $tName2
 	
 	Variable /G ST_KSd = 0, ST_KSprob = 0
-	Variable j1, j2, d1, d2, dt, en, fn1, fn2
-	String message
 	
-	Variable npnts1 = numpnts(temp1)
-	Variable npnts2 = numpnts(temp2)
+	npnts1 = numpnts(temp1)
+	npnts2 = numpnts(temp2)
 	
 	Sort temp1 temp1
 	Sort temp2 temp2
@@ -153,15 +156,16 @@ function KSTest(wName1, wName2, dsply)
 	endif
 	
 	Print "Kolmogorov-Smirnov test for waves " + wName1 + " and " + wName2 + ":"
-	Print "D =", ST_KSd
-	Print "Pks =", ST_KSprob
+	Print "Difference =", ST_KSd
+	Print "Probability =", ST_KSprob
 	Print message
 	
 	if (dsply == 1)
 		KSPlotCumulatives(wName1, wName2)
 	endif
 	
-	KillWaves /Z temp1, temp2
+	KillWaves /Z $tName1
+	KillWaves /Z $tName2
 	
 End // KSTest
 
@@ -200,40 +204,56 @@ End // KSprob
 Function KSPlotCumulatives(wName1, wName2)
 	String wName1, wName2
 	
+	String oName1, oName2, soName1, soName2
+	String df = KSTestDF()
+	
+	String swName1 = GetPathName( wName1, 0 )
+	String swName2 = GetPathName( wName2, 0 )
+	
 	String SKresults, txt
 	String xl = NMNoteLabel("y", wName1, "")
 	String yl = "Relative Frequency"
 	
-	String oName1 = wName1 + "_KSprob"
-	String oName2 = wName2 + "_KSprob"
-	
 	String gtitle = NMFolderListName("") + " : KS Cumulative Distributions"
-	String gPrefix = wName1 + "_" + NMFolderPrefix("") + "Kolmo"
-	String gName = NextGraphName(gPrefix, -1, NMOverWrite())
+	String gPrefix = swName1 + "_" + NMFolderPrefix("") + "Kolmo"
+	String gName = NextGraphName(gPrefix, -1, NeuroMaticVar( "OverWrite" ))
 	
 	Variable bins = 500 // number of bins in output cumulative waves
 	
 	Variable dKS = NumVarOrDefault("ST_KSd", -1)
 	Variable KSprob = NumVarOrDefault("ST_KSprob", -1)
 	
+	String waveNamingFormat = StrVarOrDefault( df+"WaveNamingFormat", "prefix" )
+	
 	if ((dKS == -1) || (KSprob == -1))
-		Abort "Abort: Kolmogorov-Smirnov output variables ST_KSd and ST_KSprob  do not exist."
+		Abort "Abort KSPlotCumulatives: Kolmogorov-Smirnov output variables ST_KSd and ST_KSprob  do not exist."
 	endif
 	
 	if ((WaveExists($wName1) == 0) || (WaveType($wName1) == 0))
-		Abort "Abort: bad input wave 1."
+		Abort "Abort KSPlotCumulatives: bad input wave 1."
 	endif
 	
 	if ((WaveExists($wName2) == 0) || (WaveType($wName2) == 0))
-		Abort "Abort: bad input wave 2."
+		Abort "Abort KSPlotCumulatives: bad input wave 2."
 	endif
 	
-	Variable NumChannels = NumVarOrDefault("NumChannels", 0)
 	Variable chan = ChanNumGet(wName1)
 	
+	if ( StringMatch( waveNamingFormat, "prefix" ) == 1 )
+		oName1 = NMAddPathNamePrefix( wName1, "KSprob_" )
+		oName2 = NMAddPathNamePrefix( wName2, "KSprob_" )
+		soName1 = "KSprob_" + swName1 
+		soName2 = "KSprob_" + swName2
+	else
+		oName1 = wName1 + "_KSprob"
+		oName2 = wName2 + "_KSprob"
+		soName1 = swName1 + "_KSprob"
+		soName2 = swName2 + "_KSprob"
+	endif
+	
 	SKresults = "Kolmogorov-Smirnov Test"
-	SKresults += "\r\\s(" + oName1 + ") " + wName1 + "\r\\s(" + oName2 + ") " + wName2
-	SKresults += "\r   D = " + num2str(dKS) + "\r   Pks = " + num2str(KSprob)
+	SKresults += "\r\\s(" + soName1 + ") " + swName1 + "\r\\s(" + soName2 + ") " + swName2
+	SKresults += "\r   Difference = " + num2str(dKS) + "\r   Probability = " + num2str(KSprob)
 	
 	Dowindow /K $gName
 	
@@ -293,7 +313,7 @@ Function KSPlotCumulatives(wName1, wName2)
 	Display /K=1/N=$gName $oName1, $oName2 as gtitle
 	Label bottom xl
 	Label left yl
-	ModifyGraph mode=3,marker($oName1)=8,marker($oName2)=6,rgb($oName2)=(0,0,0)
+	ModifyGraph mode=3,marker($soName1)=8,marker($soName2)=6,rgb($soName2)=(0,0,0)
 	Textbox/N=text2/F=0/A=LT SKresults
 	
 	SetCascadeXY(gName)

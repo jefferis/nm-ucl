@@ -1,5 +1,4 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
 #pragma version = 2
 
 //****************************************************************
@@ -11,7 +10,7 @@
 //	NeuroMatic.ThinkRandom.com
 //	Code for WaveMetrics Igor Pro
 //
-//	By Jason Rothman (Jason@ThinkRandom.com)
+//	By Jason Rothman ( Jason@ThinkRandom.com )
 //
 //	Began 5 May 2002
 //
@@ -32,7 +31,7 @@
 //****************************************************************
 //****************************************************************
 
-Function /S EventPrefix(objName) // tab prefix identifier
+Function /S EventPrefix( objName ) // tab prefix identifier
 	String objName
 	
 	return "EV_" + objName
@@ -45,7 +44,7 @@ End // EventPrefix
 
 Function /S EventDF() // package full-path folder name
 
-	return PackDF("Event")
+	return PackDF( "Event" )
 	
 End // EventDF
 
@@ -53,24 +52,25 @@ End // EventDF
 //****************************************************************
 //****************************************************************
 
-Function EventTab(enable) // enable/disable Event Tab
-	Variable enable // (1) enable (0) disable
+Function EventTab( enable ) // enable/disable Event Tab
+	Variable enable // ( 1 ) enable ( 0 ) disable
 
-	if (enable == 1)
-		CheckPackage("Event", 0) // create globals if necessary
-		MakeEventTab(0) // create controls if necessary
+	if ( enable == 1 )
+		CheckPackage( "Event", 0 ) // create globals if necessary
+		DisableNMPanel( 1 )
+		MakeEventTab( 0 ) // create controls if necessary
 		UpdateEventDisplay()
 		UpdateEventTab()
-		ChanControlsDisable(-1, "000000")
-		MatchTemplateCall(0)
+		ChanControlsDisable( -1, "000000" )
+		MatchTemplateCall( 0 )
 	endif
 	
-	if (DataFolderExists(EventDF()) == 0)
+	if ( DataFolderExists( EventDF() ) == 0 )
 		return 0 // Event Tab not created yet
 	endif
 	
-	EventDisplay(enable)
-	EventCursors(enable)
+	EventDisplay( enable )
+	EventCursors( enable )
 
 End // EventTab
 
@@ -78,15 +78,16 @@ End // EventTab
 //****************************************************************
 //****************************************************************
 
-Function KillEvent(what)
+Function KillEvent( what )
 	String what
+	
 	String df = EventDF()
 	
-	strswitch(what)
+	strswitch( what )
 		case "waves":
 			break
 		case "globals":
-			if (DataFolderExists(df) == 1)
+			if ( DataFolderExists( df ) == 1 )
 				KillDataFolder $df
 			endif 
 			break
@@ -98,70 +99,38 @@ End // KillEvent
 //****************************************************************
 //****************************************************************
 
+Function NMEventOverWrite()
+
+	return 1 // NMOverWrite()
+	
+End // NMEventOverWrite
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+//
+//		Variables, Strings and Waves
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function CheckEvent()
 	
-	String df = EventDF()
-	
-	if (DataFolderExists(df) == 0)
+	if ( DataFolderExists( EventDF() ) == 0 )
 		return -1
 	endif
 	
-	CheckNMvar(df+"SearchMethod", 3)			// (1) level+ (2) level- (3) threshold+ (4) threshold-
-	CheckNMvar(df+"Thrshld", 3)					// threshold crossing value
-	
-	CheckNMvar(df+"DsplyWin", 50)				// display window size (ms)
-	CheckNMvar(df+"DsplyFraction", 0.25)			// fraction of display window to view current event
-	
-	CheckNMvar(df+"SearchFlag", 0)				// (0) all time (1) limited time window
-	CheckNMvar(df+"SearchBgn", -inf)				// seach time window begin
-	CheckNMvar(df+"SearchEnd", inf)				// search time window end
-	CheckNMvar(df+"SearchTime", 0)				// current search time
-	
-	CheckNMvar(df+"BaseFlag", 0)					// baseline flag
-	CheckNMvar(df+"BaseWin", 2)					// baseline avg window (ms)
-	CheckNMvar(df+"BaseDT", 2)					// time between mid-baseline and thresh crossing (ms)
-	
-	CheckNMvar(df+"ThreshX", Nan)
-	CheckNMvar(df+"ThreshY", Nan)				// threshold/level x-y points
-	
-	CheckNMvar(df+"MatchFlag", 0)				// match template flag
-	CheckNMvar(df+"MatchTau1", 2)				// template time constant
-	CheckNMvar(df+"MatchTau2", 3)				// template time constant
-	CheckNMvar(df+"MatchBsln", Nan)				// baseline (ms)
-	CheckNMvar(df+"MatchWform", 8)				// waveform length (ms)
-	
-	CheckNMstr(df+"Template", "")					// template wave name
-	
-	CheckNMvar(df+"OnsetFlag", 1)				// onset search flag
-	CheckNMvar(df+"OnsetWin", 2)				// limit of onset search (ms)
-	CheckNMvar(df+"OnsetAvg", 0.5)				// average window for onset search
-	CheckNMvar(df+"OnsetNstdv", 1)				// number of stdvs below avg
-	CheckNMvar(df+"OnsetY", 0)
-	CheckNMvar(df+"OnsetX", 0)					// onset time point
-	
-	CheckNMvar(df+"PeakFlag", 1)					// peak search flag
-	CheckNMvar(df+"PeakWin", 3)					// limit of peak search (ms)
-	CheckNMvar(df+"PeakAvg", 0.5)				// average window for peak search
-	CheckNMvar(df+"PeakNstdv", 1)				// number of stdvs above avg
-	CheckNMvar(df+"PeakY", 0)
-	CheckNMvar(df+"PeakX", 0)					// peak time point
-	
-	CheckNMvar(df+"EventNum", 0)				// current event number
-	CheckNMvar(df+"NumEvents", 0)				// number of saved events
-	CheckNMvar(df+"TableNum", -1)				// current table number
-	
-	// channel display graph waves
-	
-	CheckNMwave(df+"EV_ThreshT", 0, 0)
-	CheckNMwave(df+"EV_ThreshY", 0, 0)
-	CheckNMwave(df+"EV_OnsetT", 0, 0)
-	CheckNMwave(df+"EV_OnsetY", 0, 0)
-	CheckNMwave(df+"EV_PeakT", 0, 0)
-	CheckNMwave(df+"EV_PeakY", 0, 0)
-	CheckNMwave(df+"EV_BaseT", 2, 0)
-	CheckNMwave(df+"EV_BaseY", 2, Nan)
-	CheckNMwave(df+"EV_ThisT", 1, 0)
-	CheckNMwave(df+"EV_ThisY", 1, Nan)
+	CheckNMwave( NMEventDisplayWaveName( "ThreshT" ), 0, 0 )
+	CheckNMwave( NMEventDisplayWaveName( "ThreshY" ), 0, 0 )
+	CheckNMwave( NMEventDisplayWaveName( "OnsetT" ), 0, 0 )
+	CheckNMwave( NMEventDisplayWaveName( "OnsetY" ), 0, 0 )
+	CheckNMwave( NMEventDisplayWaveName( "PeakT" ), 0, 0 )
+	CheckNMwave( NMEventDisplayWaveName( "PeakY" ), 0, 0 )
+	CheckNMwave( NMEventDisplayWaveName( "BaseT" ), 2, 0 )
+	CheckNMwave( NMEventDisplayWaveName( "BaseY" ), 2, Nan )
+	CheckNMwave( NMEventDisplayWaveName( "ThisT" ), 1, 0 )
+	CheckNMwave( NMEventDisplayWaveName( "ThisY" ), 1, Nan )
 	
 	return 0
 	
@@ -171,256 +140,433 @@ End // CheckEvent
 //****************************************************************
 //****************************************************************
 
-Function EventConfigs()
-	String fname = "Event"
+Function CheckNMEventVar( varName )
+	String varName
+	
+	return CheckNMvar( EventDF()+varName, NMEventVar( varName ) )
 
-	NMConfigVar(fname, "Thrshld", 5, "Threshold or level value")
-	NMConfigVar(fname, "SearchBgn", 0, "Seach begin time (ms)")
-	NMConfigVar(fname, "SearchEnd", 100, "Search end time (ms)")
+End // CheckNMEventVar
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventConfigs()
 	
-	NMConfigVar(fname, "BaseFlag", 1, "Compute baseline (0) no (yes) 1")
-	NMConfigVar(fname, "BaseWin", 2, "Baseline avg window (ms)")
-	NMConfigVar(fname, "BaseDT", 2, "Mid-base to threshold crossing (ms)")
+	NMEventConfigVar( "UseSubfolders", "use subfolders when creating Event result waves (0) no (1) yes ( use 0 for previous NM formatting )")
+
+	NMEventConfigVar( "SearchMethod", "(1) level+ (2) level- (3) threshold+ (4) threshold-" )
+	NMEventConfigVar( "SearchBgn", "Seach begin time (ms)" )
+	NMEventConfigVar( "SearchEnd", "Search end time (ms)" )
+	NMEventConfigVar( "Thrshld", "Threshold value" )
 	
-	NMConfigVar(fname, "OnsetFlag", 1, "Compute onset (0) no (1) yes")
-	NMConfigVar(fname, "OnsetWin", 2, "Onset search limit (ms)")
-	NMConfigVar(fname, "OnsetAvg", 10, "Avg window (ms)")
-	NMConfigVar(fname, "OnsetNstdv", 1, "Num stdv's above avg")
+	NMEventConfigVar( "BaseFlag", "Compute baseline (0) no (1) yes" )
+	NMEventConfigVar( "BaseWin", "Baseline avg window (ms)" )
+	NMEventConfigVar( "BaseDT", "Mid-base to threshold crossing (ms)" )
 	
-	NMConfigVar(fname, "PeakFlag", 1, "Compute peak (0) no (1) yes")
-	NMConfigVar(fname, "PeakWin", 10, "Peak search limit (ms)")
-	NMConfigVar(fname, "PeakAvg", 10, "Avg window (ms)")
-	NMConfigVar(fname, "PeakNstdv", 1, "Num stdv's above avg")
+	NMEventConfigVar( "OnsetFlag", "Compute onset (0) no (1) yes" )
+	NMEventConfigVar( "OnsetWin", "Onset search limit (ms)" )
+	NMEventConfigVar( "OnsetAvg", "Avg window (ms)" )
+	NMEventConfigVar( "OnsetNstdv", "Num stdv's above avg" )
 	
-	NMConfigVar(fname, "DsplyWin", 50, "Channel display window size (ms)")
-	NMConfigVar(fname, "DsplyFraction", 0.25, "Fraction of display window to view current event")
+	NMEventConfigVar( "PeakFlag", "Compute peak (0) no (1) yes" )
+	NMEventConfigVar( "PeakWin", "Peak search limit (ms)" )
+	NMEventConfigVar( "PeakAvg", "Avg window (ms)" )
+	NMEventConfigVar( "PeakNstdv", "Num stdv's above avg" )
+	
+	NMEventConfigVar( "DsplyWin", "Channel display window size (ms)" )
+	NMEventConfigVar( "DsplyFraction", "Fraction of display window to view current event" )
+	
+	NMEventConfigVar( "FindNextAfterSaving", "Automatically search for next event after saving (0) no (1) yes" )
+	NMEventConfigVar( "SearchWaveAdvance", "Automatically advance to next/previous wave when searching (0) no (1) yes" )
+	NMEventConfigVar( "ReviewWaveAdvance", "Automatically advance to next/previous wave when reviewing (0) no (1) yes" )
 			
 End // EventConfigs
-	
+
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function MakeEventTab(force) // create controls
-	Variable force
+Function NMEventConfigVar( varName, description )
+	String varName
+	String description
 	
-	Variable x0, y0, yinc, fs = NMPanelFsize(), taby = NMPanelTabY()
+	return NMConfigVar( "Event", varName, NMEventVar( varName ), description )
+	
+End // NMEventConfigVar
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventVar( varName )
+	String varName
+	
+	Variable defaultVal = Nan
 	String df = EventDF()
 	
-	ControlInfo /W=NMPanel EV_Grp1
+	strswitch( varName )
 	
-	if ((V_Flag != 0) && (force == 0))
-		return 0 // Event tab controls exist
-	endif
+		case "UseSubfolders":
+			defaultVal = 1
+			break
+			
+		case "Positive":
+			defaultVal = Nan
+			break
 	
-	if (DataFolderExists(df) == 0)
-		return 0 // Event tab has not been initialized yet
-	endif
-
-	DoWindow /F NMPanel
+		case "SearchMethod":
+			defaultVal = 3
+			break
+			
+		case "Thrshld":
+			defaultVal = 10
+			break
+			
+		case "Level":
+			defaultVal = Nan
+			break
+			
+		case "MatchLevel":
+			defaultVal = Nan
+			break
+			
+		case "ThreshLevel":
+			defaultVal = Nan
+			break
 	
-	x0 = 35
-	y0 = taby + 55
-	yinc = 23
+		case "DsplyWin":
+			defaultVal = 50
+			break
+			
+		case "DsplyFraction":
+			defaultVal = 0.25
+			break
+			
+		case "SearchFlag":
+			defaultVal = 0
+			break
+			
+		case "SearchBgn":
+			defaultVal = -inf
+			break
+			
+		case "SearchEnd":
+			defaultVal = inf
+			break
+			
+		case "SearchTime":
+			defaultVal = 0
+			break
+			
+		case "BaseFlag":
+			defaultVal = 0
+			break
+			
+		case "BaseWin":
+			defaultVal = 2
+			break
+			
+		case "BaseDT":
+			defaultVal = NumVarOrDefault( df+"BaseWin", 2 )
+			break
+			
+		case "ThreshX":
+			defaultVal = Nan
+			break
+			
+		case "ThreshY":
+			defaultVal = Nan
+			break
+			
+		case "MatchFlag":
+			defaultVal = 0
+			break
+			
+		case "MatchTau1":
+			defaultVal = 2
+			break
+			
+		case "MatchTau2":
+			defaultVal = 3
+			break
+			
+		case "MatchBsln":
+			defaultVal = Nan
+			break
+			
+		case "MatchWform":
+			defaultVal = 8
+			break
+			
+		case "OnsetFlag":
+			defaultVal = 1
+			break
+			
+		case "OnsetWin":
+			defaultVal = 2
+			break
+			
+		case "OnsetAvg":
+			defaultVal = 0.5
+			break
+			
+		case "OnsetNstdv":
+			defaultVal = 1
+			break
+			
+		case "OnsetY":
+			defaultVal = Nan
+			break
+			
+		case "OnsetX":
+			defaultVal = Nan
+			break
+			
+		case "PeakFlag":
+			defaultVal = 1
+			break
 	
-	GroupBox EV_Grp1, title = "Criteria", pos={x0-15,y0-25}, size={260,205}, fsize=fs
+		case "PeakWin":
+			defaultVal = 3
+			break
+			
+		case "PeakAvg":
+			defaultVal = 0.5
+			break
+			
+		case "PeakNstdv":
+			defaultVal = 1
+			break
+			
+		case "PeakY":
+			defaultVal = Nan
+			break
+			
+		case "PeakX":
+			defaultVal = Nan
+			break
+			
+		case "BaseY":
+			defaultVal = Nan
+			break
+			
+		//case "EventNum":
+		//	defaultVal = 0
+		//	break
 	
-	PopupMenu EV_SearchMethod, pos={x0+150,y0}, bodywidth=170, mode=1, proc=EventPopupSearch
-	PopupMenu EV_SearchMethod, value ="", fsize=fs
+		case "NumEvents":
+			defaultVal = 0
+			break
+			
+		//case "TableNum":
+		//	defaultVal = -1
+		//	break
+			
+		case "FindNextAfterSaving":
+			defaultVal = 1
+			break
+			
+		case "SearchWaveAdvance":
+			defaultVal = 1
+			break
+			
+		case "ReviewWaveAdvance":
+			defaultVal = 1
+			break
+			
+		case "ReviewFlag":
+			defaultVal = 0
+			break
+			
+		case "ReviewAlert":
+			defaultVal = 1
+			break
+			
+		case "AutoTSelect":
+			defaultVal = 1
+			break
+			
+		case "AutoTZero":
+			defaultVal = 1
+			break
+			
+		case "AutoDsply":
+			defaultVal = 1
+			break
+			
+		case "E2W_before":
+			defaultVal = 2
+			break
+			
+		case "E2W_after":
+			defaultVal = 10
+			break
+			
+		case "E2W_stopAtNextEvent":
+			defaultVal = 0
+			break
+			
+		default:
+			NMDoAlert( "NMEventVar Error: no variable called " + NMQuotes( varName ) )
+			return Nan
 	
-	y0 += 10
+	endswitch
 	
-	SetVariable EV_Threshold, title="", pos={x0+65,y0+1*yinc}, limits={-inf,inf,1}, size={100,20}
-	SetVariable EV_Threshold, value=$(df+"Thrshld"), proc=EventSetVariable, fsize=fs
+	return NumVarOrDefault( df+varName, defaultVal )
 	
-	y0 += 5
-	
-	Checkbox EV_SearchCheck, title="search limits", pos={x0,y0+2*yinc}, size={200,20}, value=1, proc=EventCheckBox, fsize=fs
-	Checkbox EV_BaseCheck, title="baseline", pos={x0,y0+3*yinc}, size={200,20}, value=1, proc=EventCheckBox, fsize=fs
-	Checkbox EV_OnsetCheck, title="onset", pos={x0,y0+4*yinc}, size={200,20}, value=1, proc=EventCheckBox, fsize=fs
-	Checkbox EV_PeakCheck, title="peak", pos={x0,y0+5*yinc}, size={200,20}, value=1, proc=EventCheckBox, fsize=fs
-	Checkbox EV_MatchCheck, title="template matching", pos={x0,y0+6*yinc}, size={200,20}, value=0, proc=EventCheckBox, fsize=fs
-	
-	Button EV_Match, pos={x0+180,y0+ 6*yinc-2}, title="Match", size={50,20}, disable=1, proc=EventButtonFxn, fsize=fs
-	
-	y0 = 440
-	
-	GroupBox EV_Grp2, title = "Search", pos={x0-15,y0-25}, size={260,140}, fsize=fs
-	
-	PopupMenu EV_TableMenu, value = "Table", bodywidth = 175, pos={x0+125, y0}, proc=EventPopupTable, fsize=fs
-	
-	SetVariable EV_NumEvents, title=":", pos={x0+185,y0+2}, limits={0,inf,0}, size={55,20}
-	SetVariable EV_NumEvents, value=$(df+"NumEvents"), frame=0, noedit=1, fsize=fs
-	
-	y0 += 10
-	
-	SetVariable EV_DsplyWin, title="display win (ms):", pos={x0,y0+1*yinc}, limits={0.1,inf,5}, size={175,20}
-	SetVariable EV_DsplyWin, value=$(df+"DsplyWin"), proc=EventSetVariable, fsize=fs
-	
-	SetVariable EV_DsplyTime, title="search time (ms):", pos={x0,y0+2*yinc}, limits={0,inf,1}, size={175,20}
-	SetVariable EV_DsplyTime, format = "%.1f", value=$(df+"SearchTime"), proc=EventSetVariable, fsize=fs
-	
-	Button EV_Tzero, pos={220,y0+2*yinc-2}, title="t = 0", size={45,20}, proc=EventButtonSearch, fsize=fs
-	
-	y0 += 5
-	
-	Button EV_Last, pos={35,y0+ 3*yinc}, title="<", size={25,20}, proc=EventButtonSearch, fsize=14
-	Button EV_Next, pos={70,y0+ 3*yinc}, title=">", size={25,20}, proc=EventButtonSearch, fsize=14
-	Button EV_Save, pos={110,y0+ 3*yinc}, title="Save", size={45,20}, proc=EventButtonSearch, fsize=fs
-	Button EV_Delete, pos={165,y0+ 3*yinc}, title="Delete", size={45,20}, proc=EventButtonSearch, fsize=fs
-	Button EV_Auto, pos={220,y0+ 3*yinc}, title="Auto", size={45,20}, proc=EventButtonSearch, fsize=fs
-	
-	y0 = 575
-	
-	Button EV_E2W, pos={x0,y0}, title="Events 2 Waves", size={110,20}, proc=EventButtonFxn, fsize=fs
-	Button EV_Histo, pos={x0+130,y0}, title="Histogram", size={100,20}, proc=EventButtonFxn, fsize=fs
-	
-	UpdateEventTab()
-
-End // MakeEventTab
+End // NMEventVar
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function UpdateEventTab() // update event tab display
-	Variable md
+Function /S NMEventStr( varName )
+	String varName
 	
-	String df = EventDF()
-	String tableTitle = EventTableTitle(-1)
-
-	NVAR MatchFlag = $(df+"MatchFlag")
-	NVAR SearchMethod = $(df+"SearchMethod")
-	NVAR SearchTime = $(df+"SearchTime")
-	NVAR MatchTau1 = $(df+"MatchTau1")
-	NVAR MatchTau2 = $(df+"MatchTau2")
-	NVAR OnsetFlag = $(df+"OnsetFlag")
-	NVAR PeakFlag = $(df+"PeakFlag")
-	NVAR SearchBgn = $(df+"SearchBgn")
-	NVAR SearchEnd = $(df+"SearchEnd")
-	NVAR OnsetWin = $(df+"OnsetWin")
-	NVAR OnsetAvg = $(df+"OnsetAvg")
-	NVAR PeakWin = $(df+"PeakWin")
-	NVAR PeakAvg = $(df+"PeakAvg")
-	NVAR OnsetNstdv = $(df+"OnsetNstdv")
-	NVAR PeakNstdv = $(df+"PeakNstdv")
-	NVAR SearchMethod = $(df+"SearchMethod")
-	NVAR BaseWin = $(df+"BaseWin")
-	NVAR Thrshld = $(df+"Thrshld")
-	NVAR TableNum = $(df+"TableNum")
+	String defaultStr = ""
 	
-	SVAR Template = $(df+"Template")
+	strswitch( varName )
 	
-	Variable SearchFlag = NumVarOrDefault(df+"SearchFlag", 0)
-	Variable BaseFlag = NumVarOrDefault(df+"BaseFlag", 0)
-	Variable BaseDT = NumVarOrDefault(df+"BaseDT", BaseWin)
+		case "Template":
+			defaultStr = ""
+			break
+			
+		case "E2W_chan":
+			defaultStr = CurrentNMChanChar()
+			break
+			
+		case "S2W_WavePrefix":
+			defaultStr = "Event"
+			break
+			
+		case "HistoSelect":
+			defaultStr = "interval"
+			break
+			
+		default:
+			NMDoAlert( "NMEventStr Error: no variable called " + NMQuotes( varName ) )
+			return ""
 	
-	Variable tbgn = EventSearchBgn()
-	Variable tend = EventSearchEnd()
+	endswitch
 	
-	String dname = ChanDisplayWave(-1)
-	
-	if (WaveExists($EventName("ThreshT", TableNum)) == 0)
-		TableNum = -1
-	endif
-	
-	if (SearchMethod > 2)
-		Thrshld = abs(Thrshld)
-		BaseFlag = 1
-		SetNMvar(df+"BaseFlag", 1)
-	endif
-	
-	if (MatchFlag > 0)
-		OnsetFlag = 1
-		BaseFlag = 0
-		SetNMvar(df+"BaseFlag", 0)
-	endif
-	
-	if (SearchTime < tbgn)
-		SearchTime = tbgn
-	endif
-	
-	if (SearchTime > tend)
-		SearchTime = tend
-	endif
-	
-	String methodstr = "level detect (+slope);level detect (-slope);threshold > baseline;threshold < baseline;"
-	String threshstr = "threshold:", searchstr = "search limits", onsetstr = "onset", peakstr = "peak", basestr = "baseline"
-	String matchstr = "template matching"
-	String tablestr = "Event Table;---;" + EventTableList() + "---;New;Clear;Kill;"
-	
-	if (MatchFlag > 0)
-		methodstr = "level cross (+slope);level cross (-slope);"
-		threshStr = "matched"
-		onsetstr += " (auto)"
-	endif
-	
-	if (SearchMethod < 3)
-		threshStr = "level:"
-	endif
-	
-	if (SearchFlag == 0)
-		SetNMvar(df+"SearchBgn", -inf)
-		SetNMvar(df+"SearchEnd", inf)
-	endif
-
-	searchstr += " (t=" + num2str(SearchBgn) + ", " + num2str(SearchEnd) + " ms)"
-	
-	if (BaseFlag == 1)
-		basestr += " (avg=" + num2str(BaseWin) + " ms, dt=" + num2str(BaseDT) + " ms)"
-	endif
-	
-	if ((OnsetFlag == 1) && (MatchFlag == 0))
-		onsetstr += " (avg=" + num2str(OnsetAvg) + " ms, Nsdv=" + num2str(OnsetNstdv) + ", limit=" + num2str(OnsetWin) + " ms)"
-	endif
-	
-	if (PeakFlag == 1)
-		peakstr += " (avg=" + num2str(PeakAvg) + " ms, Nsdv=" + num2str(PeakNstdv) + ", limit=" + num2str(PeakWin) + " ms)"
-	endif
-	
-	if (MatchFlag == 1)
-		matchstr = "template (tau1=" + num2str(MatchTau1) + ", tau2=" + num2str(MatchTau2) + " ms)"
-	elseif (MatchFlag == 2)
-		matchstr = "template (tau1=" + num2str(MatchTau1) + " ms)"
-	elseif (MatchFlag == 3)
-		matchstr = "template (" + Template + ")"
-	endif
-	
-	Checkbox EV_SearchCheck, win=NMPanel, value=SearchFlag, title=searchstr
-	Checkbox EV_BaseCheck, win=NMPanel, value=BaseFlag, title=basestr
-	Checkbox EV_OnsetCheck, win=NMPanel, value=OnsetFlag, title=onsetstr
-	Checkbox EV_PeakCheck, win=NMPanel, value=PeakFlag, title=peakstr
-	Checkbox EV_MatchCheck, win=NMPanel, value=MatchFlag, title = matchstr
-	
-	Button EV_Match, win=NMPanel, disable=(!MatchFlag)
-	
-	SetVariable EV_Threshold, win=NMPanel, title=threshstr
-	SetVariable EV_DsplyTime, win=NMPanel, limits={SearchBgn,SearchEnd,1}
-	
-	Execute /Z "PopupMenu EV_SearchMethod, win=NMPanel, value=\"" + methodstr + "\", mode=" + num2str(SearchMethod)
-	
-	md = WhichListItemLax(tableTitle, tablestr, ";") + 1
-	
-	if (md < 1)
-		md = 1
-	endif
-	
-	Execute /Z "PopupMenu EV_TableMenu, win=NMPanel, value=\"" + tablestr + "\", mode=" + num2str(md)
-	
-	EventCount()
-	
-End // UpdateEventTab
+	return StrVarOrDefault( EventDF() + varName, defaultStr )
+			
+End // NMEventStr
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function EventButtonSearch(ctrlName) : ButtonControl
-	String ctrlName
+Function SetNMEventVar( varName, value )
+	String varName
+	Variable value
 	
-	EventSearchCall(ctrlName[3,inf])
+	String thisfxn = "SetNMEventVar", df = EventDF()
 	
-End // EventButtonSearch
+	if ( strlen( varName ) == 0 )
+		return NMError( 21, thisfxn, "varName", varName )
+	endif
+	
+	if ( DataFolderExists( df ) == 0 )
+		return NMError( 30, thisfxn, "EventDF", df )
+	endif
+	
+	Variable /G $df+varName = value
+	
+	return 0
+	
+End // SetNMEventVar
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function SetNMEventStr( varName, strValue )
+	String varName
+	String strValue
+	
+	String thisfxn = "SetNMEventStr", df = EventDF()
+	
+	if ( strlen( varName ) == 0 )
+		return NMError( 21, thisfxn, "varName", varName )
+	endif
+	
+	if ( DataFolderExists( df ) == 0 )
+		return NMError( 30, thisfxn, "EventDF", df )
+	endif
+	
+	String /G $df+varName = strValue
+	
+	return 0
+	
+End // SetNMEventStr
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function CheckNMEventVariables()
+
+	Variable tbgn, tend
+	
+	Variable positive = NMEventVar( "Positive" )
+	Variable searchFlag = NMEventVar( "SearchFlag" )
+	Variable searchMethod = NMEventVar( "SearchMethod" )
+	Variable searchTime = NMEventVar( "SearchTime" )
+	Variable matchFlag = NMEventVar( "MatchFlag" )
+	Variable thrshld = NMEventVar( "Thrshld" )
+	
+	if ( numtype( positive ) > 0 ) // set new pos/neg flag
+		
+		switch( searchMethod )
+		
+			case 1:
+			case 3:
+				SetNMEventVar( "Positive", 1 )
+				break
+			
+			case 2:
+			case 4:
+				SetNMEventVar( "Positive", 0 )
+				break
+		
+		endswitch
+		
+		EventThreshold( thrshld )
+	
+	endif
+	
+	SetNMEventVar( "ThreshLevel",  NMEventThresholdLevel() ) // update display variable
+
+	if ( searchMethod > 2 ) 
+		SetNMEventVar( "BaseFlag", 1 )
+	else
+		SetNMEventVar( "BaseFlag", 0 )
+	endif
+	
+	if ( matchFlag > 0 )
+		SetNMEventVar( "OnsetFlag", 1 )
+		SetNMEventVar( "BaseFlag", 0 )
+	endif
+	
+	if ( searchFlag == 0 )
+		SetNMEventVar( "SearchBgn", -inf )
+		SetNMEventVar( "SearchEnd", inf )
+	endif
+	
+	tbgn = EventSearchBgn()
+	tend = EventSearchEnd()
+	
+	if ( searchTime < tbgn )
+		SetNMEventVar( "SearchTime", tbgn )
+	endif
+	
+	if ( searchTime > tend )
+		SetNMEventVar( "SearchTime", tend )
+	endif
+
+End // CheckNMEventVariables
 
 //****************************************************************
 //****************************************************************
@@ -428,10 +574,10 @@ End // EventButtonSearch
 
 Function EventSearchBgn()
 
-	Variable t = NumVarOrDefault(EventDF()+"SearchBgn", -inf)
+	Variable t = NMEventVar( "SearchBgn" )
 
-	if (numtype(t) > 0)
-		t = leftx($ChanDisplayWave(-1))
+	if ( numtype( t ) > 0 )
+		t = leftx( $ChanDisplayWave( CurrentNMChannel() ) )
 	endif
 	
 	return t
@@ -444,10 +590,10 @@ End // EventSearchBgn
 
 Function EventSearchEnd()
 
-	Variable t = NumVarOrDefault(EventDF()+"SearchEnd", inf)
+	Variable t = NMEventVar( "SearchEnd" )
 
-	if (numtype(t) > 0)
-		t = rightx($ChanDisplayWave(-1))
+	if ( numtype( t ) > 0 )
+		t = rightx( $ChanDisplayWave( CurrentNMChannel() ) )
 	endif
 	
 	return t
@@ -457,396 +603,61 @@ End // EventSearchEnd
 //****************************************************************
 //****************************************************************
 //****************************************************************
+//
+//		Channel Graph Functions
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
 
-Function EventSearchCall(func)
-	String func
+Function /S NMEventDisplayWaveName( wName )
+	String wName
 	
-	Variable v1
-	String df = EventDF()
+	return EventDF() + "EV_" + wName
 	
-	Variable CurrentWave = NumVarOrDefault("CurrentWave", 0)
-	
-	NVAR EventNum = $(df+"EventNum")
-	NVAR TableNum = $(df+"TableNum")
-	NVAR ThreshX = $(df+"ThreshX")
-	
-	if (TableNum >= 0)
-		Wave waveN = $EventName("WaveN", TableNum)
-	endif
-	
-	Variable event = EventFindSaved(EventName("WaveN", -1), df+"EV_ThreshT", ThreshX, 0.01, CurrentWave)
-	
-	Variable findHistory = EventSetValue(-1)
-	
-	if (event < 0) // no event time found
-	
-		if (EventNum == numpnts(ThreshT) - 1)
-			event = EventNum + 1
-		elseif (EventNum < numpnts(ThreshT) - 1)
-			event = EventNum
-		else
-			event = numpnts(ThreshT)
-		endif
-		
-	endif
-
-	strswitch(func)
-	
-		case "Next":
-		
-			//NMCmdHistory("EventFindNext", "")
-			
-			if (numtype(findHistory) == 0)
-				
-			elseif (EventFindNext(1) == -1)
-			
-				NMDoAlert("Found no more events.")
-				
-			endif
-			
-			break
-			
-		case "Last":
-		
-			event -= 1
-			
-			if (event < 0)
-				event = EventNum
-			endif
-			
-			if ((TableNum >= 0) && (waveN[event] != CurrentWave))
-				break
-			endif
-			
-			//NMCmdHistory("EventRetrieve", NMCmdNum(event,""))
-			
-			EventRetrieve(event)
-			
-			break
-			
-		case "Save":
-		
-			if (TableNum == -1)
-				TableNum = 0
-			endif
-			
-			EventTable("make", TableNum)
-			
-			//NMCmdHistory("EventSave", "")
-			
-			if (EventSave() == 0)
-				EventFindNext(1)
-			endif
-			
-			break
-			
-		case "Delete":
-		
-			if (event == EventNum)
-				//NMCmdHistory("EventDelete", NMCmdNum(event,""))
-				EventDelete(event)
-				EventNum -= 1
-			endif
-			
-			break
-		
-		case "All":
-		case "Auto":
-		
-			EventFindAllCall()
-			
-			break
-			
-		case "T0":
-		case "Tzero":
-			v1 = EventSearchBgn()
-			NMCmdHistory("EventSearchTime", NMCmdNum(v1,""))
-			EventSearchTime(v1)
-			break
-			
-	endswitch
-	
-	Dowindow /F NMPanel
-	
-End // EventSearchCall
+End // NMEventDisplayWaveName
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function EventButtonFxn(ctrlName) : ButtonControl
-	String ctrlName
-	
-	strswitch(ctrlName)
-		case "EV_Match":
-			MatchTemplateCall(1)
-			EventDisplay(1)
-			break
-		case "EV_E2W":
-			Event2WaveCall()
-			break
-		case "EV_Histo":
-			EventHistoCall()
-			break
-	endswitch
-	
-End // EventButtonFxn
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function EventSetVariable(ctrlName, varNum, varStr, varName) : SetVariableControl
-	String ctrlName; Variable varNum; String varStr; String varName
-
-	strswitch(ctrlName)
-		case "EV_Threshold":
-			NMCmdHistory("EventThreshold", NMCmdNum(varNum,""))
-			EventThreshold(varNum)
-			break
-		case "EV_DsplyWin":
-			NMCmdHistory("EventDisplayWin", NMCmdNum(varNum,""))
-			EventDisplayWin(varNum)
-			break
-		case "EV_DsplyTime":
-			NMCmdHistory("EventSearchTime", NMCmdNum(varNum,""))
-			EventSearchTime(varNum)
-		break
-	endswitch
-
-End // EventSetVariable
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function EventCheckBox(ctrlName, checked) : CheckBoxControl
-	String ctrlName; Variable checked
-	
-	Variable v1, v2, v3, change
-	String wName, vlist = "", df = EventDF()
-	
-	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
-	Variable CurrentWave = NumVarOrDefault("CurrentWave", 0)
-	
-	NVAR MatchFlag = $(df+"MatchFlag")
-	NVAR SearchMethod = $(df+"SearchMethod")
-	
-	String dname = ChanDisplayWave(-1)
-
-	strswitch(ctrlName)
-	
-		case "EV_SearchCheck":
-		
-			v1 = -inf
-			v2 = inf
-			
-			if (checked == 1)
-			
-				change = 1
-				
-				v1 = leftx($dname)
-				v2 = rightx($dname)
-				
-				Prompt v1, "time window begin (ms):"
-				Prompt v2, "time window end (ms):"
-				DoPrompt "Event Search Limits", v1, v2
-				
-				if (V_flag == 1)
-					checked = 0; v1 = -inf; v2 = inf;
-				endif
-			
-			endif
-			
-			vlist = NMCmdNum(checked, vlist)
-			vlist = NMCmdNum(v1, vlist)
-			vlist = NMCmdNum(v2, vlist)
-			NMCmdHistory("EventWindow", vlist)
-			
-			EventWindow(checked, v1, v2)
-			
-			break
-	
-		case "EV_BaseCheck":
-		
-			if (MatchFlag == 1)
-				checked = 0
-			endif
-			
-			if ((checked == 1) || (SearchMethod > 2))
-			
-				checked = 1
-				v1 = NumVarOrDefault(df+"BaseWin", 2)
-				v2 = NumVarOrDefault(df+"BaseDT", v1)
-				Prompt v1, "average window (ms):"
-				Prompt v2, "delta time (dt) between mid-baseline and threshold crossing (ms):"
-				DoPrompt "Baseline Parameters", v1, v2
-			
-			endif
-			
-			vlist = NMCmdNum(checked, vlist)
-			vlist = NMCmdNum(v1, vlist)
-			vlist = NMCmdNum(v2, vlist)
-			NMCmdHistory("EventBsln", vlist)
-			
-			EventBsln(checked, v1, v2)
-			
-			break
-			
-		case "EV_OnsetCheck":
-
-			if ((checked == 1) && (MatchFlag == 0))
-			
-				v1 = NumVarOrDefault(df+"OnsetAvg", 1)
-				v2 = NumVarOrDefault(df+"OnsetNstdv", 1)
-				v3 = NumVarOrDefault(df+"OnsetWin", 2)
-				
-				Prompt v1, "sliding average window (ms):"
-				Prompt v2, "define onset as number of stdv's above average:"
-				Prompt v3, "search window limit (ms):"
-				DoPrompt "Onset Time Search", v1, v2, v3
-				
-				if (V_flag == 1)
-					checked = 0; v1 = 0; v2 = 0; v3 = 0;
-				endif
-				
-			endif
-			
-			vlist = NMCmdNum(checked, vlist)
-			vlist = NMCmdNum(v1, vlist)
-			vlist = NMCmdNum(v2, vlist)
-			vlist = NMCmdNum(v3, vlist)
-			NMCmdHistory("EventOnset", vlist)
-			
-			EventOnset(checked, v1, v2, v3)
-			
-			break
-			
-		case "EV_PeakCheck":
-			
-			if (checked == 1)
-			
-				v1 = NumVarOrDefault(df+"PeakAvg", 2)
-				v2 = NumVarOrDefault(df+"PeakNstdv", 1)
-				v3 = NumVarOrDefault(df+"PeakWin", 5)
-				
-				Prompt v1, "sliding average window (ms):"
-				Prompt v2, "define peak as number of stdv's above average:"
-				Prompt v3, "search window limit (ms):"
-				DoPrompt "Peak Time Search", v1, v2, v3
-				
-				if (V_flag == 1)
-					checked = 0; v1 = 0; v2 = 0; v3 = 0;
-				endif
-				
-			endif
-			
-			vlist = NMCmdNum(checked, vlist)
-			vlist = NMCmdNum(v1, vlist)
-			vlist = NMCmdNum(v2, vlist)
-			vlist = NMCmdNum(v3, vlist)
-			NMCmdHistory("EventPeak", vlist)
-			
-			EventPeak(checked, v1, v2, v3)
-			
-			break
-			
-		case "EV_MatchCheck":
-			NMCmdHistory("MatchTemplateOn", NMCmdNum(checked,""))
-			MatchTemplateOn(checked)
-			break
-			
-	endswitch
-
-End // EventCheckBox
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function EventPopupSearch(ctrlName, popNum, popStr) : PopupMenuControl
-	String ctrlName; Variable popNum; String popStr
-	
-	NMCmdHistory("EventSearchMethod", NMCmdNum(popNum,""))
-	EventSearchMethod(popNum)
-	
-End // EventPopupSearch
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function EventPopupTable(ctrlName, popNum, popStr) : PopupMenuControl
-	String ctrlName; Variable popNum; String popStr
-	
-	Variable ipnt
-	String df = EventDF()
-	
-	Variable tnum
-
-	strswitch(popStr)
-		case "Event Table":
-		case "---":
-			break
-			
-		case "New":
-		case "Clear":
-		case "Kill":
-			EventTableCall(popStr)
-			break
-			
-		default:
-			ipnt = strlen(popStr)
-			tnum = str2num(popStr[ipnt-1,ipnt-1])
-			NMCmdHistory("EventTableSelect", NMCmdNum(tnum,""))
-			EventTableSelect(tnum)
-			break
-	endswitch
-	
-	UpdateEventTab()
-	
-End // EventPopupTable
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function EventDisplay(appnd) // append/remove event display waves from channel graph
-	Variable appnd // (1) append wave (0) remove wave
+Function EventDisplay( appnd ) // append/remove event display waves from channel graph
+	Variable appnd // ( 0 ) remove wave ( 1 ) append wave 
 	Variable icnt
 	
 	Variable ccnt, found
-	String gName, df = EventDF()
+	String gName, xName, yName, df = EventDF()
 	
-	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
+	Variable chan = CurrentNMChannel()
 	
-	if (DataFolderExists(df) == 0)
+	if ( DataFolderExists( df ) == 0 )
 		return 0 // event tab has not been initialized yet
 	endif
 	
-	Variable MatchFlag = NumVarOrDefault(df+"MatchFlag", 0)
+	Variable matchFlag = NMEventVar( "MatchFlag" )
 	
-	for (ccnt = 0; ccnt < 10; ccnt += 1)
+	for ( ccnt = 0; ccnt < 10; ccnt += 1 )
 	
-		gName = GetGraphName("Chan", ccnt)
+		gName = ChanGraphName( ccnt )
 	
-		if (Wintype(gName) == 0)
+		if ( Wintype( gName ) == 0 )
 			continue
 		endif
 	
 		DoWindow /F $gName
 		
-		found = WhichListItemLax("EV_ThreshY", TraceNameList(gName, ";", 1), ";")
+		found = WhichListItem( "EV_ThreshY", TraceNameList( gName, ";", 1 ), ";", 0, 0 )
 	
 		RemoveFromGraph /Z/W=$gName EV_BaseY, EV_ThisY, EV_ThreshY, EV_OnsetY, EV_PeakY, EV_MatchTmplt
 	
-		if ((appnd == 0) || (ccnt != CurrentChan))
+		if ( ( appnd == 0 ) || ( ccnt != chan ) )
 		
-			ChanAutoScale( CurrentChan , 1 )
-			SetAxis /A/W=$gName
-			HideInfo
+			ChanAutoScale( chan , 1 )
 			
-			if (found != -1) // remove cursors
+			SetAxis /A/W=$gName
+			HideInfo /W=$gName
+			
+			if ( found != -1 ) // remove cursors
 				Cursor /K/W=$gName A
 				Cursor /K/W=$gName B
 			endif
@@ -855,43 +666,98 @@ Function EventDisplay(appnd) // append/remove event display waves from channel g
 			
 		endif
 	
-		if ((MatchFlag > 0) && (exists(df+"EV_MatchTmplt") == 1))
+		if ( ( matchFlag > 0 ) && ( exists( NMEventDisplayWaveName( "MatchTmplt" ) ) == 1 ) )
 		
-			AppendToGraph /R=match /W=$gName $(df+"EV_MatchTmplt")
-			ModifyGraph rgb(EV_MatchTmplt)=(0,0,65535)
-			ModifyGraph axRGB(match)=(0,0,65535)
-			AppendToGraph /R=match /W=$gName $(df+"EV_ThisY") vs $(df+"EV_ThisT")
-			ModifyGraph /W=$gName mode(EV_ThisY)=3, marker(EV_ThisY)=9, msize(EV_ThisY)=6
-			ModifyGraph /W=$gName mrkThick(EV_ThisY)=2, rgb(EV_ThisY)=(65535,0,0)
-			AppendToGraph /R=match /W=$gName $(df+"EV_ThreshY") vs $(df+"EV_ThreshT")
-			ModifyGraph /W=$gName mode(EV_ThreshY)=3, marker(EV_ThreshY)=9, msize(EV_ThreshY)=6
-			ModifyGraph /W=$gName mrkThick(EV_ThreshY)=2, rgb(EV_ThreshY)=(65535,0,0)
+			yName = NMEventDisplayWaveName( "MatchTmplt" )
+		
+			AppendToGraph /R=match /W=$gName $yName
+			
+			yName = GetPathName( yName, 0 )
+			
+			ModifyGraph rgb( $yName )=( 0,0,65535 )
+			ModifyGraph axRGB( match )=( 0,0,65535 )
+			
+			xName = NMEventDisplayWaveName( "ThisT" )
+			yName = NMEventDisplayWaveName( "ThisY" )
+			
+			AppendToGraph /R=match /W=$gName $yName vs $xName
+			
+			yName = GetPathName( yName, 0 )
+			
+			ModifyGraph /W=$gName mode( $yName )=3, marker( $yName )=9, msize( $yName )=6
+			ModifyGraph /W=$gName mrkThick( $yName )=2, rgb( $yName )=( 65535,0,0 )
+			
+			xName = NMEventDisplayWaveName( "ThreshT" )
+			yName = NMEventDisplayWaveName( "ThreshY" )
+			
+			AppendToGraph /R=match /W=$gName $yName vs $xName
+			
+			yName = GetPathName( yName, 0 )
+			
+			ModifyGraph /W=$gName mode( $yName )=3, marker( $yName )=9, msize( $yName )=6
+			ModifyGraph /W=$gName mrkThick( $yName )=2, rgb( $yName )=( 65535,0,0 )
+			
 			Label match "Detection Criteria"
 			
 		endif
 		
-		if (exists(df+"EV_ThreshY") == 1)
+		if ( exists( NMEventDisplayWaveName( "ThreshY" ) ) == 1 )
 		
-			AppendToGraph /W=$gName $(df+"EV_BaseY") vs $(df+"EV_BaseT")
-			ModifyGraph /W=$gName mode(EV_BaseY)=0
-			ModifyGraph /W=$gName lsize(EV_BaseY)=2, rgb(EV_BaseY)=(0,0,65535)
+			xName = NMEventDisplayWaveName( "BaseT" )
+			yName = NMEventDisplayWaveName( "BaseY" )
 			
-			if (MatchFlag == 0)
-				AppendToGraph /W=$gName $(df+"EV_ThisY") vs $(df+"EV_ThisT")
-				ModifyGraph /W=$gName mode(EV_ThisY)=3, marker(EV_ThisY)=9, msize(EV_ThisY)=4
-				ModifyGraph /W=$gName mrkThick(EV_ThisY)=2, rgb(EV_ThisY)=(65535,0,0)
-				AppendToGraph /W=$gName $(df+"EV_ThreshY") vs $(df+"EV_ThreshT")
-				ModifyGraph /W=$gName mode(EV_ThreshY)=3, marker(EV_ThreshY)=9, msize(EV_ThreshY)=4
-				ModifyGraph /W=$gName mrkThick(EV_ThreshY)=2, rgb(EV_ThreshY)=(65535,0,0)
+			AppendToGraph /W=$gName $yName vs $xName
+			
+			yName = GetPathName( yName, 0 )
+		
+			ModifyGraph /W=$gName mode( $yName )=0
+			ModifyGraph /W=$gName lsize( $yName )=2, rgb( $yName )=( 65280,43520,0 )
+			
+			if ( matchFlag == 0 )
+			
+				xName = NMEventDisplayWaveName( "ThisT" )
+				yName = NMEventDisplayWaveName( "ThisY" )
+			
+				AppendToGraph /W=$gName $yName vs $xName
+				
+				yName = GetPathName( yName, 0 )
+				
+				ModifyGraph /W=$gName mode( $yName )=3, marker( $yName )=9, msize( $yName )=4
+				ModifyGraph /W=$gName mrkThick( $yName )=2, rgb( $yName )=( 0,52224,0 )
+				
+				xName = NMEventDisplayWaveName( "ThreshT" )
+				yName = NMEventDisplayWaveName( "ThreshY" )
+				
+				AppendToGraph /W=$gName $yName vs $xName
+				
+				yName = GetPathName( yName, 0 )
+				
+				ModifyGraph /W=$gName mode( $yName )=3, marker( $yName )=9, msize( $yName )=4
+				ModifyGraph /W=$gName mrkThick( $yName )=2, rgb( $yName )=( 65535, 0, 0 )
+				
 			endif
 			
-			AppendToGraph /W=$gName $(df+"EV_OnsetY") vs $(df+"EV_OnsetT")
-			ModifyGraph /W=$gName mode(EV_OnsetY)=3, marker(EV_OnsetY)=19, msize(EV_OnsetY)=4
-			ModifyGraph /W=$gName mrkThick(EV_OnsetY)=2, rgb(EV_OnsetY)=(65535,0,0)
-			AppendToGraph /W=$gName $(df+"EV_PeakY") vs $(df+"EV_PeakT")
-			ModifyGraph /W=$gName mode(EV_PeakY)=3, marker(EV_PeakY)=16, msize(EV_PeakY)=3
-			ModifyGraph /W=$gName mrkThick(EV_PeakY)=2, rgb(EV_PeakY)=(65535,0,0)
-			ShowInfo
+			xName = NMEventDisplayWaveName( "OnsetT" )
+			yName = NMEventDisplayWaveName( "OnsetY" )
+			
+			AppendToGraph /W=$gName $yName vs $xName
+			
+			yName = GetPathName( yName, 0 )
+			
+			ModifyGraph /W=$gName mode( $yName )=3, marker( $yName )=19, msize( $yName )=4
+			ModifyGraph /W=$gName mrkThick( $yName )=2, rgb( $yName )=( 65535, 0, 0 )
+			
+			xName = NMEventDisplayWaveName( "PeakT" )
+			yName = NMEventDisplayWaveName( "PeakY" )
+			
+			AppendToGraph /W=$gName $yName vs $xName
+			
+			yName = GetPathName( yName, 0 )
+			
+			ModifyGraph /W=$gName mode( $yName )=3, marker( $yName )=16, msize( $yName )=3
+			ModifyGraph /W=$gName mrkThick( $yName )=2, rgb( $yName )=( 65535, 0, 0 )
+			
+			ShowInfo /W=$gName
 			
 		endif
 		
@@ -905,59 +771,53 @@ End // EventDisplay
 
 Function UpdateEventDisplay() // update event display waves from table wave values
 
-	Variable icnt, npnts1, npnts2
-	String df = EventDF()
+	Variable icnt, npntsDisplay, npntsTable
 
-	Variable CurrentWave = NumVarOrDefault("CurrentWave", 0)
+	Variable currentChan = CurrentNMChannel()
+	Variable currentWave = CurrentNMWave()
 	
-	NVAR TableNum = $(df+"TableNum")
+	if ( WaveExists( $NMEventDisplayWaveName( "ThreshT" ) ) == 0 )
+		return -1
+	endif
 
-	Wave ThreshT = $(df+"EV_ThreshT")
-	Wave ThreshY = $(df+"EV_ThreshY")
-	Wave OnsetT = $(df+"EV_OnsetT")
-	Wave OnsetY = $(df+"EV_OnsetY")
-	Wave PeakT = $(df+"EV_PeakT")
-	Wave PeakY = $(df+"EV_PeakY")
+	Wave ThreshT = $NMEventDisplayWaveName( "ThreshT" )
+	Wave ThreshY = $NMEventDisplayWaveName( "ThreshY" )
+	Wave OnsetT = $NMEventDisplayWaveName( "OnsetT" )
+	Wave OnsetY = $NMEventDisplayWaveName( "OnsetY" )
+	Wave PeakT = $NMEventDisplayWaveName( "PeakT" )
+	Wave PeakY = $NMEventDisplayWaveName( "PeakY" )
 	
-	if ((TableNum == -1) || (WaveExists($EventName("ThreshT", -1)) == 0))
-		ThreshY = Nan; OnsetY = Nan; PeakY = Nan
+	if ( WaveExists( $NMEventTableWaveName( "ThreshT" ) ) == 0 )
+		Redimension /N=0 ThreshT, ThreshY, OnsetT, OnsetY, PeakT, PeakY
 		return 0
 	endif
 	
-	Wave waveN = $EventName("WaveN", -1)
-	Wave thT = $EventName("ThreshT", -1)
-	Wave thY = $EventName("ThreshY", -1)
-	Wave onT = $EventName("onsetT", -1)
-	Wave onY = $EventName("onsetY", -1)
-	Wave pkT = $EventName("peakT", -1)
-	Wave pkY = $EventName("peakY", -1)
+	Wave waveN = $NMEventTableWaveName( "WaveN" )
 	
-	npnts1 = numpnts(ThreshT)
-	npnts2 = numpnts(thT)
+	Duplicate /O $NMEventTableWaveName( "ThreshT" ) ThreshT
+	Duplicate /O $NMEventTableWaveName( "ThreshY" ) ThreshY
+	Duplicate /O $NMEventTableWaveName( "OnsetT" ) OnsetT
+	Duplicate /O $NMEventTableWaveName( "OnsetY" ) OnsetY
+	Duplicate /O $NMEventTableWaveName( "PeakT" ) PeakT
+	Duplicate /O $NMEventTableWaveName( "PeakY" ) PeakY
 	
-	if (npnts1 != npnts2)
-		Redimension /N=(npnts2) ThreshT, ThreshY, OnsetT, OnsetY, PeakT, PeakY
+	if ( numpnts( waveN ) > 0 )
+	
+		MatrixOp /O EV_WaveSelectTemp = 1.0 * equal( waveN, currentWave )
+		MatrixOp /O EV_WaveSelectTemp = EV_WaveSelectTemp / EV_WaveSelectTemp
+	
+		ThreshT *= EV_WaveSelectTemp
+		ThreshY *= EV_WaveSelectTemp
+		OnsetT *= EV_WaveSelectTemp
+		OnsetY *= EV_WaveSelectTemp
+		PeakT *= EV_WaveSelectTemp
+		PeakY *= EV_WaveSelectTemp
+		
+		KillWaves /Z EV_WaveSelectTemp
+	
 	endif
 	
-	if (npnts2 == 0)
-		return 0
-	endif
-	
-	ThreshT = thT; OnsetT = onT; PeakT = pkT
-	
-	for (icnt = 0; icnt < npnts2; icnt += 1)
-		if (waveN[icnt] == CurrentWave)
-			ThreshY[icnt] = thY[icnt]
-			OnsetY[icnt] = onY[icnt]
-			PeakY[icnt] = pkY[icnt]
-		else
-			ThreshY[icnt] = Nan
-			OnsetY[icnt] = Nan
-			PeakY[icnt] = Nan
-		endif
-	endfor
-	
-	DoUpdate
+	DoUpdate /W=$ChanGraphName( currentChan )
 	
 End // UpdateEventDisplay
 
@@ -965,33 +825,33 @@ End // UpdateEventDisplay
 //****************************************************************
 //****************************************************************
 
-Function EventCursors(enable) // place cursors on onset and peak times
-	Variable enable // (1) add (0) remove
+Function EventCursors( enable ) // place cursors on onset and peak times
+	Variable enable // ( 0 ) remove ( 1 ) add
 	
 	Variable tbgn, tend
-	String df = EventDF()
-
-	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
 	
-	Variable dsplyWin = NumVarOrDefault(df+"DsplyWin", 50)
-	Variable dsplyFraction = NumVarOrDefault(df+"DsplyFraction", 0.25)
-	Variable threshX = NumVarOrDefault(df+"ThreshX", Nan)
-	Variable onsetX = NumVarOrDefault(df+"OnsetX", Nan)
-	Variable peakX = NumVarOrDefault(df+"PeakX", Nan)
+	Variable dsplyWin = NMEventVar( "DsplyWin" )
+	Variable dsplyFraction = NMEventVar( "DsplyFraction" )
+	Variable threshX = NMEventVar( "ThreshX" )
+	Variable onsetX = NMEventVar( "OnsetX" )
+	Variable peakX = NMEventVar( "PeakX" )
 	
-	String gName = ChanGraphName(-1)
-	String dName = GetPathName(ChanDisplayWave(-1), 0)
+	Variable currentChan = CurrentNMChannel()
+	
+	String gName = ChanGraphName( currentChan )
+	String chanWave = ChanDisplayWave( currentChan )
+	String dName = GetPathName( chanWave, 0 )
 	
 	Variable tmid = threshX
 
-	if ((numtype(tmid) > 0) || (tmid == 0))
-		tmid = leftx($ChanDisplayWave(-1))
+	if ( ( numtype( tmid ) > 0 ) || ( tmid == 0 ) )
+		tmid = leftx( $chanWave )
 	endif
 	
 	tbgn = tmid - dsplyWin * dsplyFraction
-	tend = tmid + dsplyWin * (1 - dsplyFraction)
+	tend = tmid + dsplyWin * ( 1 - dsplyFraction )
 
-	if ((enable == 1) && (WinType(gName) == 1))
+	if ( ( enable == 1 ) && ( WinType( gName ) == 1 ) )
 		Cursor /W=$gName A, $dName, onsetX
 		Cursor /W=$gName B, $dName, peakX
 		SetAxis /W=$gName bottom tbgn, tend
@@ -1004,22 +864,540 @@ End // EventCursors
 //****************************************************************
 //****************************************************************
 //****************************************************************
+//
+//		Tab Panel Functions
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
 
-Function EventSearchMethod(method)
+Function MakeEventTab( force ) // create controls
+	Variable force
+	
+	Variable x0, y0, yinc, fs = NMPanelFsize(), taby = NMPanelTabY()
+	String df = EventDF()
+	
+	ControlInfo /W=NMPanel EV_Grp1
+	
+	if ( ( V_Flag != 0 ) && ( force == 0 ) )
+		return 0 // Event tab controls exist
+	endif
+	
+	if ( DataFolderExists( df ) == 0 )
+		return 0 // Event tab has not been initialized yet
+	endif
+	
+	CheckNMEventVar( "ThreshLevel" )
+	CheckNMEventVar( "DsplyWin" )
+	CheckNMEventVar( "SearchTime" )
+	CheckNMEventVar( "NumEvents" )
+
+	DoWindow /F NMPanel
+	
+	x0 = 35
+	y0 = taby + 55
+	yinc = 23
+	
+	GroupBox EV_Grp1, title = "Criteria", pos={x0-15,y0-25}, size={260,205}, fsize=fs
+	
+	PopupMenu EV_SearchMethod, pos={x0+125,y0}, bodywidth=175, mode=1, proc=NMEventPopupSearch
+	PopupMenu EV_SearchMethod, value ="", fsize=fs
+	
+	SetVariable EV_Threshold, title=" ", pos={x0+185,y0+0*yinc+2}, limits={-inf,inf,0}, size={50,20}
+	SetVariable EV_Threshold, value=$( df+"ThreshLevel" ), proc=NMEventSetVariable, fsize=fs
+	
+	y0 += 12
+	
+	Checkbox EV_PosNegCheck, title="positive events", pos={x0,y0+1*yinc}, size={200,20}, value=1, proc=NMEventCheckBox, fsize=fs
+	Checkbox EV_SearchCheck, title="search", pos={x0,y0+2*yinc}, size={200,20}, value=1, proc=NMEventCheckBox, fsize=fs
+	Checkbox EV_BaseCheck, title="baseline", pos={x0,y0+3*yinc}, size={200,20}, value=1, proc=NMEventCheckBox, fsize=fs
+	Checkbox EV_OnsetCheck, title="onset", pos={x0,y0+4*yinc}, size={200,20}, value=1, proc=NMEventCheckBox, fsize=fs
+	Checkbox EV_PeakCheck, title="peak", pos={x0,y0+5*yinc}, size={200,20}, value=1, proc=NMEventCheckBox, fsize=fs
+	Checkbox EV_MatchCheck, title="template matching", pos={x0,y0+6*yinc}, size={200,20}, value=0, proc=NMEventCheckBox, fsize=fs
+	
+	Button EV_Match, pos={x0+180,y0+ 6*yinc-2}, title="Match", size={50,20}, disable=1, proc=NMEventButton, fsize=fs
+	
+	y0 = 440
+	
+	GroupBox EV_Grp2, title = "Search", pos={x0-15,y0-25}, size={260,170}, fsize=fs
+	
+	PopupMenu EV_TableMenu, value = "Table", bodywidth = 175, pos={x0+125, y0}, proc=NMEventPopupTable, fsize=fs
+	
+	SetVariable EV_NumEvents, title=":", pos={x0+185,y0+2}, limits={0,inf,0}, size={55,20}
+	SetVariable EV_NumEvents, value=$( df+"NumEvents" ), frame=0, fsize=fs, noedit=1
+	
+	y0 += 10
+	
+	SetVariable EV_DsplyWin, title="display win (ms):", pos={x0,y0+1*yinc}, limits={0.1,inf,5}, size={175,20}
+	SetVariable EV_DsplyWin, format = "%.1f", value=$( df+"DsplyWin" ), proc=NMEventSetVariable, fsize=fs
+	
+	SetVariable EV_DsplyTime, title="search time (ms):", pos={x0,y0+2*yinc}, limits={0,inf,1}, size={175,20}
+	SetVariable EV_DsplyTime, format = "%.1f", value=$( df+"SearchTime" ), proc=NMEventSetVariable, fsize=fs
+	
+	Button EV_Tzero, pos={220,y0+2*yinc-2}, title="t = 0", size={45,20}, proc=NMEventButtonSearch, fsize=fs
+	
+	y0 += 5
+	
+	Button EV_Last, pos={35,y0+ 3*yinc}, title="<", size={25,20}, proc=NMEventButtonSearch, fsize=(fs+2)
+	Button EV_Next, pos={70,y0+ 3*yinc}, title=">", size={25,20}, proc=NMEventButtonSearch, fsize=(fs+2)
+	Button EV_Save, pos={110,y0+ 3*yinc}, title="Save", size={45,20}, proc=NMEventButtonSearch, fsize=fs
+	Button EV_Delete, pos={165,y0+ 3*yinc}, title="Delete", size={45,20}, proc=NMEventButtonSearch, fsize=fs
+	Button EV_Auto, pos={220,y0+ 3*yinc}, title="Auto", size={45,20}, proc=NMEventButtonSearch, fsize=fs
+	
+	y0 += 10
+	
+	Checkbox EV_Review, title="review", pos={x0+12,y0+4*yinc}, size={200,20}, value=1, proc=NMEventCheckBox, fsize=fs
+	Checkbox EV_AutoAdvance, title="auto advance (<>,Save)", pos={x0+85,y0+4*yinc}, size={200,20}, value=1, proc=NMEventCheckBox, fsize=fs
+	
+	y0 = 600
+	
+	Button EV_E2W, pos={x0,y0}, title="Events 2 Waves", size={110,20}, proc=NMEventButtonTable, fsize=fs
+	Button EV_Histo, pos={x0+130,y0}, title="Histogram", size={100,20}, proc=NMEventButtonTable, fsize=fs
+	
+	UpdateEventTab()
+
+End // MakeEventTab
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function UpdateEventTab() // update event tab display
+
+	Variable md, dis, basedis, advanceFlag
+	String tableTitle
+	
+	String threshstr = "threshold:", searchstr, onsetstr = "onset", peakstr = "peak", basestr = "baseline"
+	String matchstr = "template matching", grp2str = "Search", nextstr = "\K(65535,0,0)>"
+	String advancestr = "auto advance", posnegstr = "positive events"
+	
+	Variable currentChan = CurrentNMChannel()
+	
+	String dname = ChanDisplayWave( currentChan )
+	
+	CheckNMEventVariables()
+	
+	String tableSelect = CheckNMEventTableSelect()
+	
+	Variable positive = NMEventVar( "Positive" )
+
+	Variable searchFlag = NMEventVar( "SearchFlag" )
+	Variable searchMethod = NMEventVar( "SearchMethod" )
+	Variable searchBgn = NMEventVar( "SearchBgn" )
+	Variable searchEnd = NMEventVar( "SearchEnd" )
+	
+	Variable matchFlag = NMEventVar( "MatchFlag" )
+	Variable matchTau1 = NMEventVar( "MatchTau1" )
+	Variable matchTau2 = NMEventVar( "MatchTau2" )
+	
+	Variable onsetFlag = NMEventVar( "OnsetFlag" )
+	Variable onsetWin = NMEventVar( "OnsetWin" )
+	Variable onsetAvg = NMEventVar( "OnsetAvg" )
+	Variable onsetNstdv = NMEventVar( "OnsetNstdv" )
+	
+	Variable peakFlag = NMEventVar( "PeakFlag" )
+	Variable peakWin = NMEventVar( "PeakWin" )
+	Variable peakAvg = NMEventVar( "PeakAvg" )
+	Variable peakNstdv = NMEventVar( "PeakNstdv" )
+	
+	Variable baseFlag = NMEventVar( "BaseFlag" )
+	Variable baseWin = NMEventVar( "BaseWin" )
+	Variable baseDT = NMEventVar( "BaseDT" )
+	
+	Variable reviewFlag = NMEventVar( "ReviewFlag" )
+	
+	Variable FindNextAfterSaving = NMEventVar( "FindNextAfterSaving" )
+	Variable SearchWaveAdvance = NMEventVar( "SearchWaveAdvance" )
+	Variable ReviewWaveAdvance = NMEventVar( "ReviewWaveAdvance" )
+	
+	String template = NMEventStr( "Template" )
+	
+	Variable tbgn = EventSearchBgn()
+	Variable tend = EventSearchEnd()
+	
+	String searchMethodString = EventSearchMethodString()
+	
+	advanceFlag = SearchWaveAdvance || FindNextAfterSaving || ReviewWaveAdvance
+	
+	if ( advanceFlag == 1 )
+		
+		if ( ReviewWaveAdvance == 1 )
+			advancestr += " <"
+		endif
+		
+		if ( SearchWaveAdvance == 1 )
+			advancestr += " >"
+		endif
+		
+		if ( FindNextAfterSaving == 1 )
+			advancestr += " Save"
+		endif
+		
+	endif
+	
+	if ( matchFlag > 0 )
+		threshstr = "matched"
+		onsetstr += " (auto)"
+	endif
+	
+	if ( searchMethod < 3 )
+		threshstr = "level:"
+		basedis = 2
+	endif
+	
+	if ( reviewFlag == 1 )
+	
+		grp2str = "Review"
+		nextstr = "\K(0,0,0)>"
+		dis = 2
+		
+		if ( reviewWaveAdvance == 1 )
+			advanceFlag = 1
+			advancestr = "auto advance < >"
+		else
+			advanceFlag = 0
+			advancestr = "auto advance"
+		endif
+		
+	endif
+	
+	if ( positive == 0 )
+		posnegstr = "negative events"
+	endif
+
+	searchstr = "search time (t=" + num2str( searchBgn ) + ", " + num2str( searchEnd ) + " ms)"
+	
+	if ( baseFlag == 1 )
+		basestr += " (avg=" + num2str( baseWin ) + " ms, dt=" + num2str( baseDT ) + " ms)"
+	endif
+	
+	if ( ( onsetFlag == 1 ) && ( matchFlag == 0 ) )
+		onsetstr += " (avg=" + num2str( onsetAvg ) + " ms, Nsdv=" + num2str( onsetNstdv ) + ", limit=" + num2str( onsetWin ) + " ms)"
+	endif
+	
+	if ( peakFlag == 1 )
+		peakstr += " (avg=" + num2str( peakAvg ) + " ms, Nsdv=" + num2str( peakNstdv ) + ", limit=" + num2str( peakWin ) + " ms)"
+	endif
+	
+	if ( matchFlag == 1 )
+		matchstr = "template (tau1=" + num2str( matchTau1 ) + ", tau2=" + num2str( matchTau2 ) + ")"
+	elseif ( matchFlag == 2 )
+		matchstr = "template (tau1=" + num2str( matchTau1 ) + ")"
+	elseif ( matchFlag == 3 )
+		matchstr = "template (" + template + ")"
+	endif
+	
+	md = WhichListItem( searchMethodString, NMEventSearchMenu(), ";", 0, 0 ) + 1
+	md = max( md, 1 )
+	
+	if ( strlen( searchMethodString ) == 0 )
+		md = 1
+	endif
+	
+	PopupMenu EV_SearchMethod, win=NMPanel, value=NMEventSearchMenu(), mode=( md )
+	
+	threshstr = " "
+	SetVariable EV_Threshold, win=NMPanel, title=threshstr
+	
+	Checkbox EV_PosNegCheck, win=NMPanel, value=1, title=posnegstr
+	Checkbox EV_SearchCheck, win=NMPanel, value=BinaryCheck(searchFlag ), title=searchstr
+	Checkbox EV_BaseCheck, win=NMPanel, value=BinaryCheck( baseFlag ), title=basestr, disable=basedis
+	Checkbox EV_OnsetCheck, win=NMPanel, value=BinaryCheck( onsetFlag ), title=onsetstr
+	Checkbox EV_PeakCheck, win=NMPanel, value=BinaryCheck( peakFlag ), title=peakstr
+	Checkbox EV_MatchCheck, win=NMPanel, value=BinaryCheck( matchFlag ), title=matchstr
+	
+	Button EV_Match, win=NMPanel, disable=( !matchFlag )
+	
+	GroupBox EV_Grp2, win=NMPanel, title=grp2str
+	
+	md = WhichListItem( tableSelect, NMEventTableMenu(), ";", 0, 0 ) + 1
+	md = max( md, 1 )
+	
+	if ( strlen( tableSelect ) == 0 )
+		md = 1
+	endif
+	
+	PopupMenu EV_TableMenu, win=NMPanel, value=NMEventTableMenu(), mode=( md )
+	
+	SetVariable EV_DsplyTime, win=NMPanel, limits={searchBgn,searchEnd,1}
+	
+	Button EV_Next, win=NMPanel, title=nextstr
+	Button EV_Save, win=NMPanel, disable=dis
+	Button EV_Auto, win=NMPanel, disable=dis
+	
+	Checkbox EV_Review, win=NMPanel, value=reviewFlag
+	
+	Checkbox EV_AutoAdvance, win=NMPanel, value=advanceFlag
+	Checkbox EV_AutoAdvance, win=NMPanel, title=advancestr
+	
+	EventCount()
+	
+End // UpdateEventTab
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventSearchMenu()
+
+	Variable positive = NMEventVar( "Positive" )
+	Variable matchFlag = NMEventVar( "MatchFlag" )
+
+	if ( NMEventVar( "MatchFlag" ) > 0 )
+	
+		if ( positive == 1 )
+			return "level cross (+slope);"
+		else
+			return "level cross (-slope);"
+		endif
+		
+	else
+	
+		if ( positive == 1 )
+			return "threshold > baseline;level detect (+slope);"
+		else
+			return "threshold < baseline;level detect (-slope)"
+		endif
+		
+	endif
+
+End // NMEventSearchMenu
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventTableMenu()
+
+	if ( NMEventTableOldExists() == 1 )
+		return "Event Table;---;" + NMEventTableOldList( CurrentNMChannel() ) + "---;New;Clear;kill;"
+	else
+		return "Event Table;---;" + CurrentNMEventTableSelect() + ";---;Clear;"
+	endif
+
+End // EventTableMenu
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventButton( ctrlName ) : ButtonControl
+	String ctrlName
+	
+	String fxn = ReplaceString( "EV_", ctrlName, "" )
+	
+	EventCall( fxn, "" )
+	
+End // NMEventButton
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventButtonSearch( ctrlName ) : ButtonControl
+	String ctrlName
+	
+	String fxn = ReplaceString( "EV_", ctrlName, "" )
+	
+	EventSearchCall( fxn )
+	
+End // NMEventButtonSearch
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventButtonTable( ctrlName ) : ButtonControl
+	String ctrlName
+	
+	String fxn = ReplaceString( "EV_", ctrlName, "" )
+	
+	EventTableCall( fxn )
+	
+End // NMEventButtonTable
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventSetVariable( ctrlName, varNum, varStr, varName ) : SetVariableControl
+	String ctrlName
+	Variable varNum
+	String varStr
+	String varName
+	
+	String fxn = ReplaceString( "EV_", ctrlName, "" )
+	
+	EventCall( fxn, varStr )
+
+End // NMEventSetVariable
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventCheckBox( ctrlName, checked ) : CheckBoxControl
+	String ctrlName
+	Variable checked
+	
+	String fxn = ReplaceString( "EV_", ctrlName, "" )
+	
+	EventCall( fxn, num2istr( checked ) )
+
+End // NMEventCheckBox
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventPopupSearch( ctrlName, popNum, popStr ) : PopupMenuControl
+	String ctrlName
+	Variable popNum
+	String popStr
+	
+	String fxn = ReplaceString( "EV_", ctrlName, "" )
+	
+	Variable method = EventSearchMethodNumber( popStr )
+	
+	if ( numtype( method ) == 0 )
+		EventCall( fxn, num2str( method ) )
+	else
+		UpdateEventTab()
+	endif
+	
+End // NMEventPopupSearch
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventPopupTable( ctrlName, popNum, popStr ) : PopupMenuControl
+	String ctrlName
+	Variable popNum
+	String popStr
+
+	strswitch( popStr )
+	
+		case "Event Table":
+		case "---":
+			UpdateEventTab()
+			break
+		
+		
+		case "New":
+		case "Clear":
+		case "Kill":
+			EventTableCall( popStr )
+			break
+			
+		default:
+			NMEventTableSelectCall( popStr )
+			
+	endswitch
+	
+End // NMEventPopupTable
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+//
+//		Set Global Variables, Strings and Waves
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventCall( fxn, select )
+	String fxn, select
+	
+	Variable format, snum = str2num( select )
+	
+	strswitch( fxn )
+	
+		case "SearchMethod":
+			return EventSearchMethodCall( snum )
+	
+		case "Threshold":
+			return EventThresholdCall( snum )
+			
+		case "PosNegCheck":
+			return NMEventPositiveCall()
+	
+		case "SearchCheck":
+			return EventSearchWindowCall( snum )
+	
+		case "BaseCheck":
+			return EventBslnCall( snum )
+			
+		case "OnsetCheck":
+			return EventOnsetCall( snum )
+			
+		case "PeakCheck":
+			return EventPeakCall( snum )
+			
+		case "MatchCheck":
+			return MatchTemplateOnCall( snum )
+			
+		case "Match":
+			MatchTemplateCall( 1 )
+			EventDisplay( 1 )
+			break
+			
+		case "DsplyWin":
+			return EventDisplayWinCall( snum )
+			
+		case "DsplyTime":
+			return EventSearchTimeCall( snum )
+			
+		case "Review":
+			NMEventReviewCall( snum )
+			break
+			
+		case "AutoAdvance":
+			EventAutoAdvanceCall()
+			break
+			
+		default:
+			NMDoAlert( "EventCall: unrecognized function call: " + fxn )
+	
+	endswitch
+	
+End // EventCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventSearchMethodCall( method )
 	Variable method
 	
-	switch(method)
-		case 1:
-		case 2:
-		case 3:
-		case 4:
+	NMCmdHistory( "EventSearchMethod", NMCmdNum( method, "" ) )
+	
+	return EventSearchMethod( method )
+	
+End // EventSearchMethodCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventSearchMethod( method )
+	Variable method
+	
+	switch( method )
+		case 1: // level detect (+slope)
+		case 2: // level detect (-slope)
+		case 3: // threshold > baseline
+		case 4: //  threshold < baseline
 			break
 		default:
 			method = 3
 	endswitch
 
-	SetNMvar(EventDF()+"SearchMethod", method)
+	SetNMEventVar( "SearchMethod", method )
 	UpdateEventTab()
+	
+	return method
 	
 End // EventSearchMethod
 
@@ -1027,56 +1405,413 @@ End // EventSearchMethod
 //****************************************************************
 //****************************************************************
 
-Function EventThreshold(thresh)
-	Variable thresh
+Function /S EventSearchMethodString()
+
+	Variable searchMethod = NMEventVar( "SearchMethod" )
+
+	switch( searchMethod )
+		case 1:
+			return "level detect (+slope)"
+		case 2:
+			return "level detect (-slope)"
+		case 3:
+			return "threshold > baseline"
+		case 4:
+			return "threshold < baseline"
+		default:
+			return ""
+	endswitch
+
+End // EventSearchMethodString
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventSearchMethodNumber( methodStr )
+	String methodStr
 	
-	if (numtype(thresh) > 0)
-		thresh = 0
+	String thisfxn = "EventSearchMethodNumber"
+	
+	strswitch( methodStr )
+		case "level detect (+slope)":
+			return 1
+		case "level detect (-slope)":
+			return 2
+		case "threshold > baseline":
+			return 3
+		case "threshold < baseline":
+			return 4
+		default:
+			return NMError( 20, thisfxn, "methodStr", methodStr )
+	endswitch
+	
+End // EventSearchMethodNumber
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventThresholdCall( threshLevel )
+	Variable threshLevel
+	
+	NMCmdHistory( "EventThreshold", NMCmdNum( threshLevel, "" ) )
+	
+	return EventThreshold( threshLevel )
+	
+End // EventThresholdCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventThreshold( threshLevel )
+	Variable threshLevel // event detection threshold level
+	
+	String thisfxn = "EventThreshold"
+	
+	Variable searchMethod = NMEventVar( "SearchMethod" )
+	Variable matchFlag = NMEventVar( "MatchFlag" )
+	
+	if ( numtype( threshLevel ) > 0 )
+		return NMError( 10, thisfxn, "threshLevel", num2str( threshLevel ) )
 	endif
 	
-	SetNMvar(EventDF()+"Thrshld", thresh)
+	if ( MatchFlag == 1 )
 	
-End // EventThresh
+		switch( searchMethod )
+		
+			case 1:
+			case 2:
+				SetNMEventVar( "MatchLevel", threshLevel )
+				break
+				
+			default:
+				return NMError( 10, thisfxn, "searchMethod", num2str( searchMethod ) )
+				
+		endswitch
+
+	else
+	
+		switch( searchMethod )
+		
+			case 1:
+			case 2:
+				SetNMEventVar( "Level", threshLevel )
+				break
+				
+			case 3:
+			case 4:
+				SetNMEventVar( "Thrshld", threshLevel )
+				break
+				
+			default:
+				return NMError( 10, thisfxn, "searchMethod", num2str( searchMethod ) )
+		
+		endswitch
+	
+	endif
+	
+	return threshLevel
+	
+End // EventThreshold
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function EventWindow(on, tbgn, tend)
-	Variable on, tbgn, tend
-	
-	String df = EventDF()
-	
-	SetNMvar(df+"SearchBgn", tbgn)
-	SetNMvar(df+"SearchEnd", tend)
-	SetNMvar(df+"SearchFlag", BinaryCheck(on))
-	
-	UpdateEventTab()
+Function NMEventThresholdLevel()
 
-End // EventWindow
+	Variable v
 
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function EventBsln(on, avg, dt)
-	Variable on, avg, dt
+	Variable positive = NMEventVar( "Positive" )
+	Variable searchMethod = NMEventVar( "SearchMethod" )
+	Variable matchFlag = NMEventVar( "MatchFlag" )
 	
-	String df = EventDF()
+	String cdname = ChanDisplayWave( CurrentNMChannel() )
 	
-	switch(on)
-		default:
-			SetNMvar(df+"BaseWin", avg)
-			SetNMvar(df+"BaseDT", dt)
-			on = 1
-		case 0:
-			break
-	endswitch
+	if ( MatchFlag == 1 )
+	
+		switch( searchMethod )
+		
+			case 1:
+			case 2:
 			
-	SetNMvar(df+"BaseFlag", on)
+				v = NMEventVar( "MatchLevel" )
+				
+				if ( numtype( v )== 0 )
+					return v
+				endif
+				
+			default:
+			
+				if ( positive == 1 )
+					return 4
+				else
+					return -4
+				endif
+		
+		endswitch
+		
+	else
 	
-	EventTable("update", NumVarOrDefault(df+"TableNum", 0))
+		switch( searchMethod )
+		
+			case 1:
+			case 2:
+			
+				v = NMEventVar( "Level" )
+				
+				if ( numtype( v ) > 0 )
+				
+					WaveStats /Q $cdname
+					
+					if ( positive == 1 )
+						v = V_avg + 0.5 * abs( V_avg - V_max )
+					else
+						v = V_avg - 0.5 * abs( V_avg - V_min )
+					endif
+					
+					if ( abs( v ) > 1 )
+						v = floor( v )
+					endif
+				
+				endif
+				
+				return v
+				
+			case 3:
+			case 4:
+			
+				v = abs( NMEventVar( "Thrshld" ) )
+				
+				if ( numtype( v ) == 0 )
+					return v
+				else
+					return 10
+				endif
+		
+		endswitch
+	
+	endif
+	
+	return 10
+
+End // NMEventThresholdLevel
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventPositiveCall()
+
+	Variable on = BinaryInvert( NMEventVar( "Positive" ) )
+	
+	NMCmdHistory( "NMEventPositive", NMCmdNum( on, "" ) )
+	
+	return NMEventPositive( on )
+	
+End // NMEventPositiveCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventPositive( on )
+	Variable on // ( 0 ) search for negative events ( 1 ) search for positive events
+	
+	String thisfxn = "NMEventPositive"
+	
+	Variable searchMethod = NMEventVar( "SearchMethod" )
+	
+	on = BinaryCheck( on )
+	
+	SetNMEventVar( "Positive", on )
+	
+	switch( searchMethod )
+	
+		case 1:
+			SetNMEventVar( "SearchMethod", 2 )
+			break
+			
+		case 2:
+			SetNMEventVar( "SearchMethod", 1 )
+			break
+			
+		case 3:
+			SetNMEventVar( "SearchMethod", 4 )
+			break
+			
+		case 4:
+			SetNMEventVar( "SearchMethod", 3 )
+			break
+			
+		default:
+			return NMError( 10, thisfxn, "searchMethod", num2str( searchMethod ) )
+	
+	endswitch
+	
 	UpdateEventTab()
+	
+	return on
+	
+End // NMEventPositive
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventSearchWindowCall( on )
+	Variable on
+
+	String vlist = ""
+	String cdname = ChanDisplayWave( CurrentNMChannel() )
+	
+	Variable tbgn = NMEventVar( "SearchBgn" )
+	Variable tend = NMEventVar( "SearchEnd" )
+	
+	if ( on == 1 )
+	
+		if ( numtype( tbgn ) > 0 ) 
+			tbgn = leftx( $cdname )
+		endif
+		
+		if ( numtype( tend ) > 0 )
+			tend = rightx( $cdname )
+		endif
+		
+		Prompt tbgn, "time window begin (ms):"
+		Prompt tend, "time window end (ms):"
+		DoPrompt "Event Search or Review", tbgn, tend
+		
+		if ( V_flag == 1 )
+			UpdateEventTab()
+			return 0
+		endif
+		
+	else
+	
+		tbgn = -inf
+		tend = inf
+	
+	endif
+	
+	vlist = NMCmdNum( on, vlist )
+	vlist = NMCmdNum( tbgn, vlist )
+	vlist = NMCmdNum( tend, vlist )
+	NMCmdHistory( "EventSearchWindow", vlist )
+	
+	return EventSearchWindow( on, tbgn, tend )
+
+End // EventSearchWindowCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventSearchWindow( on, tbgn, tend )
+	Variable on // ( 0 ) off ( 1 ) on
+	Variable tbgn, tend // search time begin and end, ( -inf / inf ) for all possible time
+	
+	on = BinaryCheck( on )
+	
+	if ( numtype( tbgn ) > 0 )
+		tbgn = -inf
+	endif
+	
+	if ( numtype( tend ) > 0 )
+		tend = inf
+	endif
+	
+	SetNMEventVar( "SearchFlag", on )
+	SetNMEventVar( "SearchBgn", tbgn )
+	SetNMEventVar( "SearchEnd", tend )
+	
+	UpdateEventTab()
+	
+	return on
+
+End // EventSearchWindow
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventBslnCall( on )
+	Variable on
+	
+	Variable baseWin = Nan, baseDT = Nan
+	String vlist = ""
+	
+	Variable matchFlag = NMEventVar( "MatchFlag" )
+	Variable searchMethod = NMEventVar( "SearchMethod" )
+	
+	if ( matchFlag == 1 )
+		on = 0
+	endif
+	
+	if ( ( on == 1 ) || ( searchMethod > 2 ) )
+	
+		on = 1
+		baseWin = NMEventVar( "BaseWin" )
+		baseDT = NMEventVar( "BaseDT" )
+		
+		Prompt baseWin, "average window (ms):"
+		Prompt baseDT, "delta time (dt) between mid-baseline and threshold crossing (ms):"
+		DoPrompt "Baseline Parameters", baseWin, baseDT
+		
+		if ( V_flag == 1 )
+			on = 0
+			baseWin = Nan
+			baseDT = Nan
+		endif
+	
+	endif
+	
+	vlist = NMCmdNum( on, vlist )
+	vlist = NMCmdNum( baseWin, vlist )
+	vlist = NMCmdNum( baseDT, vlist )
+	NMCmdHistory( "EventBsln", vlist )
+	
+	return EventBsln( on, baseWin, baseDT )
+	
+End // EventBslnCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventBsln( on, baseWin, baseDT )
+	Variable on // ( 0 ) off ( 1 ) on
+	Variable baseWin // baseline average window (ms)
+	Variable baseDT // delta time between mid-baseline and threshold crossing (ms)
+	
+	String thisfxn = "EventBsln"
+	
+	on = BinaryCheck( on )
+	
+	if ( on == 1 )
+		
+		if ( ( numtype( baseWin ) == 0 ) && ( baseWin > 0 ) )
+			SetNMEventVar( "BaseWin", baseWin )
+		else
+			return NMError( 10, thisfxn, "baseWin", num2str( baseWin ) )
+		endif
+		
+		if ( ( numtype( baseDT ) == 0 ) && ( baseDT > 0 ) )
+			SetNMEventVar( "BaseDT", baseDT )
+		else
+			return NMError( 10, thisfxn, "baseDT", num2str( baseDT ) )
+		endif
+			
+	endif
+			
+	SetNMEventVar( "BaseFlag", on )
+	
+	NMEventTableManager( CurrentNMEventTableName(), "update" )
+	UpdateEventTab()
+	
+	return on
 			
 End // EventBsln
 
@@ -1084,25 +1819,86 @@ End // EventBsln
 //****************************************************************
 //****************************************************************
 
-Function EventOnset(on, avg, nSTDV, win)
-	Variable on, avg, nSTDV, win
+Function EventOnsetCall( on )
+	Variable on
 	
-	String df = EventDF()
+	Variable avgWin = Nan, nSTDV = Nan, searchLimit = Nan
+	String vlist = ""
 	
-	switch(on)
-		default:
-			SetNMvar(df+"OnsetAvg", avg)
-			SetNMvar(df+"OnsetNstdv", nSTDV)
-			SetNMvar(df+"OnsetWin", win)
-			on = 1
-		case 0:
-			break
-	endswitch
+	Variable matchFlag = NMEventVar( "MatchFlag" )
 	
-	SetNMvar(df+"OnsetFlag", on)
+	if ( ( on == 1 ) && ( matchFlag == 0 ) )
+			
+		avgWin = NMEventVar( "OnsetAvg" )
+		nSTDV = NMEventVar( "OnsetNstdv" )
+		searchLimit = NMEventVar( "OnsetWin" )
+		
+		Prompt avgWin, "sliding average window (ms):"
+		Prompt nSTDV, "define onset as number of stdv's above average:"
+		Prompt searchLimit, "search window limit (ms):"
+		DoPrompt "Onset Time Search", avgWin, nSTDV, searchLimit
+		
+		if ( V_flag == 1 )
+			on = 0
+			avgWin = Nan
+			nSTDV = Nan
+			searchLimit = Nan
+		endif
+		
+	endif
 	
-	EventTable("update", NumVarOrDefault(df+"TableNum", 0))
+	vlist = NMCmdNum( on, vlist )
+	vlist = NMCmdNum( avgWin, vlist )
+	vlist = NMCmdNum( nSTDV, vlist )
+	vlist = NMCmdNum( searchLimit, vlist )
+	NMCmdHistory( "EventOnset", vlist )
+
+	return EventOnset( on, avgWin, nSTDV, searchLimit )
+
+End // EventOnsetCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventOnset( on, avgWin, nSTDV, searchLimit )
+	Variable on // ( 0 ) off ( 1 ) on
+	Variable avgWin // sliding average window (ms)
+	Variable nSTDV// number of stdv's above average
+	Variable searchLimit // search window limit (ms)
+	
+	String thisfxn = "EventOnset"
+	
+	on = BinaryCheck( on )
+	
+	if ( on == 1 )
+		
+		if ( ( numtype( avgWin ) == 0 ) && ( avgWin > 0 ) )
+			SetNMEventVar( "OnsetAvg", avgWin )
+		else
+			return NMError( 10, thisfxn, "avgWin", num2str( avgWin ) )
+		endif
+		
+		if ( ( numtype( nSTDV ) == 0 ) && ( nSTDV > 0 ) )
+			SetNMEventVar( "OnsetNstdv", nSTDV )
+		else
+			return NMError( 10, thisfxn, "nSTDV", num2str( nSTDV ) )
+		endif
+		
+		if ( ( numtype( searchLimit ) == 0 ) && ( searchLimit > 0 ) )
+			SetNMEventVar( "OnsetWin", searchLimit )
+		else
+			return NMError( 10, thisfxn, "searchLimit", num2str( searchLimit ) )
+		endif
+			
+	endif
+	
+	SetNMEventVar( "OnsetFlag", on )
+	
+	NMEventTableManager( CurrentNMEventTableName(), "update" )
 	UpdateEventTab()
+	
+	return on
 			
 End // EventOnset
 
@@ -1110,25 +1906,84 @@ End // EventOnset
 //****************************************************************
 //****************************************************************
 
-Function EventPeak(on, avg, nSTDV, win)
-	Variable on, avg, nSTDV, win
+Function EventPeakCall( on )
+	Variable on
 	
-	String df = EventDF()
+	Variable avgWin = Nan, nSTDV = Nan, searchLimit = Nan
+	String vlist = ""
 	
-	switch(on)
-		default:
-			SetNMvar(df+"PeakAvg", avg)
-			SetNMvar(df+"PeakNstdv", nSTDV)
-			SetNMvar(df+"PeakWin", win)
-			on = 1
-		case 0:
-			break
-	endswitch
+	if ( on == 1 )
+			
+		avgWin = NMEventVar( "PeakAvg" )
+		nSTDV = NMEventVar( "PeakNstdv" )
+		searchLimit = NMEventVar( "PeakWin" )
+		
+		Prompt avgWin, "sliding average window (ms):"
+		Prompt nSTDV, "define peak as number of stdv's above average:"
+		Prompt searchLimit, "search window limit (ms):"
+		DoPrompt "Peak Time Search", avgWin, nSTDV, searchLimit
+		
+		if ( V_flag == 1 )
+			on = 0
+			avgWin = Nan
+			nSTDV = Nan
+			searchLimit = Nan
+		endif
+		
+	endif
 	
-	SetNMvar(df+"PeakFlag", on)
+	vlist = NMCmdNum( on, vlist )
+	vlist = NMCmdNum( avgWin, vlist )
+	vlist = NMCmdNum( nSTDV, vlist )
+	vlist = NMCmdNum( searchLimit, vlist )
+	NMCmdHistory( "EventPeak", vlist )
+			
+	return EventPeak( on, avgWin, nSTDV, searchLimit )
 	
-	EventTable("update", NumVarOrDefault(df+"TableNum", 0))
+End // EventPeakCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventPeak( on, avgWin, nSTDV, searchLimit )
+	Variable on // ( 0 ) off ( 1 ) on
+	Variable avgWin // sliding average window (ms)
+	Variable nSTDV // number of stdv's above average
+	Variable searchLimit // search window limit (ms)
+	
+	String thisfxn = "EventPeak"
+	
+	on = BinaryCheck( on )
+	
+	if ( on == 1 )
+			
+		if ( ( numtype( avgWin ) == 0 ) && ( avgWin > 0 ) )
+			SetNMEventVar( "PeakAvg", avgWin )
+		else
+			return NMError( 10, thisfxn, "avgWin", num2str( avgWin ) )
+		endif
+		
+		if ( ( numtype( nSTDV ) == 0 ) && ( nSTDV > 0 ) )
+			SetNMEventVar( "PeakNstdv", nSTDV )
+		else
+			return NMError( 10, thisfxn, "nSTDV", num2str( nSTDV ) )
+		endif
+		
+		if ( ( numtype( searchLimit ) == 0 ) && ( searchLimit > 0 ) )
+			SetNMEventVar( "PeakWin", searchLimit )
+		else
+			return NMError( 10, thisfxn, "searchLimit", num2str( searchLimit ) )
+		endif
+			
+	endif
+	
+	SetNMEventVar( "PeakFlag", on )
+	
+	NMEventTableManager( CurrentNMEventTableName(), "update" )
 	UpdateEventTab()
+	
+	return on
 			
 End // EventPeak
 
@@ -1136,16 +1991,31 @@ End // EventPeak
 //****************************************************************
 //****************************************************************
 
-Function EventDisplayWin(win) // display window size
+Function EventDisplayWinCall( win ) // display window size
 	Variable win
 	
-	if (numtype(win) > 0)
+	NMCmdHistory( "EventDisplayWin", NMCmdNum( win, "" ) )
+	
+	return EventDisplayWin( win )
+	
+End // EventDisplayWinCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventDisplayWin( win )
+	Variable win // display window size ( ms )
+	
+	if ( ( numtype( win ) > 0 ) || ( win <= 0 ) )
 		win = 50
 	endif
 	
-	SetNMvar(EventDF()+"DsplyWin", win)
+	SetNMEventVar( "DsplyWin", win )
 	
-	EventCursors(1)
+	EventCursors( 1 )
+	
+	return win
 	
 End // EventDisplayWin
 
@@ -1153,29 +2023,44 @@ End // EventDisplayWin
 //****************************************************************
 //****************************************************************
 
-Function EventSearchTime(t) // set current search time
+Function EventSearchTimeCall( t )
 	Variable t
 	
-	String df = EventDF()
+	NMCmdHistory( "EventSearchTime", NMCmdNum( t, "" ) )
 	
-	if (numtype(t) > 0)
-		t = leftx($ChanDisplayWave(-1))
+	return EventSearchTime( t )
+	
+End // EventSearchTimeCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventSearchTime( t ) // set current search time
+	Variable t // current time ( ms )
+	
+	if ( numtype( t ) > 0 )
+		t = leftx( $ChanDisplayWave( CurrentNMChannel() ) )
 	endif
 	
-	SetNMvar(df+"SearchTime", t)
+	SetNMEventVar( "SearchTime", t )
 	
-	SetNMvar(df+"ThreshX", t)
-	SetNMvar(df+"ThreshY", Nan)
+	SetNMEventVar( "ThreshX", t )
+	SetNMEventVar( "ThreshY", Nan )
 	
-	SetNMvar(df+"OnsetX", t)
-	SetNMvar(df+"PeakX", t)
+	SetNMEventVar( "OnsetX", t )
+	SetNMEventVar( "OnsetY", Nan )
+	SetNMEventVar( "PeakX", t )
+	SetNMEventVar( "PeakY", Nan )
 	
-	SetNMwave(df+"EV_ThisT", -1, Nan)
-	SetNMwave(df+"EV_ThisY", -1, Nan)
-	SetNMwave(df+"EV_BaseT", -1, Nan)
-	SetNMwave(df+"EV_BaseY", -1, Nan)
+	SetNMwave( NMEventDisplayWaveName( "ThisT" ), -1, Nan )
+	SetNMwave( NMEventDisplayWaveName( "ThisY" ), -1, Nan )
+	SetNMwave( NMEventDisplayWaveName( "BaseT" ), -1, Nan )
+	SetNMwave( NMEventDisplayWaveName( "BaseY" ), -1, Nan )
 	
-	EventCursors(1)
+	EventCursors( 1 )
+	
+	return t
 	
 End // EventSearchTime
 
@@ -1183,11 +2068,747 @@ End // EventSearchTime
 //****************************************************************
 //****************************************************************
 
+Function NMEventReviewCall( on )
+	Variable on
+
+	NMCmdHistory( "NMEventReview", NMCmdNum( on, "" ) )
+	
+	return NMEventReview( on )
+
+End // NMEventReviewCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventReview( on )
+	Variable on // ( 0 ) off ( 1 ) on
+	
+	on = BinaryCheck( on )
+	
+	SetNMEventVar( "ReviewFlag", on )
+	
+	UpdateEventTab()
+	
+	return on
+
+End // NMEventReview
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventAutoAdvanceCall()
+
+	Variable findNextSelect, searchSelect, reviewSelect
+	
+	Variable reviewFlag = NMEventVar( "ReviewFlag" )
+	
+	Variable findNext = NMEventVar( "FindNextAfterSaving" )
+	Variable search = NMEventVar( "SearchWaveAdvance" )
+	Variable review = NMEventVar( "ReviewWaveAdvance" )
+	
+	findNextSelect = findNext + 1
+	searchSelect = search + 1
+	reviewSelect = review + 1
+	
+	Prompt findNextSelect, "Automatically search for next event after saving?", popup "no;yes;"
+	Prompt searchSelect, "Automatically advance to next/previous wave when searching?", popup "no;yes;"
+	Prompt reviewSelect, "Automatically advance to next/previous wave when reviewing?", popup "no;yes;"
+	
+	if ( reviewFlag == 0 )
+		DoPrompt "Event Auto Advance", findNextSelect, searchSelect, reviewSelect
+	else
+		DoPrompt "Event Auto Advance", reviewSelect
+	endif
+
+	if ( V_flag == 1 )
+		UpdateEventTab()
+		return 0 // cancel
+	endif
+	
+	findNextSelect -= 1
+	searchSelect -= 1
+	reviewSelect -= 1
+	
+	if ( findNextSelect != findNext )
+		NMCmdHistory( "NMEventFindNextAfterSaving", NMCmdNum( findNextSelect, "" ) )
+		NMEventFindNextAfterSaving( findNextSelect )
+	endif
+	
+	if ( searchSelect != search )
+		NMCmdHistory( "NMEventSearchWaveAdvance", NMCmdNum( searchSelect, "" ) )
+		NMEventSearchWaveAdvance( searchSelect )
+	endif
+	
+	if ( reviewSelect != review )
+		NMCmdHistory( "NMEventReviewWaveAdvance", NMCmdNum( reviewSelect, "" ) )
+		NMEventReviewWaveAdvance( reviewSelect )
+	endif
+	
+	return 0
+	
+End // EventAutoAdvanceCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventFindNextAfterSaving( on )
+	Variable on // ( 0 ) off ( 1 ) on
+	
+	on = BinaryCheck( on )
+	
+	SetNMEventVar( "FindNextAfterSaving", on )
+	
+	UpdateEventTab()
+	
+	return on
+
+End // NMEventFindNextAfterSaving
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventSearchWaveAdvance( on )
+	Variable on // ( 0 ) off ( 1 ) on
+	
+	on = BinaryCheck( on )
+	
+	SetNMEventVar( "SearchWaveAdvance", on )
+	
+	UpdateEventTab()
+	
+	return on
+
+End // NMEventSearchWaveAdvance
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventReviewWaveAdvance( on )
+	Variable on // ( 0 ) off ( 1 ) on
+	
+	on = BinaryCheck( on )
+	
+	SetNMEventVar( "ReviewWaveAdvance", on )
+	
+	UpdateEventTab()
+	
+	return on
+
+End // NMEventReviewWaveAdvance
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+//
+//		Template Matching Functions
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function MatchTemplateOnCall( on )
+	Variable on
+	
+	NMCmdHistory( "MatchTemplateOn", NMCmdNum( on, "" ) )
+	
+	return MatchTemplateOn( on )
+	
+End // MatchTemplateOnCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function MatchTemplateOn( on )
+	Variable on // ( 0 ) off ( 1 ) on
+	
+	Variable searchMethod, level
+	
+	Variable positive = NMEventVar( "Positive" )
+	
+	if ( on == 1 )
+	
+		on = MatchTemplateSelect()
+		
+		if ( on > 0 )
+		
+			if ( positive == 1 )
+				SetNMEventVar( "SearchMethod", 1 )
+			else
+				SetNMEventVar( "SearchMethod", 2 )
+			endif
+		
+			MatchTemplateCall( 0 )
+			
+		endif
+		
+	else
+	
+		MatchTemplateKill()
+		on = 0
+		
+	endif
+	
+	SetNMEventVar( "MatchFlag", on )
+	
+	EventDisplay( 1 )
+	UpdateEventTab()
+	
+	return on
+	
+End // MatchTemplateOn
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function MatchTemplateSelect()
+
+	Variable v1, v2, v3, v4, v5, dx
+	String tname, vlist = ""
+	
+	Variable currentChan = CurrentNMChannel()
+
+	Prompt v1, "choose template:", popup "2-exp;alpha wave;your wave;"
+	DoPrompt "Template Matching Search", v1
+	
+	if ( V_flag == 1 )
+		return 0
+	endif
+	
+	v2 = NMEventVar( "MatchTau1" )
+	v3 = NMEventVar( "MatchTau2" )
+	v4 = NMEventVar( "MatchBsln" )
+	v5 = NMEventVar( "MatchWform" )
+	
+	tname = NMEventStr( "Template" )
+	
+	if ( numtype( v4 ) > 0 )
+		v4 = NMEventVar( "BaseWin" )
+	endif
+	
+	Prompt v2, "rise time (ms):"
+	Prompt v3, "decay time (ms):"
+	Prompt v4, "baseline time before waveform (ms):"
+	Prompt v5, "template waveform time (ms):"
+	
+	switch( v1 )
+	
+		case 1:
+		
+			DoPrompt "Create 2-exp Template", v2, v3, v4, v5
+			
+			if ( V_flag == 1 )
+				return 0 // cancel
+			endif
+			
+			SetNMEventVar( "MatchTau1", v2 )
+			SetNMEventVar( "MatchTau2", v3 )
+			SetNMEventVar( "MatchBsln", v4 )
+			SetNMEventVar( "MatchWform", v5 )
+			break
+		
+		case 2:
+	
+			Prompt v2, "tau (ms):"
+			DoPrompt "Create Alpha-Wave Template", v2, v4, v5
+			
+			if ( V_flag == 1 )
+				return 0 // cancel
+			endif
+			
+			v3 = 0
+			SetNMEventVar( "MatchTau1", v2 )
+			SetNMEventVar( "MatchBsln", v4 )
+			SetNMEventVar( "MatchWform", v5 )
+			break
+		
+		case 3:
+	
+			v4 = 0
+			Prompt tname, "choose your pre-defined template wave:", popup WaveList( "*", ";", "Text:0" )
+			Prompt v4, "baseline of your pre-defined template wave (ms):"
+			DoPrompt "Template Matching Search", tname, v4
+			
+			if ( V_flag == 1 )
+				return 0 // cancel
+			endif
+			
+			SetNMEventVar( "MatchBsln", v4 )
+			
+			WaveStats /Q/Z $tname
+			
+			if ( V_max > 1 )
+				NMDoAlert( "Match Template Warning: your template waveform should be normalized to one and have zero baseline." )
+			endif
+			
+			break
+		
+	endswitch
+	
+	if ( ( v1 == 1 ) || ( v1 == 2 ) )
+	
+		dx = deltax( $ChanDisplayWave( currentChan ) )
+		
+		vlist = NMCmdNum( v1, vlist )
+		vlist = NMCmdNum( v2, vlist )
+		vlist = NMCmdNum( v3, vlist )
+		vlist = NMCmdNum( v4, vlist )
+		vlist = NMCmdNum( v5, vlist )
+		vlist = NMCmdNum( dx, vlist )
+		NMCmdHistory( "MatchTemplateMake", vlist )
+		
+		tname = MatchTemplateMake( v1, v2, v3, v4, v5, dx )
+		
+	endif
+	
+	if ( strlen( tname ) > 0 )
+		SetNMEventVar( "MatchFlag", v1 )
+		SetNMEventStr( "Template", tname )
+	endif
+	
+	return v1
+
+End // MatchTemplateSelect
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S MatchTemplateMake( fxn, tau1, tau2, bslnTime, wformTime, dt )
+	Variable fxn // ( 1 ) 2-exp ( 2 ) alpha
+	Variable tau1 // first exp time constant, or alpha ( ms )
+	Variable tau2 // second exp time constant ( ms )
+	Variable bslnTime // baseline time ( ms )
+	Variable wformTime // waveform time ( ms )
+	Variable dt // time step ( ms )
+	
+	String thisfxn = "MatchTemplateMake"
+	
+	if ( ( numtype( tau1 ) > 0 ) || ( tau1 <= 0 ) )
+		return NMErrorStr( 10, thisfxn, "tau1", num2str( tau1 ) )
+	endif
+	
+	if ( ( numtype( tau2 ) > 0 ) || ( tau2 <= 0 ) )
+		return NMErrorStr( 10, thisfxn, "tau2", num2str( tau2 ) )
+	endif
+	
+	if ( ( numtype( bslnTime ) > 0 ) || ( bslnTime < 0 ) )
+		return NMErrorStr( 10, thisfxn, "bslnTime", num2str( bslnTime ) )
+	endif
+	
+	if ( ( numtype( wformTime ) > 0 ) || ( wformTime <= 0 ) )
+		return NMErrorStr( 10, thisfxn, "wformTime", num2str( wformTime ) )
+	endif
+	
+	if ( ( numtype( dt ) > 0 ) || ( dt <= 0 ) )
+		return NMErrorStr( 10, thisfxn, "dt", num2str( dt ) )
+	endif
+
+	String wName = EventDF() + "TemplateWave"
+	
+	Make /D/O/N=( ( bslnTime + wformTime ) / dt ) $wName
+	SetScale /P x, 0, dt, $wName
+	
+	Wave pulse = $wName
+	
+	if ( fxn == 2 ) // alpha
+		pulse = ( x - bslnTime )*exp( ( bslnTime - x )/tau1 )
+	else // 2-exp
+		pulse = ( 1 - exp( ( bslnTime - x )/tau1 ) ) * exp( ( ( bslnTime - x ) )/tau2 )
+	endif
+	
+	pulse[ 0, x2pnt( pulse, bslnTime ) ] = 0
+	
+	Wavestats /Q/Z pulse
+	pulse /= v_max
+	
+	NMPlotWavesOffset( "EV_Tmplate", "Event Template", "msec", "", "", wName, 0, 0, 0, 0 )
+	
+	NMHistory( "Created Template Wave " + NMQuotes( wName ) )
+
+	return wName
+
+End // MatchTemplateMake
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function MatchTemplateCall( force )
+	Variable force
+	
+	String vlist = ""
+	
+	Variable matchFlag = NMEventVar( "MatchFlag" )
+	
+	String Template = NMEventStr( "Template" )
+	
+	String wName = CurrentNMWaveName()
+	String tname = "EV_" + wName + "_matched"
+	String mtname = NMEventDisplayWaveName( "MatchTmplt" )
+	
+	if ( ( matchFlag == 0 ) || ( WaveExists( $wName ) == 0 ) )
+		return 0
+	endif
+	
+	if ( force == 0 )
+	
+		if ( WaveExists( $tname ) == 1 )
+			Duplicate /O $tname $mtname
+			return 0
+		endif
+		
+		//DoAlert 2, "Match template to " + NMQuotes( wName ) + "? ( This may take a few minutes... )"
+		
+		//if ( V_Flag != 1 )
+		//	if ( WaveExists( $mtname ) == 1 )
+		//		Wave temp = $mtname
+		//		temp = Nan
+		//	endif
+		//	return 0
+		//endif
+		
+	endif
+	
+	vlist = NMCmdStr( wName, vlist )
+	vlist = NMCmdStr( Template, vlist )
+	NMCmdHistory( "MatchTemplateCompute", vlist )
+
+	MatchTemplateCompute( wName, Template )
+	
+	Duplicate /O $mtname $tname
+
+End // MatchTemplateCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function MatchTemplateKill()
+	Variable icnt
+
+	String wName, wlist = WaveList( "*_matched",";","" )
+	
+	for ( icnt = 0; icnt < ItemsInList( wlist ); icnt += 1 )
+		wName = StringFromList( icnt, wlist )
+		KillWaves /Z $wName
+	endfor
+
+End // MatchTemplateKill
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function MatchTemplateCompute( wName, templateName ) // match template to wave
+	String wName // wave name
+	String templateName // template name
+	
+	String oName, thisfxn = "MatchTemplateCompute"
+	
+	if ( WaveExists( $wName ) == 0 )
+		return NMError( 1, thisfxn, "wName", wName )
+	endif
+	
+	if ( WaveExists( $templateName ) == 0 )
+		return NMError( 1, thisfxn, "templateName", templateName )
+	endif
+	
+	if ( deltax( $wName ) != deltax( $templateName ) )
+		return NMError( 90, thisfxn, "template wave delta-x does not match that of wave to measure", "" )
+	endif
+	
+	if ( numtype( sum( $templateName, -inf, inf ) ) > 0 )
+	
+		DoAlert 2, "Match Template Alert: template wave contains one or more non-numbers (NANs). Do you want NM to convert these to zero?"
+		
+		if ( V_flag != 1 )
+			return -1
+		endif
+		
+		NMReplaceValue( Nan, 0, templateName )
+		
+	endif
+	
+	SetNeuroMaticStr( "ProgressStr", "Matching Template..." )
+	
+	CallProgress( -1 )
+	DoUpdate
+	
+	oName = NMEventDisplayWaveName( "MatchTmplt" )
+	
+	Duplicate /O $wName $oName
+	
+	Execute /Z "MatchTemplate /C " + templateName + " " + oName
+	
+	if ( V_flag != 0 )
+	
+		Execute /Z "MatchTemplate /C " + templateName + ", " + oName // NEW FORMAT
+		
+		if ( V_flag != 0 )
+			NMError( 90, thisfxn, "MatchTemplate XOP execution error", "" )
+		endif
+		
+	endif
+	
+	CallProgress( 1 )
+	
+	if ( V_flag > 0 )
+		NMDoAlert("Match Template XOP error.")
+	endif
+	
+End // MatchTemplateCompute
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+//
+//		Event Search Functions
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventSearchCall( func )
+	String func
+	
+	Variable v1
+	
+	Variable currentWave = CurrentNMWave()
+	
+	Variable threshX = NMEventVar( "ThreshX" )
+	Variable reviewFlag = NMEventVar( "ReviewFlag" )
+	Variable FindNextAfterSaving = NMEventVar( "FindNextAfterSaving" )
+
+	strswitch( func )
+	
+		case "Next":
+		
+			if ( reviewFlag == 1 )
+				EventRetrieveNextCall()
+			else
+				EventFindNextCall()
+			endif
+			
+			break
+			
+		case "Last":
+			EventRetrieveLastCall()
+			break
+			
+		case "Save":
+			EventSaveCall()
+			break
+			
+		case "Delete":
+			EventDelete( currentWave, threshX )
+			break
+		
+		case "All":
+		case "Auto":
+			EventFindAllCall()
+			break
+			
+		case "T0":
+		case "Tzero":
+			v1 = EventSearchBgn()
+			NMCmdHistory( "EventSearchTime", NMCmdNum( v1, "" ) )
+			EventSearchTime( v1 )
+			break
+			
+		default:
+			NMError( 20, "EventSearchCall", "func", func )
+			
+	endswitch
+	
+	Dowindow /F NMPanel
+	
+End // EventSearchCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventRetrieveNextCall()
+
+	Variable next, alert, waveNum
+	
+	Variable numWaves = NMNumWaves()
+	Variable currentChan = CurrentNMChannel()
+	Variable currentWave = CurrentNMWave()
+	
+	Variable t = NMEventVar( "SearchTime" )
+	Variable auto = NMEventVar( "ReviewWaveAdvance" )
+	
+	next = EventRetrieveNext( currentWave, t )
+			
+	if ( ( auto == 1 ) && ( next < 0 ) )
+	
+		waveNum = EventRetrieveNextWaveNum( currentWave )
+		
+		if ( ( waveNum >= 0 ) && ( waveNum < numWaves ) )
+		
+			NMCurrentWaveSet( waveNum )
+			next = EventRetrieveNext( waveNum, -inf )
+			
+			if ( next < 0 )
+				alert = 1
+			endif
+			
+		else
+		
+			alert = 1
+			
+		endif
+			
+	endif
+	
+	if ( alert == 1 )
+		NMDoAlert( "There are no more saved events." )
+	endif
+	
+	return next
+				
+End // EventRetrieveNextCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventRetrieveLastCall()
+
+	variable last, alert, waveNum
+	
+	Variable numWaves = NMNumWaves()
+	Variable currentChan = CurrentNMChannel()
+	Variable currentWave = CurrentNMWave()
+	
+	Variable t = NMEventVar( "SearchTime" )
+	Variable auto = NMEventVar( "ReviewWaveAdvance" )
+	
+	last = EventRetrieveLast( currentWave, t )
+
+	if ( ( auto == 1 ) && ( last < 0 ) )
+				
+		waveNum = EventRetrieveLastWaveNum( currentWave )
+			
+		if ( ( waveNum >= 0 ) && ( waveNum < numWaves ) )
+		
+			NMCurrentWaveSet( waveNum )
+			last = EventRetrieveLast( waveNum, inf )
+			
+			if ( last < 0 )
+				alert = 1
+			endif
+			
+		else
+		
+			alert = 1
+			
+		endif
+		
+	endif
+	
+	if ( alert == 1 )
+		NMDoAlert( "There are no more saved events." )
+	endif
+
+	return last
+	
+End // EventRetrieveLastCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventFindNextCall()
+
+	Variable next, alert, waveNum
+	
+	Variable numWaves = NMNumWaves()
+	Variable currentChan = CurrentNMChannel()
+	
+	Variable auto = NMEventVar( "SearchWaveAdvance" )
+	
+	next = EventFindNext( 1 )
+
+	if ( next == -1 )
+				
+		if ( auto == 1 )
+		
+			waveNum = EventFindNextActiveWave( currentChan, CurrentNMWave() )
+			
+			if ( ( waveNum >= 0 ) && ( waveNum < numWaves ) )
+			
+				NMCurrentWaveSet( waveNum )
+				EventSearchTime( EventSearchBgn() )
+				next = EventFindNext( 1 )
+				
+				if ( next == -1 )
+					alert = 1
+				endif
+				
+			else
+			
+				alert = 1
+				
+			endif
+			
+		else
+			
+			alert = 1
+			
+		endif
+		
+	endif
+	
+	if ( alert == 1 )
+		
+		NMDoAlert( "Found no more events in " + CurrentNMWaveName() )
+		
+		waveNum = EventFindNextActiveWave( currentChan, -1 )
+		
+		if ( waveNum < 0 )
+			NMEventReviewAlert()
+		endif
+		
+	endif
+	
+	return next
+
+End // EventFindNextCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventReviewAlert()
+
+	if ( NMEventVar( "ReviewAlert" ) == 1 )
+	
+		NMDoAlert( "To review the current event detection results, click the " + NMQuotes( "review" ) + " checkbox." )
+		
+		SetNMEventVar( "ReviewAlert", 0 ) // alert once
+		
+	endif
+	
+End // NMEventReviewAlert
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function AutoEvent() // called when user changes CurrentWave
 	
-	EventSearchTime(NumVarOrDefault(EventDF()+"SearchBgn", 0))
+	EventSearchTime( NMEventVar( "SearchBgn" ) )
 	UpdateEventDisplay()
-	MatchTemplateCall(0)
+	MatchTemplateCall( 0 )
 
 End // AutoEvent
 
@@ -1197,72 +2818,71 @@ End // AutoEvent
 
 Function EventFindAllCall()
 
-	String vlist = "", df = EventDF()
+	Variable wselect = 1
+	String vlist = ""
 
-	String wlist = NMChanWaveList(-1)
-	Variable nwaves = ItemsInList(wlist)
+	String wlist = NMWaveSelectList( CurrentNMChannel() )
+	Variable nwaves = ItemsInList( wlist )
 	
-	NVAR SearchTime = $(df+"SearchTime")
-	NVAR TableNum = $(df+"TableNum")
+	Variable tableNum = NMEventTableOldNum()
 	
-	if (nwaves == 0)
-		NMDoAlert("No waves selected.")
+	if ( nwaves == 0 )
+		NMDoAlert( "No waves selected." )
 		return 0
 	endif
 
-	Variable wselect = 1 + NumVarOrDefault(df+"AutoWSelect", 1)
-	Variable tselect = NumVarOrDefault(df+"AutoTSelect", 1)
-	Variable tzero = 1+ NumVarOrDefault(df+"AutoTZero", 1)
-	Variable dsply = 1 + NumVarOrDefault(df+"AutoDsply", 1)
+	Variable tselect = NMEventVar( "AutoTSelect" )
+	Variable tzero = 1+ NMEventVar( "AutoTZero" )
+	Variable dsply = 1 + NMEventVar( "AutoDsply" )
 	
-	if (EventCount() == 0)
-		tselect = 2
-	endif
-	
-	if (nwaves == 1)
-		Prompt wselect, "auto event detection on:", popup "this wave;"
-	else
-		Prompt wselect, "auto event detection on:", popup "this wave;" + NMWaveSelectGet() + " waves;"
+	if ( EventCount() == 0 )
+		tselect = 2 // current table
 	endif
 	
 	Prompt tselect, "save events where?", popup "new table;current table;"
 	Prompt tzero, "search from time zero?", popup "no;yes;"
 	Prompt dsply, "display results while detecting?", popup "no;yes;"
 	
-	if (TableNum == -1)
-		tselect = 2
-		DoPrompt "Auto Event Detection", wselect, tzero, dsply
+	if ( tableNum == -1 )
+	
+		DoPrompt "Auto Event Detection", tzero, dsply
+		
+		if ( V_flag == 1 )
+			return 0 // cancel
+		endif
+	
 	else
-		DoPrompt "Auto Event Detection", wselect, tselect, tzero, dsply
+	
+		DoPrompt "Auto Event Detection", tselect, tzero, dsply
+		
+		if ( V_flag == 1 )
+			return 0 // cancel
+		endif
+		
+		SetNMEventVar( "AutoTSelect", tselect )
+	
 	endif
 	
-	if (V_flag == 1)
-		return 0
-	endif
-	
-	wselect -= 1
 	tzero -= 1
 	dsply -= 1
 	
-	SetNMvar(df+"AutoWSelect", wselect)
-	SetNMvar(df+"AutoTSelect", tselect)
-	SetNMvar(df+"AutoTZero", tzero)
-	SetNMvar(df+"AutoDsply", dsply)
+	SetNMEventVar( "AutoTZero", tzero )
+	SetNMEventVar( "AutoDsply", dsply )
 	
-	if (tselect == 0)
+	if ( tselect == 0 )
 		EventTableNew()
 	endif
 	
-	if (tzero == 1)
+	if ( tzero == 1 )
 		EventSearchTime( EventSearchBgn() )
 	endif
 	
-	vlist = NMCmdNum(wselect, vlist)
-	vlist = NMCmdNum(dsply, vlist)
+	vlist = NMCmdNum( wselect, vlist )
+	vlist = NMCmdNum( dsply, vlist )
 	
-	NMCmdHistory("EventFindAll", vlist)
+	NMCmdHistory( "EventFindAll", vlist )
 	
-	EventFindAll(wselect, dsply)
+	return EventFindAll( wselect, dsply )
 
 End // EventFindAllCall
 
@@ -1270,85 +2890,86 @@ End // EventFindAllCall
 //****************************************************************
 //****************************************************************
 
-Function EventFindAll(wselect, dsply) // find events until end of trace
-	Variable wselect // (0) current wave (1) all waves
-	Variable dsply // (0) no (1) yes, update display
+Function EventFindAll( wselect, dsply ) // find events until end of trace
+	Variable wselect // ( 0 ) current wave ( 1 ) all waves
+	Variable dsply // ( 0 ) no ( 1 ) yes, update display
 
 	Variable pflag, pflag2
-	String wName, setName, df = EventDF()
-	
-	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
-	
-	NVAR CurrentWave
-	
-	NVAR SearchTime = $(df+"SearchTime")
-	NVAR TableNum = $(df+"TableNum")
-	NVAR EventNum = $(df+"EventNum")
-	
-	Wave ThreshT = $(df+"EV_ThreshT")
-	Wave WavSelect
-	
 	Variable wcnt, ecnt, events
-	Variable wbgn = CurrentWave
-	Variable wend = CurrentWave
-	Variable savewave = CurrentWave
-	Variable savetime = SearchTime
+	String wName, setName
+	
+	String prefixFolder = CurrentNMPrefixFolder()
+	
+	if ( NMPrefixFolderAlert() == 0 )
+		return -1
+	endif
+	
+	if ( NMNumActiveWaves() <= 0 )
+		NMDoAlert( "No Waves Selected!" )
+		return -1
+	endif
+	
+	Variable currentChan = CurrentNMChannel()
+	Variable currentWave = CurrentNMWave()
+	
+	Variable tableNum = NMEventTableOldNum()
+	
+	Variable searchTime = NMEventVar( "SearchTime" )
+	
+	Wave ThreshT = $NMEventDisplayWaveName( "ThreshT" )
+	
+	Variable wbgn = currentWave
+	Variable wend = currentWave
+	Variable savewave = currentWave
+	Variable savetime = searchTime
+	
+	String tableName = CurrentNMEventTableName()
 
-	//Variable saveEvent = EventFindSaved(EventName("WaveN", -1), df+"EV_ThreshT", savetime, 0.01, CurrentWave)
-
-	if (TableNum < 0)
+	if ( strlen( tableName ) == 0 )
 		EventTableNew()
 	endif
 	
-	Wave waveN = $EventName("WaveN", TableNum)
-	
-	if (wselect == 1)
+	if ( wselect == 1 )
 		wbgn = 0
-		wend = numpnts(WavSelect) - 1
+		wend = NMNumWaves() - 1
 	endif
 	
-	Wave set = $EventSetName(TableNum)
-	
-	DoWindow /F $ChanGraphName(-1)
+	DoWindow /F $ChanGraphName( currentChan )
 	
 	//Print ""
-	//Print "Auto event detection for Ch " + ChanNum2Char(CurrentChan) + " saved in Table " + num2str(TableNum)
+	//Print "Auto event detection for Ch " + ChanNum2Char( chan ) + " saved in Table " + num2istr( tableNum )
 	
-	NMProgressStr("Detecting Events...")
+	SetNeuroMaticStr( "ProgressStr", "Detecting Events..." )
 
-	for (wcnt = wbgn; wcnt <= wend; wcnt += 1)
+	for ( wcnt = wbgn; wcnt <= wend; wcnt += 1 )
 	
-		if ((wselect == 0) || ((wselect == 1) && (WavSelect[wcnt] == 1)))
+		if ( ( wselect == 0 ) || ( ( wselect == 1 ) && ( NMWaveIsSelected( currentChan, wcnt ) == 1 ) ) )
 		
-			if (wselect == 1) // all waves
-				CurrentWave = wcnt
-				UpdateCurrentWave()
+			if ( wselect == 1 ) // all waves
+				currentWave = wcnt
+				NMCurrentWaveSet( wcnt )
 				UpdateEventDisplay()
 			endif
 			
 			ecnt = 0
 			
-			NMProgressStr("Detecting Events...")
-			CallProgress(-1)
+			SetNeuroMaticStr( "ProgressStr", "Detecting Events..." )
+			CallProgress( -1 )
 			
 			do
 			
-				pflag = CallProgress(-2)
+				pflag = CallProgress( -2 )
 			
-				if (pflag == 1) // cancel
+				if ( pflag == 1 ) // cancel
 					break
 				endif
 				
-				if (EventFindNext(dsply) == 0)
+				if ( EventFindNext( dsply ) == 0 )
 				
-					pflag2 = EventSaveCurrent(0)
+					pflag2 = EventSaveCurrent( 0 )
 				
-					if ( pflag2 == -3)
+					if ( pflag2 == -3 )
 						break
-					endif
-					
-					if (numtype(set[wcnt]) > 0)
-						set[wcnt] = EventNum // mark location of first event
 					endif
 					
 					ecnt += 1
@@ -1359,42 +2980,38 @@ Function EventFindAll(wselect, dsply) // find events until end of trace
 					
 				endif
 				
-			while (1)
+			while ( 1 )
 			
-			if ( pflag2 == -3)
+			if ( pflag2 == -3 )
 				break
 			endif
 			
-			Print "Located " + num2str(ecnt) + " event(s) in wave " + CurrentWaveName()
+			Print "Located " + num2istr( ecnt ) + " event(s) in wave " + CurrentNMWaveName()
 			
 		endif
 		
-		if (pflag == 1) // cancel
+		if ( pflag == 1 ) // cancel
 			break
 		endif
 	
 	endfor
 	
-	CallProgress(1)
+	CallProgress( 1 )
 	
-	if (pflag == 0)
-	
-		//if (saveEvent == -1)
-		//	EventSearchTime(savetime)
-		//else
-		//	EventRetrieve(saveEvent)
-		//endif
+	if ( pflag == 0 )
 		
-		if (CurrentWave != wbgn)
-			CurrentWave = wbgn
-			UpdateCurrentWave()
+		if ( currentWave != saveWave )
+			NMCurrentWaveSet( saveWave )
 		endif
+		
+		EventSearchTime( savetime )
 	
 	endif
 	
 	UpdateEventTab()
+	NMEventReviewAlert()
 	
-	DoWindow /F $EventTableName(tableNum)
+	DoWindow /F $tableName
 
 End // EventFindAll
 
@@ -1402,225 +3019,241 @@ End // EventFindAll
 //****************************************************************
 //****************************************************************
 
-Function EventFindNext(dsply) // find next event
-	Variable dsply // (0) no (yes) update display
+Function EventFindNext( dsply ) // find next event
+	Variable dsply // ( 0 ) no ( 1 ) yes, update display
 	
-	Variable wbgn, wend, nstdv, posneg = -1, jcnt, jlimit = 20, dxskip = 4
+	Variable wbgn, wend, nstdv, posneg = -1, jcnt, jlimit = 20, dxskip = 1
 	Variable tbgn, tend, dx, first = 1
-	String df = EventDF()
 	
-	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
-	Variable CurrentWave = NumVarOrDefault("CurrentWave", 0)
+	Variable currentChan = CurrentNMChannel()
+	Variable currentWave = CurrentNMWave()
 	
-	NVAR SearchMethod = $(df+"SearchMethod")
+	if ( NMWaveIsSelected( currentChan, currentWave ) == 0 )
+		NMDoAlert( "Event Find Next Abort: the current wave is not selected for analysis." )
+		NMWaveSelectStr()
+		return -2
+	endif
 	
-	NVAR MatchFlag = $(df+"MatchFlag")
-	NVAR MatchBsln = $(df+"MatchBsln")
-	NVAR MatchWform = $(df+"MatchWform")
+	Variable searchMethod = NMEventVar( "SearchMethod" )
+	Variable searchTime =  NMEventVar( "SearchTime" )
+	//Variable thrshld = NMEventVar( "Thrshld" )
+	Variable threshLevel = NMEventVar( "ThreshLevel" )
 	
-	NVAR OnsetFlag = $(df+"OnsetFlag")
-	NVAR OnsetNstdv = $(df+"OnsetNstdv")
-	NVAR OnsetWin = $(df+"OnsetWin")
-	NVAR OnsetAvg = $(df+"OnsetAvg")
+	Variable onsetFlag = NMEventVar( "OnsetFlag" )
+	Variable onsetNstdv = NMEventVar( "OnsetNstdv" )
+	Variable onsetWin = NMEventVar( "OnsetWin" )
+	Variable onsetAvg = NMEventVar( "OnsetAvg" )
 	
-	NVAR PeakFlag = $(df+"PeakFlag")
-	NVAR PeakNstdv = $(df+"PeakNstdv")
-	NVAR PeakWin = $(df+"PeakWin")
-	NVAR PeakAvg = $(df+"PeakAvg")
+	Variable peakFlag = NMEventVar( "PeakFlag" )
+	Variable peakNstdv = NMEventVar( "PeakNstdv" )
+	Variable peakWin = NMEventVar( "PeakWin" )
+	Variable peakAvg = NMEventVar( "PeakAvg" )
 	
-	NVAR ThreshX = $(df+"ThreshX")
-	NVAR ThreshY = $(df+"ThreshY")
-	NVAR OnsetX = $(df+"OnsetX")
-	NVAR OnsetY = $(df+"OnsetY")
-	NVAR PeakX = $(df+"PeakX")
-	NVAR PeakY = $(df+"PeakY")
+	Variable matchFlag = NMEventVar( "MatchFlag" )
+	Variable matchBsln = NMEventVar( "MatchBsln" )
 	
-	NVAR Thrshld = $(df+"Thrshld")
-	NVAR BaseWin = $(df+"BaseWin")
-	NVAR EventNum = $(df+"EventNum")
-	NVAR SearchTime = $(df+"SearchTime")
+	Variable threshX = NMEventVar( "ThreshX" )
+	Variable threshY = NMEventVar( "ThreshY" )
+	Variable onsetX = NMEventVar( "OnsetX" )
+	Variable onsetY = NMEventVar( "OnsetY" )
+	Variable peakX = NMEventVar( "PeakX" )
+	Variable peakY = NMEventVar( "PeakY" )
 	
-	Variable BaseDT = NumVarOrDefault(df+"BaseDT", BaseWin)
-	Variable BaseFlag = NumVarOrDefault(df+"BaseFlag", 0)
+	Variable baseFlag = NMEventVar( "BaseFlag" )
+	Variable baseDT = NMEventVar( "BaseDT" )
+	Variable baseWin = NMEventVar( "BaseWin" )
 	
-	Wave ThreshT = $(df+"EV_ThreshT")
-	Wave BaseT = $(df+"EV_BaseT")
-	Wave BaseY = $(df+"EV_BaseY")
-	Wave ThisT = $(df+"EV_ThisT")
-	Wave ThisY = $(df+"EV_ThisY")
+	Wave ThreshT = $NMEventDisplayWaveName( "ThreshT" )
+	Wave BaseT = $NMEventDisplayWaveName( "BaseT" )
+	Wave BaseY = $NMEventDisplayWaveName( "BaseY" )
+	Wave ThisT = $NMEventDisplayWaveName( "ThisT" )
+	Wave ThisY = $NMEventDisplayWaveName( "ThisY" )
 	
-	String wName = ChanDisplayWave(-1)
+	String wName = ChanDisplayWave( currentChan )
 	
-	if (WaveExists($wName) == 0)
-		return 0
+	if ( WaveExists( $wName ) == 0 )
+		return -2
 	endif
 	
 	Wave eWave = $wName
 	
 	String wName2 = wName
 	
-	if (MatchFlag > 0)
-		wName2 = df + "EV_MatchTmplt"
+	if ( matchFlag > 0 )
+		wName2 = NMEventDisplayWaveName( "MatchTmplt" )
 	endif
 	
-	dx = deltax($wName)
+	dx = deltax( $wName )
 	
 	BaseY = Nan
-	ThreshY = Thrshld
+	threshY = threshLevel
 	
 	tbgn = EventSearchBgn()
 	tend = EventSearchEnd()
 	
-	if (numtype(SearchTime) == 0)
-		tbgn = SearchTime
+	if ( numtype( searchTime ) == 0 )
+		tbgn = searchTime
 	endif
 	
 	do // search for next event
 	
-		if (MatchFlag > 0)
+		if ( matchFlag > 0 )
 		
-			if ((PeakFlag == 1) && (numtype(PeakX) == 0))
-				tbgn = PeakX //+ dxskip*dx
-			elseif (numtype(OnsetX) == 0)
-				tbgn = OnsetX //+ dxskip*dx
-			elseif (first == 0)
+			if ( ( peakFlag == 1 ) && ( numtype( peakX ) == 0 ) )
+				tbgn = peakX + dxskip*dx
+			elseif ( numtype( onsetX ) == 0 )
+				tbgn = onsetX + dxskip*dx
+			elseif ( first == 0 )
 				return -1
 			endif
 			
 		else
 		
-			if ((PeakFlag == 1) && (numtype(PeakX) == 0))
-				tbgn = PeakX //+ dxskip*dx
-			elseif (numtype(ThreshX) == 0) 
-				tbgn = ThreshX //+ dxskip*dx
-			elseif (first == 0)
+			if ( ( peakFlag == 1 ) && ( numtype( peakX ) == 0 ) )
+				tbgn = peakX + dxskip*dx
+			elseif ( numtype( threshX ) == 0 ) 
+				tbgn = threshX + dxskip*dx
+			elseif ( first == 0 )
 				return -1
 			endif
 			
 		endif
 	
-		switch(SearchMethod)
+		switch( searchMethod )
 		
 			case 1: // Level+
+				FindLevel /EDGE=1/Q/R=( tbgn, tend ) $wName2, threshLevel
+				threshX = V_LevelX
 				posneg = 1
-				ThreshX = FindLevelPosNeg(tbgn, tend, Thrshld, "+", wName2)
 				break
 				
 			case 2: // Level-
-				ThreshX = FindLevelPosNeg(tbgn, tend, Thrshld, "-", wName2)
+				FindLevel /EDGE=2/Q/R=( tbgn, tend ) $wName2, threshLevel
+				threshX = V_LevelX
 				break
 				
 			case 3: // thresh > base
 				posneg = 1
 				
 			case 4: // thresh < base
-				ThreshX = EventFindThresh(wName2, tbgn, tend, BaseWin/dx, BaseDT/dx, Thrshld, posneg)
+				threshX = EventFindThresh( wName2, tbgn, tend, baseWin/dx, baseDT/dx, threshLevel, posneg )
 				break
 				
 		endswitch
 		
 		first = 0
 		
-		if (numtype(ThreshX) > 0) // no event found
-			ThreshX = ThisT[0]
+		if ( numtype( threshX ) > 0 ) // no event found
+			threshX = ThisT[ 0 ]
 			return -1
 		endif
 		
 		Wave eWave2 = $wName2
 		
-		ThreshY = eWave2[x2pnt(eWave2, ThreshX)]
+		threshY = eWave2[ x2pnt( eWave2, threshX ) ]
 		
 		// find onsets and peaks
 	
-		if (MatchFlag > 0)
+		if ( matchFlag > 0 )
 		
-			WaveStats /Q/Z/R=(ThreshX, ThreshX+PeakWin) $wName2
+			WaveStats /Q/Z/R=( threshX, threshX+peakWin ) $wName2
 			
-			if (SearchMethod == 1)
-				OnsetX = V_maxloc + MatchBsln
-			elseif (SearchMethod == 2)
-				OnsetX = V_minloc + MatchBsln
+			if ( searchMethod == 1 )
+				onsetX = V_maxloc + matchBsln
+			elseif ( searchMethod == 2 )
+				onsetX = V_minloc + matchBsln
 			else
-				OnsetX = Nan
+				onsetX = Nan
 			endif
 			
-			OnsetY = eWave[x2pnt(eWave, OnsetX)]
+			onsetY = eWave[ x2pnt( eWave, onsetX ) ]
 	
-			if (PeakFlag == 1)
-				PeakX = NMFindPeak(wName, OnsetX, OnsetX+PeakWin, floor(PeakAvg/dx), PeakNstdv, posneg)
-				PeakY = eWave[x2pnt(eWave, PeakX)]
+			if ( peakFlag == 1 )
+				peakX = NMFindPeak( wName, onsetX, onsetX+peakWin, floor( peakAvg/dx ), peakNstdv, posneg )
+				peakY = eWave[ x2pnt( eWave, peakX ) ]
 			else
-				PeakX = Nan
-				PeakY = Nan
+				peakX = Nan
+				peakY = Nan
 			endif
 			
 		else
 		
-			if (OnsetFlag == 1) // search backward from ThreshX
-				OnsetX = NMFindOnset(wName, ThreshX-OnsetWin, ThreshX, floor(OnsetAvg/dx), OnsetNstdv, posneg, -1)
-				OnsetY = eWave[x2pnt(eWave, OnsetX)]
+			if ( onsetFlag == 1 ) // search backward from ThreshX
+				onsetX = NMFindOnset( wName, threshX-onsetWin, threshX, floor( onsetAvg/dx ), onsetNstdv, posneg, -1 )
+				onsetY = eWave[ x2pnt( eWave, onsetX ) ]
 			else
-				OnsetX = Nan
-				OnsetY = Nan
+				onsetX = Nan
+				onsetY = Nan
 			endif
 			
-			if (PeakFlag == 1)
-				PeakX = NMFindPeak(wName, ThreshX, ThreshX+PeakWin, floor(PeakAvg/dx), PeakNstdv, posneg)
-				PeakY = eWave[x2pnt(eWave, PeakX)]
+			if ( peakFlag == 1 )
+				peakX = NMFindPeak( wName, threshX, threshX+peakWin, floor( peakAvg/dx ), peakNstdv, posneg )
+				peakY = eWave[ x2pnt( eWave, peakX ) ]
 			else
-				PeakX = Nan
-				PeakY = Nan
+				peakX = Nan
+				peakY = Nan
 			endif
 			
 		endif
 		
-		jcnt =+ 1
+		jcnt += 1
 		
-		if (jcnt > jlimit)
-			ThreshX = Nan; PeakX = Nan; OnsetX = Nan
+		if ( jcnt > jlimit )
+			threshX = Nan
+			peakX = Nan
+			onsetX = Nan
 			break
 		endif
 		
-		if ((SearchMethod == 3) || (SearchMethod == 4)) // threshold/baseline method
-			tbgn = ThreshX - BaseDT
+		if ( ( searchMethod == 3 ) || ( searchMethod == 4 ) ) // threshold/baseline method
+			tbgn = threshX - baseDT
 		else
-			tbgn = ThreshX + dx
+			tbgn = threshX + dx
 		endif
 
-		if ((OnsetFlag == 1) && (numtype(OnsetX) > 0))
+		if ( ( onsetFlag == 1 ) && ( numtype( onsetX ) > 0 ) )
 			continue // bad event
 		endif
 		
-		if ((PeakFlag == 1) && (numtype(PeakX) > 0))
+		if ( ( peakFlag == 1 ) && ( numtype( peakX ) > 0 ) )
 			continue // bad event
 		endif
 		
 		break // found event
 	
-	while (1)
+	while ( 1 )
 	
-	if (BaseFlag == 1) // compute baseline display
-		wbgn = ThreshX - BaseDT - BaseWin/2
-		wend = ThreshX - BaseDT + BaseWin/2
-		WaveStats /Q/Z/R=(wbgn,wend) $wName
+	if ( ( searchMethod > 2 ) && ( baseFlag == 1 ) ) // compute baseline display
+	
+		wbgn = threshX - baseDT - baseWin/2
+		wend = threshX - baseDT + baseWin/2
+		
+		WaveStats /Q/Z/R=( wbgn,wend ) $wName
+		
 		BaseY = V_avg
-		BaseT[0] = wbgn
-		BaseT[1] = wend
+		BaseT[ 0 ] = wbgn
+		BaseT[ 1 ] = wend
+		
 	endif
 	
-	ThisT[0] = ThreshX
-	ThisY[0] = ThreshY
+	ThisT[ 0 ] = threshX
+	ThisY[ 0 ] = threshY
 	
-	SearchTime = ThreshX
+	SetNMEventVar( "SearchTime", threshX )
+	SetNMEventVar( "ThreshX", threshX )
+	SetNMEventVar( "ThreshY", threshY )
 	
-	EventNum = EventFindSaved(EventName("WaveN", -1), df+"EV_ThreshT", ThreshX, 0.01, CurrentWave)
+	SetNMEventVar( "OnsetX", onsetX )
+	SetNMEventVar( "OnsetY", onsetY )
+	SetNMEventVar( "PeakX", peakX )
+	SetNMEventVar( "PeakY", peakY )
 	
-	if (EventNum == -1)
-		EventNum = numpnts(ThreshT) - 1
-	endif
+	SetNMEventVar( "BaseY", BaseY[ 0 ] )
 	
-	if (dsply == 1)
-		EventCursors(1)
+	EventFindSaved( NMEventTableWaveName( "WaveN" ), NMEventDisplayWaveName( "ThreshT" ), threshX, 0.01, currentWave )
+	
+	if ( dsply == 1 )
+		EventCursors( 1 )
 	endif
 	
 	return 0 // success
@@ -1631,72 +3264,97 @@ End // EventFindNext
 //****************************************************************
 //****************************************************************
 
-Function /S EventMethod(method)
-	Variable method
+Function EventFindNextActiveWave( chanNum, currentWave )
+	Variable chanNum
+	Variable currentWave
 	
-	switch(method)
-		case 1:
-			return "Level+"
-		case 2:
-			return "Level-"
-		case 3:
-			return "thresh > bsln"
-		case 4:
-			return "thresh < bsln"
-	endswitch
+	Variable wcnt
 	
-	return ""
+	chanNum = ChanNumCheck( chanNum )
 	
-End // EventMethod
+	if ( ( numtype( currentWave ) > 0 ) || ( currentWave < 0 ) )
+		currentWave = CurrentNMWave()
+	endif
+	
+	for ( wcnt = currentWave + 1 ; wcnt < NMNumWaves() ; wcnt += 1 )
+		if ( NMWaveIsSelected( chanNum, wcnt ) == 1 )
+			return wcnt
+		endif
+	endfor
+	
+	return -1
+	
+End // EventFindNextActiveWave
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function EventFindThresh(wName, tbgn, tend, avgN, skipN, thresh, posneg) // locate threshold above baseline
+Function EventFindThresh( wName, tbgn, tend, bslnPnts, deltaPnts, thresh, posneg ) // locate threshold above baseline
 	String wName // wave name
-	Variable tbgn, tend //search window (ms)
-	Variable avgN // baseline average points
-	Variable skipN // number of points between baseline and threshold crossing point
-	Variable thresh // threshold value
-	Variable posneg // (1) pos event (-1) neg event
-	
-	if (numtype(tbgn*tend*avgN*skipN*thresh*posneg) > 0)
-		return Nan
-	endif
-	
-	if (WaveExists($wName) == 0)
-		return Nan
-	endif
+	Variable tbgn, tend // search time begin and end, ( -inf / inf ) for all possible time
+	Variable bslnPnts // baseline average points
+	Variable deltaPnts // points between mid-baseline and threshold crossing point
+	Variable thresh // threshold level value
+	Variable posneg // ( -1 ) negative events ( 1 ) positive events
 	
 	Variable icnt, ibgn, iend, level, xpnt, avg
+	String thisfxn = "EventFindThresh"
+	
+	if ( WaveExists( $wName ) == 0 )
+		NMError( 1, thisfxn, "wName", wName )
+		return Nan
+	endif
+	
+	if ( numtype( tbgn ) > 0 )
+		tbgn = -inf
+	endif
+	
+	if ( numtype( tend ) > 0 )
+		tend = inf
+	endif
+	
+	if ( ( numtype( bslnPnts ) > 0 ) || ( bslnPnts <= 0 ) )
+		NMError( 10, thisfxn, "bslnPnts", num2istr( bslnPnts ) )
+		return Nan
+	endif
+	
+	if ( ( numtype( deltaPnts ) > 0 ) || ( deltaPnts <= 0 ) )
+		NMError( 10, thisfxn, "deltaPnts", num2istr( deltaPnts ) )
+		return Nan
+	endif
+	
+	if ( numtype( thresh ) > 0 )
+		NMError( 10, thisfxn, "thresh", num2str( thresh ) )
+		return Nan
+	endif
 	
 	Wave eWave = $wName
-	Variable dx = deltax(eWave)
+	Variable dx = deltax( eWave )
 	
-	ibgn = x2pnt(eWave, tbgn)
+	ibgn = x2pnt( eWave, tbgn )
 	
-	iend = x2pnt(eWave, tend) - skipN
+	iend = x2pnt( eWave, tend ) - deltaPnts
 
-	// search forward from tbgn until right-most data point falls above (below) threshold value
+	// search forward from tbgn until right-most data point falls above ( below ) threshold value
 	
-	for (icnt = ibgn; icnt < iend; icnt+=1)
+	for ( icnt = ibgn; icnt < iend; icnt+=1 )
 	
-		if (avgN > 0)
-			WaveStats /Q/Z/R=[icnt - avgN/2, icnt + avgN/2] eWave
+		if ( bslnPnts > 0 )
+			WaveStats /Q/Z/R=[ icnt - bslnPnts/2, icnt + bslnPnts/2 ] eWave
 			avg = V_avg
 		else
-			avg = eWave[icnt]
+			avg = eWave[ icnt ]
 		endif
 		
-		level = avg + abs(thresh) * posneg
+		level = avg + abs( thresh ) * posneg
 		
-		xpnt = icnt + skipN
+		xpnt = icnt + deltaPnts
 		
-		if ((posneg > 0) && (eWave[xpnt] >= level))
-			return pnt2x(eWave, xpnt)
-		elseif ((posneg < 0) && (eWave[xpnt] <= level))
-			return pnt2x(eWave, xpnt)
+		if ( ( posneg > 0 ) && ( eWave[ xpnt ] >= level ) )
+			return pnt2x( eWave, xpnt )
+		elseif ( ( posneg < 0 ) && ( eWave[ xpnt ] <= level ) )
+			return pnt2x( eWave, xpnt )
 		endif
 		
 	endfor
@@ -1709,377 +3367,237 @@ End // EventFindThresh
 //****************************************************************
 //****************************************************************
 
-Function MatchTemplateOn(on)
-	Variable on // (0) off (1) on
+Function EventRetrieveNext( waveNum, currentTime )
+	Variable waveNum
+	Variable currentTime
 	
-	String df = EventDF()
-
-	NVAR SearchMethod = $(df+"SearchMethod")
-	NVAR Thrshld = $(df+"Thrshld")
+	Variable ecnt, t
+	String wname
 	
-	if (on == 1)
+	Variable tbgn = NMEventVar( "SearchBgn" )
+	Variable tend = NMEventVar( "SearchEnd" )
 	
-		on = MatchTemplateSelect()
-		
-		if (on > 0)
-		
-			MatchTemplateCall(0)
-			
-			SearchMethod = 1
-			Thrshld = 4
-			
-			if (WaveExists($(df+"EV_MatchTmplt")) == 1)
-			
-				WaveStats /Q/Z $(df+"EV_MatchTmplt")
-				
-				if (abs(V_min) > abs(V_max))
-					SearchMethod = 2
-					Thrshld = -4
-				endif
-				
-			elseif ((searchMethod == 2) || (searchMethod == 4))
-			
-				SearchMethod = 2
-				Thrshld = -4
-				
-			endif
-			
-		endif
-		
-	else
-	
-		MatchTemplateKill()
-		
+	if ( ( numtype( waveNum ) > 0 ) || ( waveNum < 0 ) )
+		waveNum = CurrentNMWave()
 	endif
 	
-	SetNMvar(df+"MatchFlag", on)
+	if ( ( numtype( currentTime ) > 0 ) || ( currentTime < 0 ) )
+		currentTime = NMEventVar( "ThreshX" )
+	endif
 	
-	EventDisplay(1)
-	UpdateEventTab()
+	wname = NMEventTableWaveName( "ThreshT" )
 	
-End // MatchTemplateOn
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function MatchTemplateSelect()
-	Variable v1, v2, v3, v4, v5, dx
-	String tname, vlist = "", df = EventDF()
-
-	Prompt v1, "choose template:", popup "2-exp;alpha wave;your wave;"
-	DoPrompt "Template Matching Search", v1
-	
-	if (V_flag == 1)
+	if ( WaveExists( $wname ) == 0 )
+		NMDoAlert( "No events to retrieve." )
 		return 0
 	endif
 	
-	v2 = NumVarOrDefault(df+"MatchTau1", 2)
-	v3 = NumVarOrDefault(df+"MatchTau2", 3)
-	v4 = NumVarOrDefault(df+"MatchBsln", Nan)
-	v5 = NumVarOrDefault(df+"MatchWform", 8)
+	Wave threshT = $wname
+	Wave waveN = $NMEventTableWaveName( "WaveN" )
 	
-	tname = StrVarOrDefault(df+"Template", "")
-	
-	if (numtype(v4) > 0)
-		v4 = NumVarOrDefault(df+"BaseWin", 2)
-	endif
-	
-	Prompt v2, "rise-time (ms):"
-	Prompt v3, "decay-time (ms):"
-	Prompt v4, "baseline time before waveform (ms):"
-	Prompt v5, "template waveform time (ms):"
-	
-	switch(v1)
-	
-		case 1:
+	for ( ecnt = 0 ; ecnt < numpnts( waveN ) ; ecnt += 1 )
 		
-			DoPrompt "Create 2-exp Template", v2, v3, v4, v5
-			
-			if (V_flag == 1)
-				return 0 // cancel
-			endif
-			
-			SetNMvar(df+"MatchTau1", v2)
-			SetNMvar(df+"MatchTau2", v3)
-			SetNMvar(df+"MatchBsln", v4)
-			SetNMvar(df+"MatchWform", v5)
-			break
-		
-		case 2:
-	
-			Prompt v2, "tau (ms):"
-			DoPrompt "Create Alpha-Wave Template", v2, v4, v5
-			
-			if (V_flag == 1)
-				return 0 // cancel
-			endif
-			
-			v3 = 0
-			SetNMvar(df+"MatchTau1", v2)
-			SetNMvar(df+"MatchBsln", v4)
-			SetNMvar(df+"MatchWform", v5)
-			break
-		
-		case 3:
-	
-			v4 = 0
-			Prompt tname, "choose your pre-defined template wave:", popup WaveList("*", ";", WaveListText0())
-			Prompt v4, "baseline of your pre-defined template wave (ms):"
-			DoPrompt "Template Matching Search", tname, v4
-			
-			if (V_flag == 1)
-				return 0 // cancel
-			endif
-			
-			SetNMvar(df+"MatchBsln", v4)
-			
-			WaveStats /Q/Z $tname
-			
-			if (V_max > 1)
-				NMDoAlert("Warning: your template waveform should be normalized to one and have zero baseline.")
-			endif
-			
-			break
-		
-	endswitch
-	
-	if ((v1 == 1) || (v1 == 2))
-	
-		dx = deltax($ChanDisplayWave(-1))
-		
-		vlist = NMCmdNum(v1, vlist)
-		vlist = NMCmdNum(v2, vlist)
-		vlist = NMCmdNum(v3, vlist)
-		vlist = NMCmdNum(v4, vlist)
-		vlist = NMCmdNum(v5, vlist)
-		vlist = NMCmdNum(dx, vlist)
-		NMCmdHistory("MatchTemplateMake", vlist)
-		
-		tname = MatchTemplateMake(v1, v2, v3, v4, v5, dx)
-		
-	endif
-	
-	if (strlen(tname) > 0)
-		SetNMvar(df+"MatchFlag", v1)
-		SetNMstr(df+"Template", tname)
-	endif
-	
-	return v1
-
-End // MatchTemplateSelect
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S MatchTemplateMake(fxn, tau1, tau2, base, wform, dx)
-	Variable fxn, tau1, tau2, base, wform, dx
-
-	if (numtype(tau1*tau2*base*wform*dx) > 0)
-		return "" // bad input parameters
-	endif
-
-	String wName = EventDF() + "TemplateWave"
-	
-	Make /D/O/N=((base + wform) / dx) $wName
-	SetScale /P x, 0, dx, $wName
-	
-	Wave pulse = $wName
-	
-	switch(fxn)
-		case 1: // 2-exp
-			pulse = (1 - exp((base - x)/tau1)) * exp(((base - x))/tau2)
-			break
-		case 2: // alpha wave
-			pulse = (x - base)*exp((base - x)/tau1)
-			break
-	endswitch
-	
-	pulse[0, x2pnt(pulse, base)] = 0
-	
-	Wavestats /Q/Z pulse
-	pulse /= v_max
-	
-	NMPlotWaves("EV_Tmplate", "Event Template", "msec", "", "", wName)
-	
-	NMHistory("Created Template Wave \"" + wName + "\"")
-
-	return wName
-
-End // MatchTemplateMake
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function MatchTemplateCall(force)
-	Variable force
-	
-	String vlist = "", df = EventDF()
-	
-	Variable MatchFlag = NumVarOrDefault(df+"MatchFlag", 0)
-	
-	String Template = StrVarOrDefault(df+"Template", "")
-	
-	String wName = CurrentWaveName()
-	String tname = EventPrefix(wName + "_matched")
-	String mtname = df+"EV_MatchTmplt"
-	
-	if ((MatchFlag == 0) || (WaveExists($wName) == 0))
-		return 0
-	endif
-	
-	if (force == 0)
-	
-		if (WaveExists($tname) == 1)
-			Duplicate /O $tname $mtname
-			return 0
+		if ( waveN[ ecnt ] != waveNum )
+			continue
 		endif
 		
-		//DoAlert 2, "Match template to \"" + wName + "\"? (This may take a few minutes...)"
+		t = threshT[ ecnt ]
 		
-		//if (V_Flag != 1)
-		//	if (WaveExists($mtname) == 1)
-		//		Wave temp = $mtname
-		//		temp = Nan
-		//	endif
-		//	return 0
-		//endif
-		
-	endif
+		if ( ( t > currentTime ) && ( t >= tbgn ) && ( t <= tend ) )
+			EventRetrieve( ecnt )
+			return ecnt
+		endif
 	
-	vlist = NMCmdStr(wName, vlist)
-	vlist = NMCmdStr(Template, vlist)
-	NMCmdHistory("MatchTemplateCompute", vlist)
-
-	MatchTemplateCompute(wName, Template)
-	Duplicate /O $mtname $tname
-
-End // MatchTemplateCall
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function MatchTemplateKill()
-	Variable icnt
-
-	String wName, wlist = WaveList("*_matched",";","")
-	
-	for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
-		wName = StringFromList(icnt, wlist)
-		KillWaves /Z $wName
 	endfor
-
-End // MatchTemplateKill
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function MatchTemplateCompute(wName, tName) // match template to wave
-	String wName // wave name
-	String  tName // template name
 	
-	Variable icnt
-	String oName, df = EventDF()
+	return -1
 	
-	if ((WaveExists($wName) == 0) || (WaveExists($tName) == 0))
-		return -1
+End // EventRetrieveNext
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventRetrieveLast( waveNum, currentTime )
+	Variable waveNum
+	Variable currentTime
+	
+	Variable ecnt, t
+	String wname
+	
+	Variable tbgn = NMEventVar( "SearchBgn" )
+	Variable tend = NMEventVar( "SearchEnd" )
+	
+	if ( ( numtype( waveNum ) > 0 ) || ( waveNum < 0 ) )
+		waveNum = CurrentNMWave()
 	endif
 	
-	if (deltax($wName) != deltax($tName))
-		NMDoAlert("Abort MatchTemplateCompute: template wave delta-x does not match that of wave to measure.")
-		return -1
+	if ( ( numtype( currentTime ) > 0 ) || ( currentTime < 0 ) )
+		currentTime = NMEventVar( "ThreshX" )
 	endif
 	
-	if (numtype(sum($tName, -inf, inf)) > 0)
+	wname = NMEventTableWaveName( "ThreshT" )
 	
-		DoAlert 2, "Abort MatchTemplateCompute: template wave contains one or more non-numbers. Do you want NM to convert these to zero?"
+	if ( WaveExists( $wname ) == 0 )
+		NMDoAlert( "No events to retrieve." )
+		return 0
+	endif
+	
+	Wave threshT = $wname
+	Wave waveN = $NMEventTableWaveName( "WaveN" )
+	
+	for ( ecnt = numpnts( waveN ) - 1 ; ecnt >= 0  ; ecnt -= 1 )
 		
-		if (V_flag != 1)
-			return -1
+		if ( waveN[ ecnt ] != waveNum )
+			continue
 		endif
 		
-		Wave t = $tName
+		t = threshT[ ecnt ] 
 		
-		for (icnt = 0; icnt < numpnts(t); icnt += 1)
-			if (numtype(t[icnt]) > 0)
-				t[icnt] = 0
-			endif
-		endfor
-		
+		if ( ( t < currentTime ) && ( t >= tbgn ) && ( t <= tend ) )
+			EventRetrieve( ecnt )
+			return ecnt
+		endif
+	
+	endfor
+	
+	return -1
+	
+End // EventRetrieveLast
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventRetrieveLastWaveNum( currentWave )
+	Variable currentWave
+	
+	Variable ecnt, wnum
+	String wname
+	
+	if ( ( numtype( currentWave ) > 0 ) || ( currentWave < 0 ) )
+		currentWave = CurrentNMWave()
 	endif
 	
-	SetNMStr(NMDF()+"ProgressStr", "Matching Template...")
+	wname = NMEventTableWaveName( "WaveN" )
 	
-	CallProgress(-1)
-	DoUpdate
+	if ( WaveExists( $wname ) == 0 )
+		NMDoAlert( "No events to retrieve." )
+		return 0
+	endif
 	
-	oName = df + "EV_MatchTmplt"
+	Wave waveN = $wname
 	
-	Duplicate /O $wName $oName
+	for ( ecnt = numpnts( waveN ) - 1 ; ecnt >= 0  ; ecnt -= 1 )
 	
-	Execute /Z "MatchTemplate /C " + tName + " " + oName
-	Execute /Z "MatchTemplate /C " + tName + ", " + oName // NEW FORMAT
+		wnum = waveN[ ecnt ]
 	
-	CallProgress(1)
+		if ( wnum < currentWave )
+			return wnum
+		endif
 	
-End // MatchTemplateCompute
+	endfor
+	
+	return -1
+	
+End // EventRetrieveLastWaveNum
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function EventRetrieve(event) // retrieve event times from wave
+Function EventRetrieveNextWaveNum( currentWave )
+	Variable currentWave
+	
+	Variable ecnt, wnum
+	String wname
+	
+	if ( currentWave < 0 )
+		currentWave = CurrentNMWave()
+	endif
+	
+	wname = NMEventTableWaveName( "WaveN" )
+	
+	if ( WaveExists( $wname ) == 0 )
+		NMDoAlert( "No events to retrieve." )
+		return 0
+	endif
+	
+	Wave waveN = $wname
+	
+	for ( ecnt = 0 ; ecnt < numpnts( waveN ) ; ecnt += 1 )
+	
+		wnum = waveN[ ecnt ]
+	
+		if ( wnum > currentWave )
+			return wnum
+		endif
+	
+	endfor
+	
+	return -1
+	
+End // EventRetrieveNextWaveNum
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventRetrieve( event ) // retrieve event times from wave
 	Variable event // event number
 	
-	Variable wbgn, wend
-	String df = EventDF()
+	Variable wbgn, wend, threshx
 	
-	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
-	Variable CurrentWave = NumVarOrDefault("CurrentWave", 0)
+	String wname = NMEventDisplayWaveName( "ThreshT" )
 	
-	Variable BaseFlag = NumVarOrDefault(df+"BaseFlag", 0)
-	Variable BaseWin = NumVarOrDefault(df+"BaseWin", BaseWin)
-	Variable BaseDT = NumVarOrDefault(df+"BaseDT", BaseWin)
+	if ( WaveExists( $wname ) == 0 )
+		return -1
+	endif
 	
-	NVAR EventNum = $(df+"EventNum")
-	NVAR ThreshX = $(df+"ThreshX")
-	NVAR OnsetX = $(df+"OnsetX")
-	NVAR PeakX = $(df+"PeakX")
-	NVAR SearchTime = $(df+"SearchTime")
+	Variable baseFlag = NMEventVar( "BaseFlag" )
+	Variable baseWin = NMEventVar( "BaseWin" )
+	Variable baseDT = NMEventVar( "BaseDT" )
 	
-	Wave ThreshT = $(df+"EV_ThreshT")
-	Wave ThreshY = $(df+"EV_ThreshY")
-	Wave OnsetT = $(df+"EV_OnsetT")
-	Wave PeakT = $(df+"EV_PeakT")
-	Wave ThisT = $(df+"EV_ThisT")
-	Wave ThisY = $(df+"EV_ThisY")
-	Wave BaseT = $(df+"EV_BaseT")
-	Wave BaseY = $(df+"EV_BaseY")
+	Wave ThreshT = $NMEventDisplayWaveName( "ThreshT" )
+	Wave ThreshY = $NMEventDisplayWaveName( "ThreshY" )
+	Wave OnsetT = $NMEventDisplayWaveName( "OnsetT" )
+	Wave PeakT = $NMEventDisplayWaveName( "PeakT" )
+	Wave ThisT = $NMEventDisplayWaveName( "ThisT" )
+	Wave ThisY = $NMEventDisplayWaveName( "ThisY" )
+	Wave BaseT = $NMEventDisplayWaveName( "BaseT" )
+	Wave BaseY = $NMEventDisplayWaveName( "BaseY" )
 	
-	if ((event < 0) || (event >= numpnts(ThreshT)))
+	if ( ( numtype( event ) > 0 ) || ( event < 0 ) || ( event >= numpnts( ThreshT ) ) )
 		return -1 // out of range
 	endif
 	
-	EventNum = event
-	ThreshX = ThreshT[event]; OnsetX = OnsetT[event]; PeakX = PeakT[event]
-	ThisT = ThreshT[event]; ThisY = ThreshY[event]
-	SearchTime = ThreshX
+	threshx = ThreshT[ event ]
 	
-	if (BaseFlag == 1) // compute baseline display
-		wbgn = ThreshX - BaseDT - BaseWin/2
-		wend = ThreshX - BaseDT + BaseWin/2
-		WaveStats /Q/Z/R=(wbgn,wend) $ChanDisplayWave(-1)
+	SetNMEventVar( "ThreshX", threshx )
+	SetNMEventVar( "ThreshY", Nan )
+	SetNMEventVar( "OnsetX", OnsetT[ event ] )
+	SetNMEventVar( "OnsetY", Nan )
+	SetNMEventVar( "PeakX", PeakT[ event ] )
+	SetNMEventVar( "PeakY", Nan )
+	SetNMEventVar( "SearchTime", threshx )
+	
+	ThisT = ThreshT[ event ]
+	ThisY = ThreshY[ event ]
+	
+	if ( baseFlag == 1 ) // compute baseline display
+	
+		wbgn = threshx - baseDT - baseWin/2
+		wend = threshx - baseDT + baseWin/2
+		
+		WaveStats /Q/Z/R=( wbgn,wend ) $ChanDisplayWave( -1 )
+		
 		BaseY = V_avg
-		BaseT[0] = wbgn
-		BaseT[1] = wend
+		BaseT[ 0 ] = wbgn
+		BaseT[ 1 ] = wend
+		
 	endif
 	
-	
-	EventCursors(1)
+	EventCursors( 1 )
 	
 	Return 0
 
@@ -2089,9 +3607,28 @@ End // EventRetrieve
 //****************************************************************
 //****************************************************************
 
+Function EventSaveCall()
+
+	Variable esave = EventSave()
+
+	if ( esave == 0 )
+		if ( NMEventVar( "FindNextAfterSaving" ) == 1 )
+			EventFindNextCall()
+		endif
+	endif
+
+	return esave
+
+End // EventSaveCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function EventSave()
 
-	Variable success = EventSaveCurrent(1)
+	Variable success = EventSaveCurrent( 1 )
+	
 	UpdateEventTab()
 	
 	return success
@@ -2102,111 +3639,111 @@ End // EventSave
 //****************************************************************
 //****************************************************************
 
-Function EventSaveCurrent(cursors) // save event times to table
-	Variable cursors // (0) save computed values (1) save values from cursors A, B
+Function EventSaveCurrent( cursors ) // save event times to table
+	Variable cursors // ( 0 ) save computed values ( 1 ) save values from cursors A, B
 	
-	Variable tbgn, tend
-	String df = EventDF()
+	Variable event, npnts, tolerance = 0.01
+	String wname
 	
-	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
-	Variable CurrentWave = NumVarOrDefault("CurrentWave", 0)
+	Variable currentChan = CurrentNMChannel()
+	Variable currentWave = CurrentNMWave()
 	
-	NVAR EventNum = $(df+"EventNum")
-	NVAR TableNum = $(df+"TableNum")
-	NVAR OnsetX = $(df+"OnsetX")
-	NVAR OnsetY = $(df+"OnsetY")
-	NVAR PeakX = $(df+"PeakX")
-	NVAR PeakY = $(df+"PeakY")
+	String gName = ChanGraphName( currentChan )
 	
-	if (TableNum == -1)
-		return -1 // no table exists
+	String currentTable = CurrentNMEventTableName()
+	
+	Variable tbgn = EventSearchBgn()
+	Variable tend = EventSearchEnd()
+	
+	Variable onsetX = NMEventVar( "OnsetX" )
+	Variable onsetY = NMEventVar( "OnsetY" )
+	Variable peakX = NMEventVar( "PeakX" )
+	Variable peakY = NMEventVar( "PeakY" )
+	Variable threshX = NMEventVar( "ThreshX" )
+	Variable threshY = NMEventVar( "ThreshY" )
+	Variable baseY = NMEventVar( "BaseY" )
+	
+	if ( numtype( threshX * threshY ) > 0 )
+		NMDoAlert( "No event to save." )
+		return -1
 	endif
 	
-	Wave waveN = $EventName("WaveN", -1)
-	Wave baseY = $EventName("BaseY", -1)
-	Wave thT = $EventName("ThreshT", -1)
-	Wave thY = $EventName("ThreshY", -1)
-	Wave onT = $EventName("onsetT", -1)
-	Wave onY = $EventName("onsetY", -1)
-	Wave pkT = $EventName("peakT", -1)
-	Wave pkY = $EventName("peakY", -1)
+	NMEventTableManager( currentTable, "make" )
 	
-	Wave EV_ThreshT = $(df+"EV_ThreshT")
-	Wave EV_ThreshY = $(df+"EV_ThreshY")
-	Wave EV_OnsetT = $(df+"EV_OnsetT")
-	Wave EV_OnsetY = $(df+"EV_OnsetY")
-	Wave EV_PeakT = $(df+"EV_PeakT")
-	Wave EV_PeakY = $(df+"EV_PeakY")
-	Wave EV_ThisT = $(df+"EV_ThisT")
-	Wave EV_ThisY = $(df+"EV_ThisY")
-	Wave EV_BaseY = $(df+"EV_BaseY")
+	wname = NMEventTableWaveName( "ThreshT" )
 	
-	// get cursor points from graph (allows user to move onset/peak cursors)
-	
-	String gName = ChanGraphName(-1)
-	
-	Variable onTv = OnsetX, onYv = OnsetY, pkTv = PeakX, pkYv = PeakY
-	
-	tbgn = EventSearchBgn()
-	tend = EventSearchEnd()
-	
-	if (cursors == 1)
-		onTv = xcsr(A, gName); onYv = vcsr(A, gName)
-		pkTv = xcsr(B, gName); pkYv = vcsr(B, gName)
+	if ( WaveExists( $wname ) == 0 )
+		NMDoAlert( "Event Save Abort: cannot locate current table wave: " + wname)
+		return -1
 	endif
 	
-	if ((numtype(onTv*onYv) != 0) || (onTv <= tbgn) || (onTv >= tend))
-		onTv = Nan; onYv = Nan
+	Wave wvN = $NMEventTableWaveName( "WaveN" )
+	Wave bsY = $NMEventTableWaveName( "BaseY" )
+	Wave thT = $NMEventTableWaveName( "ThreshT" )
+	Wave thY = $NMEventTableWaveName( "ThreshY" )
+	Wave onT = $NMEventTableWaveName( "onsetT" )
+	Wave onY = $NMEventTableWaveName( "onsetY" )
+	Wave pkT = $NMEventTableWaveName( "peakT" )
+	Wave pkY = $NMEventTableWaveName( "peakY" )
+	
+	if ( cursors == 1 ) // get cursor points from graph ( allows user to move onset/peak cursors )
+		onsetX = xcsr( A, gName )
+		onsetY = vcsr( A, gName )
+		peakX = xcsr( B, gName )
+		peakY = vcsr( B, gName )
 	endif
 	
-	if ((numtype(pkTv*pkYv) != 0) || (pkTv <= tbgn) || (pkTv >= tend))
-		pkTv = Nan; pkYv = Nan
+	if ( ( numtype( onsetX*onsetY ) > 0 ) || ( onsetX <= tbgn ) || ( onsetX >= tend ) )
+		onsetX = Nan
+		onsetY = Nan
+	endif
+	
+	if ( ( numtype( peakX*peakY ) > 0 ) || ( peakX <= tbgn ) || ( peakX >= tend ) )
+		peakX = Nan
+		peakY = Nan
 	endif
 
-	Variable event = EventFindSaved(EventName("WaveN", -1), df+"EV_ThreshT", EV_ThisT[0], 0.01, CurrentWave)
+	event = EventFindSaved( NMEventTableWaveName( "WaveN" ), wname, threshX, tolerance, currentWave )
 
-	if (event != -1)
+	if ( event != -1 )
 	
-		DoAlert 2, "alert: a similar event already exists. Do you want to replace it?"
+		DoAlert 2, "Alert: a similar event already exists. Do you want to replace it?"
 		
-		if (V_flag == 1)
-			EventDelete(event)
-		elseif (V_flag == 3)
+		if ( V_flag == 1 )
+			DeletePoints event, 1, wvN, thT, thY, onT, onY, pkT, pkY, bsY
+		else
 			return -3 // cancel
 		endif
 		
 	endif
 	 
-	Variable npnts1 = numpnts(thT)
+	npnts = numpnts( thT )
 
-	Redimension /N=(npnts1+1) waveN, thT, thY, onT, onY, pkT, pkY, baseY
-	Redimension /N=(npnts1+1) EV_ThreshT, EV_ThreshY, EV_OnsetT, EV_OnsetY, EV_PeakT, EV_PeakY
+	Redimension /N=( npnts+1 ) wvN, thT, thY, onT, onY, pkT, pkY, bsY
 	
-	waveN[npnts1] = CurrentWave
-	thT[npnts1] = EV_ThisT[0]; thY[npnts1] = EV_ThisY[0]
-	onT[npnts1] = onTv; onY[npnts1] = onYv
-	pkT[npnts1] = pkTv; pkY[npnts1] = pkYv
-	baseY[npnts1] = EV_BaseY[0]
+	wvN[ npnts ] = currentWave
+	thT[ npnts ] = threshX
+	thY[ npnts ] = threshY
+	onT[ npnts ] = onsetX
+	onY[ npnts ] = onsetY
+	pkT[ npnts ] = peakX
+	pkY[ npnts ] = peakY
+	bsY[ npnts ] = baseY
 	
-	EV_ThreshT[npnts1] = EV_ThisT[0]; EV_ThreshY[npnts1] = EV_ThisY[0]
-	EV_OnsetT[npnts1] = onTv; EV_OnsetY[npnts1] = onYv
-	EV_PeakT[npnts1] = pkTv; EV_PeakY[npnts1] = pkYv
-	
-	// sort waves according to thT
-	
-	Sort EV_ThreshT, EV_ThreshT, EV_ThreshY, EV_OnsetT, EV_OnsetY, EV_PeakT, EV_PeakY
-	Sort {WaveN, thT}, waveN, thT, thY, onT, onY, pkT, pkY, baseY
-	
-	// remove NANs if they exist
+	Sort { wvN, thT }, wvN, thT, thY, onT, onY, pkT, pkY, bsY
 	
 	WaveStats /Q/Z thT
-	npnts1 = V_npnts
 	
-	Redimension /N=(npnts1) waveN, thT, thY, onT, onY, pkT, pkY, baseY
-	Redimension /N=(npnts1) EV_ThreshT, EV_ThreshY, EV_OnsetT, EV_OnsetY, EV_PeakT, EV_PeakY
+	if ( ( V_numNans > 0 ) && ( V_npnts != numpnts( wvN ) ) )
+		Redimension /N=( V_npnts ) wvN, thT, thY, onT, onY, pkT, pkY, bsY // remove NANs if they exist
+	endif
 	
-	EventNum = EventFindSaved(EventName("WaveN", -1), df+"EV_ThreshT", EV_ThisT[0], 0.01, CurrentWave)
+	SetNMEventVar( "ThreshY", Nan ) // Null existing event
+	SetNMEventVar( "OnsetY", Nan )
+	SetNMEventVar( "PeakY", Nan )
+	SetNMEventVar( "BaseY", Nan )
 	
+	UpdateEventDisplay()
 	EventCount()
 	
 	return 0
@@ -2217,26 +3754,38 @@ End // EventSaveCurrent
 //****************************************************************
 //****************************************************************
 
-Function EventFindSaved(nwName, ewName, event, twin, rcrdN) // locate saved event time
+Function EventFindSaved( nwName, ewName, eventTime, tolerance, waveNum ) // locate saved event time
 	String nwName // wave of record numbers
 	String ewName // wave of event times
-	Variable event // event time (ms)
-	Variable twin // tolerance window
-	Variable rcrdN // record number
+	Variable eventTime // ms
+	Variable tolerance // tolerance window
+	Variable waveNum // record number
 	
-	Variable icnt
+	Variable ecnt
 	
-	if ((WaveExists($nwName) == 0) || (WaveExists($ewName) == 0))
+	if ( WaveExists( $nwName ) == 0 )
+		//NMDoAlert( "EventFindSaved Abort: cannot locate wave " + nwName )
+		return -1
+	endif
+	
+	if ( WaveExists( $ewName ) == 0 )
+		//NMDoAlert( "EventFindSaved Abort: cannot locate wave " + ewName )
 		return -1
 	endif
 	
 	Wave waveN = $nwName
 	Wave waveE = $ewName
 	
-	for (icnt = 0; icnt < numpnts(waveE); icnt += 1)
-		if ((waveE[icnt] > event - twin) && (waveE[icnt] < event + twin) && (waveN[icnt] == rcrdN))
-			return icnt
+	for ( ecnt = 0 ; ecnt < numpnts( waveE ) ; ecnt += 1 )
+	
+		if ( waveN[ ecnt ] != waveNum )
+			continue
 		endif
+		
+		if ( ( waveE[ ecnt ] > eventTime - tolerance ) && ( waveE[ ecnt ] < eventTime + tolerance )  )
+			return ecnt
+		endif
+		
 	endfor
 
 	return -1
@@ -2247,52 +3796,39 @@ End // EventFindSaved
 //****************************************************************
 //****************************************************************
 
-Function EventDelete(event) // delete saved event from table/display waves
-	Variable event // event number
+Function EventDelete( waveNum, eventTime ) // delete saved event from table/display waves
+	Variable waveNum
+	Variable eventTime
 	
-	String df = EventDF()
+	Variable event
 	
-	Variable CurrentWave = NumVarOrDefault("CurrentWave", 0)
-	
-	Variable tableNum = NumVarOrDefault(df+"TableNum", -1)
+	if ( WaveExists( $NMEventTableWaveName( "ThreshY" ) ) == 0 )
+		return -1
+	endif
 	 
-	 if (TableNum == -1)
-	 	return -1 // no table exists
-	 endif
-	 
-	Wave waveN = $EventName("WaveN", -1)
+	Wave wvN = $NMEventTableWaveName( "WaveN" )
+	Wave thT = $NMEventTableWaveName( "ThreshT" )
+	Wave thY = $NMEventTableWaveName( "ThreshY" )
+	Wave onT = $NMEventTableWaveName( "onsetT" )
+	Wave onY = $NMEventTableWaveName( "onsetY" )
+	Wave pkT = $NMEventTableWaveName( "peakT" )
+	Wave pkY = $NMEventTableWaveName( "peakY" )
+	Wave bsY = $NMEventTableWaveName( "BaseY" )
 	
-	Wave thT = $EventName("ThreshT", -1); Wave thY = $EventName("ThreshY", -1)
-	Wave onT = $EventName("onsetT", -1); Wave onY = $EventName("onsetY", -1)
-	Wave pkT = $EventName("peakT", -1); Wave pkY = $EventName("peakY", -1)
-	Wave baseY = $EventName("BaseY", -1)
+	event = EventFindSaved( NMEventTableWaveName( "WaveN" ), NMEventTableWaveName( "ThreshT" ), eventTime, 0.01, waveNum )
 	
-	Wave ThreshT = $(df+"EV_ThreshT"); Wave ThreshY = $(df+"EV_ThreshY")
-	Wave OnsetT = $(df+"EV_OnsetT"); Wave OnsetY = $(df+"EV_OnsetY")
-	Wave PeakT = $(df+"EV_PeakT"); Wave PeakY = $(df+"EV_PeakY")
+	if ( event == -1 )
+		NMDoAlert( "Delete Alert: no event exists with threshold time " + num2str( eventTime ) + " ms." )
+		return 0 // event does not exist
+	endif
 	
-	if ((event < 0) || (event >= numpnts(ThreshT)))
+	if ( ( numtype( event ) > 0 ) || ( event < 0 ) || ( event >= numpnts( wvN ) ) )
 		return -1
 	endif
 	
-	Variable event2 = EventFindSaved(EventName("WaveN", -1), df+"EV_ThreshT", ThreshT[event], 0.01, CurrentWave)
+	DeletePoints event, 1, wvN, thT, thY, onT, onY, pkT, pkY, bsY
 	
-	DeletePoints event, 1, ThreshT, ThreshY, OnsetT, OnsetY, PeakT, PeakY
-	
-	if (event2 == -1)
-		return -1
-	endif
-	
-	//DeletePoints event2, 1, waveN, thT, thY, onT, onY, pkT, pkY, baseY
-	waveN[event2] = Nan
-	thT[event2] = Nan
-	thY[event2] = Nan
-	onT[event2] = Nan
-	onY[event2] = Nan
-	pkT[event2] = Nan
-	pkY[event2] = Nan
-	baseY[event2] = Nan
-	
+	UpdateEventDisplay()
 	EventCount()
 	
 	return 0
@@ -2302,55 +3838,176 @@ End // EventDelete
 //****************************************************************
 //****************************************************************
 //****************************************************************
+//
+//		Event Subfolder Functions
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
 
-Function EventTableCall(fxn)
+Function /S NMEventSubfolderPrefix()
+
+	return "Event_"
+
+End //NMEventSubfolderPrefix
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventSubfolder( wavePrefix, waveSelect )
+	String wavePrefix
+	String waveSelect
+	
+	if ( NMEventVar( "UseSubfolders" ) == 0 )
+		return ""
+	endif
+	
+	return NMSubfolder( NMEventSubfolderPrefix(), wavePrefix, CurrentNMChannel(), waveSelect )
+
+End // NMEventSubfolder
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S CurrentNMEventSubfolder()
+
+	return NMEventSubfolder( CurrentNMWavePrefix(), NMWaveSelectShort() )
+	
+End // CurrentNMEventSubfolder
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function CheckNMEventSubfolder()
+	
+	String subfolder = CurrentNMEventSubfolder()
+	
+	if ( strlen( subfolder ) > 0 )
+		return CheckNMSubfolder( subfolder )
+	else
+		return 0
+	endif
+	
+End // CheckNMEventSubfolder
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventSubfolderList( folder, fullPath, restrictToCurrentPrefix )
+	String folder
+	Variable fullPath // ( 0 ) no ( 1 ) yes
+	Variable restrictToCurrentPrefix
+	
+	Variable icnt
+	String folderName, tempList = ""
+	
+	String currentPrefix = CurrentNMWavePrefix()
+	
+	String folderList = NMSubfolderList( NMEventSubfolderPrefix(), folder, fullPath )
+	
+	if ( restrictToCurrentPrefix == 1 )
+		
+		for ( icnt = 0 ; icnt < ItemsInList( folderList ) ; icnt += 1 )
+			
+			folderName = StringFromList( icnt, folderList )
+			
+			if ( strsearch( folderName, currentPrefix, 0, 2 ) > 0 )
+				tempList = AddListItem( folderName, tempList, ";", inf )
+			endif
+			
+		endfor
+		
+		folderList = tempList
+	
+	endif
+	
+	return folderList
+
+End // NMEventSubfolderList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventSubfolderWaveName( subfolder, type )
+	String subfolder
+	String type // e.g. "ThreshT" or "OnsetY"
+	
+	Variable icnt
+	String wname
+
+	String wList = NMFolderWaveList( subfolder, "*", ";", "", 1 )
+	
+	for ( icnt = 0 ; icnt < ItemsInList( wList ) ; icnt += 1 )
+	
+		wname = StringFromList( icnt, wList )
+		
+		if ( strsearch( wname, type, 0 ) > 0 )
+			return wname
+		endif
+	
+	endfor
+	
+	return ""
+	
+End // NMEventSubfolderWaveName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventSubfolderTableName( subfolder )
+	String subfolder
+	
+	if ( strlen( subfolder ) == 0 )
+		subfolder = CurrentNMEventSubfolder()
+	endif
+	
+	return NMSubfolderTableName( subfolder, "EV_" )
+	
+End // NMEventSubfolderTableName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+//
+//		Event Table Functions
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function EventTableCall( fxn )
 	String fxn
 	
-	String df = EventDF()
-	String tlist = EventTableNumList(-1)
-	
-	Variable tnum = NumVarOrDefault(df+"TableNum", -1)
-	
-	String tname = EventTableName(tnum)
+	String tableSelect = StrVarOrDefault( "EventTableSelected", "" )
+	String tableName = CurrentNMEventTableName()
 
-	strswitch(fxn)
+	strswitch( fxn )
 	
-		case "New":
-			NMCmdHistory("EventTableNew", "")
-			EventTableNew()
-			break
-			
-		case "Clear":
-		
-			if (ItemsInList(tlist) == 0)
-				NMDoAlert("No event tables to clear.")
-				break
-			endif
-			
-			DoAlert 1, "Are you sure you want to clear " + tname + "?"
-			
-			if (V_flag == 1)
-				NMCmdHistory("EventTableClear", NMCmdNum(tnum,""))
-				EventTableClear(tnum)
-			endif
-			
+		case "New": // for old table formats only
+			EventTableNewCall()
 			return 0
 			
+		case "Clear":
+			return NMEventTableClearCall()
+			
 		case "Kill":
-		
-			if (ItemsInList(tlist) == 0)
-				NMDoAlert("No event tables to kill.")
-				break
-			endif
+			return NMEventTableKillCall()
 			
-			DoAlert 1, "Are you sure you want to kill " + tname + "?"
+		case "E2W":
+		case "Events2Waves":
+			return Event2WaveCall()
 			
-			if (V_flag == 1)
-				NMCmdHistory("EventTableKill", NMCmdNum(tnum,""))
-				EventTableKill(tnum)
-			endif
+		case "Histo":
+			return EventHistoCall()
 			
-			break
+		default:
+			NMDoAlert( "EventTableCall Error: unrecognized function call: " + fxn )
 		
 	endswitch
 	
@@ -2361,22 +4018,12 @@ End // EventTableCall
 //****************************************************************
 
 Function /S EventTableList()
-	Variable icnt, ipnt
 	
-	String wName, tList = ""
-	String wList = WaveList(EventPrefix("ThreshY_*"), ";", WaveListText0())
-	
-	if (ItemsInList(wList) == 0)
-		return ""
+	if ( NMEventTableOldExists() == 1 )
+		return NMEventTableOldList( CurrentNMChannel() )
+	else
+		return NMEventSubfolderList( "", 0, 0 )
 	endif
-	
-	for (icnt = 0; icnt < ItemsInList(wList); icnt += 1)
-		wName = StringFromList(icnt, wList)
-		ipnt = strsearch(wName, "ThreshY_", 0)
-		tList = AddListItem("Event Table "+wName[ipnt+8, strlen(wName)], tList, ";", inf)
-	endfor
-	
-	return tList
 
 End // EventTableList
 
@@ -2384,105 +4031,240 @@ End // EventTableList
 //****************************************************************
 //****************************************************************
 
-Function /S EventTableNumList(chanNum)
-	Variable chanNum
+Function /S CheckNMEventTableSelect()
+
+	String tableList, tableSelect
 	
-	Variable icnt, ipnt
-	
-	if (chanNum < 0)
-		chanNum = NumVarOrDefault("CurrentChan", 0)
+	if ( NMEventTableOldExists() == 0 )
+		return CurrentNMEventTableSelect()
 	endif
 	
-	String wName, tList = ""
-	String wList = WaveList(EventPrefix("ThreshY_" + ChanNum2Char(chanNum) + "*"), ";", WaveListText0())
+	tableSelect = StrVarOrDefault( "EventTableSelected", "" )
 	
-	if (ItemsInList(wList) == 0)
-		return ""
+	if ( strlen( tableSelect ) > 0 )
+		return tableSelect
 	endif
 	
-	for (icnt = 0; icnt < ItemsInList(wList); icnt += 1)
-		wName = StringFromList(icnt, wList)
-		ipnt = strsearch(wName, "ThreshY_", 0)
-		tList = AddListItem(wName[ipnt+9, strlen(wName)], tList, ";", inf)
-	endfor
+	tableList = NMEventTableOldList( CurrentNMChannel() )
+		
+	if ( ItemsInList( tableList ) == 1 )
 	
-	return tList
-
-End // EventTableNumList
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function EventTableNew()
-	Variable tnum
+		tableSelect = StringFromList( 0, tableList )
+		
+		SetNMstr( "EventTableSelected", tableSelect )
+		
+		return tableSelect
 	
-	String df = EventDF()
-	String tlist = EventTableNumList(-1)
+	elseif ( ItemsInList( tableList ) > 1 )
 
-	if (ItemsInList(tlist) == 0)
-		tnum = 0
+		Prompt tableSelect, "please choose current Event table:" popup tableList
+		DoPrompt "Current Event Table", tableSelect
+		
+		if ( V_flag == 1 )
+			return ""
+		endif
+		
+		SetNMstr( "EventTableSelected", tableSelect )
+		
+		return tableSelect
+	
+	endif
+	
+	return ""
+
+End // CheckNMEventTableSelect
+
+///****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventTableSelectCall( tableSelect )
+	String tableSelect
+	
+	NMCmdHistory( "NMEventTableSelect", NMCmdStr( tableSelect, "" ) )
+	
+	return NMEventTableSelect( tableSelect )
+
+End // NMEventTableSelectCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventTableSelect( tableSelect )
+	String tableSelect
+	
+	Variable tableNum
+	String tableName
+	
+	Variable currentChan = CurrentNMChannel()
+	
+	SetNMstr( "EventTableSelected", tableSelect )
+	
+	if ( NMEventTableOldFormat( tableSelect ) == 1 )
+		
+		tableNum = EventNumFromName( tableSelect )
+		tableName = NMEventTableOldName( currentChan, tableNum )
+		
 	else
-		tnum = 1 + str2num(StringFromList(ItemsInList(tlist)-1, tlist))
+	
+		tableName = CurrentNMEventTableName()
+		
 	endif
 	
-	SetNMvar(df+"TableNum", tnum)
-	EventTable("make", tnum)
+	if ( strlen( tableName ) > 0 )
+		NMEventTableManager( tableName, "make" )
+		DoWindow /F $tableName
+	endif
+	
 	EventCount()
 	UpdateEventDisplay()
 	UpdateEventTab()
-
-End // EventTableNew
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function EventTableClear(tnum)
-	Variable tnum // table num or (-1) for TableNum
 	
-	if (tnum < 0)
-		tnum = NumVarOrDefault(EventDF() + "TableNum", -1)
+	return tableName
+	
+End // NMEventTableSelect
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S CurrentNMEventTableSelect()
+	
+	if ( NMEventTableOldExists() == 1 )
+		return NMEventTableOldSelect( CurrentNMChannel(), NMEventTableOldNum() )
+	else
+		return ParseFilePath(0, CurrentNMEventSubfolder(), ":", 1, 0)
+	endif
+
+End // CurrentNMEventTableSelect
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S CurrentNMEventTableName()
+
+	Variable tableNum
+	String tableName = NMEventSubfolderTableName( "" )
+	
+	Variable currentChan = CurrentNMChannel()
+	
+	String tableSelect = StrVarOrDefault( "EventTableSelected", "" )
+	
+	if ( NMEventTableOldFormat( tableSelect ) == 1 )
+		
+		tableNum = EventNumFromName( tableSelect )
+	
+		if ( tableNum >= 0 )
+			tableName = NMEventTableOldName( currentChan, tableNum )
+		endif
+	
 	endif
 	
-	String tname = EventTableName(tnum)
+	return tableName
 
-	EventTable("clear", tnum)
+End // CurrentNMEventTableName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventTableClearCall()
+
+	String tableSelect = StrVarOrDefault( "EventTableSelected", "" )
+	String tableName = CurrentNMEventTableName()
+
+	if ( strlen( tableName ) == 0 )
+		NMDoAlert( "No event table to clear." )
+		return -1
+	endif
+	
+	DoAlert 1, "Are you sure you want to clear table " + NMQuotes( tableSelect ) + "?"
+	
+	if ( V_flag != 1 )
+		return -1
+	endif
+	
+	NMCmdHistory( "NMEventTableClear", NMCmdStr( tableName, "" ) )
+	
+	return NMEventTableClear( tableName )
+
+End // NMEventTableClearCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventTableClear( tableName )
+	String tableName
+	
+	if ( strlen( tableName ) == 0 )
+		tableName = CurrentNMEventTableName()
+	endif
+
+	NMEventTableManager( tableName, "clear" )
 	EventCount()
 	UpdateEventDisplay()
 	UpdateEventTab()
 	
 	return 0
 
-End // EventTableClear
+End // NMEventTableClear
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function EventTableKill(tnum)
-	Variable tnum // table num or (-1) for TableNum
+Function NMEventTableKillCall()
+
+	String tableSelect = StrVarOrDefault( "EventTableSelected", "" )
+	String tableName = CurrentNMEventTableName()
+
+	if ( strlen( tableName ) == 0 )
+		NMDoAlert( "No event table to kill." )
+		return -1
+	endif
+	
+	DoAlert 1, "Are you sure you want to kill table " + NMQuotes( tableSelect ) + "?"
+	
+	if ( V_flag != 1 )
+		return -1
+	endif
+	
+	NMCmdHistory( "NMEventTableKill", NMCmdStr( tableName,"" ) )
+	
+	return NMEventTableKill( tableName )
+			
+End // NMEventTableKillCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventTableKill( tableName )
+	String tableName
 	
 	Variable items
-	String tlist, df = EventDF()
+	String tableList
 	
-	if (tnum < 0)
-		tnum = NumVarOrDefault(df+"TableNum", -1)
+	if ( strlen( tableName ) == 0 )
+		tableName = CurrentNMEventTableName()
 	endif
 	
-	EventTable("kill", tnum)
+	NMEventTableManager( tableName, "kill" )
 	
-	tlist = EventTableNumList(-1)
+	tableList = EventTableList()
 	
-	items = ItemsInList(tlist)
+	items = ItemsInList( tableList )
 	
-	if (items > 0)
-		tnum = str2num(StringFromList(items-1, tlist))
+	if ( items > 0 )
+		tableName = StringFromList( items-1, tableList )
 	else
-		tnum = -1
+		tableName = ""
 	endif
 	
-	SetNMvar(df+"TableNum", tnum)
+	SetNMstr( "EventTableSelected", tableName )
 	
 	EventCount()
 	UpdateEventDisplay()
@@ -2490,277 +4272,286 @@ Function EventTableKill(tnum)
 	
 	return 0
 	
-End // EventTableKill
+End // NMEventTableKill
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function EventTableSelect(tnum)
-	Variable tnum
+Function NMEventTableManager( tableName, option )
+	String tableName
+	String option // "make" or "update" or "clear" or "kill"
 	
-	if ((numtype(tnum) > 0) || (tnum < 0))
-		return -1
-	endif
-
-	SetNMvar(EventDF()+"TableNum", tnum)
-	EventTable("make", tnum)
-	UpdateEventTab()
+	String thisfxn = "NMEventTableManager"
 	
-	return 0
-	
-End // EventTableSelect
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S EventTableName(tableNum)
-	Variable tableNum
-	
-	if (tableNum < 0)
-		tableNum = NumVarOrDefault(EventDF()+"TableNum", -1)
+	if ( NMEventTableOldExists() == 0 )
+		CheckNMEventSubfolder()
 	endif
 	
-	return EventName(NMFolderListName("")+"_Table", tableNum)
-
-End // EventTableName
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S EventTableTitle(tableNum)
-	Variable tableNum
-
-	if (tableNum < 0)
-		tableNum = NumVarOrDefault(EventDF()+"TableNum", -1)
-	endif
-
-	return "Event Table " + ChanNum2Char(NumVarOrDefault("CurrentChan", 0)) + num2str(tableNum)
-
-End // EventTableTitle
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function EventTable(option, tableNum) // create table of event times
-	String option // "make", "update", "clear" or "kill"
-	Variable tableNum // table number
+	SetNMstr( "EventTableSelected", CurrentNMEventTableSelect() )
 	
-	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
-	Variable NumWaves = NumVarOrDefault("NumWaves", 0)
-	
-	String df = EventDF()
-	
-	if (tableNum == -1)
-		tableNum = 0
-	endif
-	
-	String suffix = ChanNum2Char(CurrentChan) + num2str(tableNum)
-	String tName = EventTableName(tableNum)
-	
-	Variable error = EventSet(option, tableNum)
-	
-	if (error < 0)
-		return -1
-	endif
-	
-	strswitch(option)
+	strswitch( option )
 	
 		case "make":
 		
-			if (WinType(tName) == 2)
-				//DoWindow /F $tName
+			if ( WinType( tableName ) == 2 )
+				//DoWindow /F $tableName
 				return 0 // table already exists
 			endif
 			
 			Make /O/N=0 EV_DumWave
-			DoWindow /K $tName
-			Edit /K=1/N=$tName/W=(0,0,0,0) EV_DumWave as EventTableTitle(tableNum)
-			Execute "ModifyTable title(Point)= \"Event\""
-			RemoveFromTable EV_DumWave
+			DoWindow /K $tableName
+			Edit /K=1/N=$tableName/W=( 0,0,0,0 ) EV_DumWave as NMEventTableTitle()
+			ModifyTable /W=$tableName title( Point )="Event"
+			RemoveFromTable /W=$tableName EV_DumWave
 			KillWaves /Z EV_DumWave
 			
-			SetCascadeXY(tName)
+			SetCascadeXY( tableName )
 			
 			break
 			
+		case "update":
 		case "clear":
-			DoWindow /F $tName
+			DoWindow /F $tableName
 			break
 			
 		case "kill":
-			DoWindow /K $tName
+			DoWindow /K $tableName
 			break
+			
+		default:
+			return NMError( 20, thisfxn, "option", option )
 	
 	endswitch 
 	
-	EventTableWave(option, "WaveN", tableNum, tName)
-	EventTableWave(option, "ThreshT", tableNum, tName)
-	EventTableWave(option, "ThreshY", tableNum, tName)
-	EventTableWave(option, "OnsetT", tableNum, tName)
-	EventTableWave(option, "OnsetY", tableNum, tName)
-	EventTableWave(option, "PeakT", tableNum, tName)
-	EventTableWave(option, "PeakY", tableNum, tName)
-	EventTableWave(option, "BaseY", tableNum, tName)
+	NMEventTableWaveManager( option, "WaveN", tableName )
+	NMEventTableWaveManager( option, "ThreshT", tableName )
+	NMEventTableWaveManager( option, "ThreshY", tableName )
+	NMEventTableWaveManager( option, "OnsetT", tableName )
+	NMEventTableWaveManager( option, "OnsetY", tableName )
+	NMEventTableWaveManager( option, "PeakT", tableName )
+	NMEventTableWaveManager( option, "PeakY", tableName )
+	NMEventTableWaveManager( option, "BaseY", tableName )
 	
-	strswitch(option)
+	strswitch( option )
 	
 		case "make":
 		case "update":
 	
-			EventTableWave("remove", "WaveN", tableNum, tName)
-			EventTableWave("remove", "ThreshT", tableNum, tName)
-			EventTableWave("remove", "ThreshY", tableNum, tName)
-			EventTableWave("remove", "OnsetT", tableNum, tName)
-			EventTableWave("remove", "OnsetY", tableNum, tName)
-			EventTableWave("remove", "PeakT", tableNum, tName)
-			EventTableWave("remove", "PeakY", tableNum, tName)
-			EventTableWave("remove", "BaseY", tableNum, tName)
+			NMEventTableWaveManager( "remove", "WaveN", tableName )
+			NMEventTableWaveManager( "remove", "ThreshT", tableName )
+			NMEventTableWaveManager( "remove", "ThreshY", tableName )
+			NMEventTableWaveManager( "remove", "OnsetT", tableName )
+			NMEventTableWaveManager( "remove", "OnsetY", tableName )
+			NMEventTableWaveManager( "remove", "PeakT", tableName )
+			NMEventTableWaveManager( "remove", "PeakY", tableName )
+			NMEventTableWaveManager( "remove", "BaseY", tableName )
 			
-			EventTableWave("append", "WaveN", tableNum, tName)
+			NMEventTableWaveManager( "append", "WaveN", tableName )
 			
-			EventTableWave("append", "ThreshT", tableNum, tName)
-			EventTableWave("append", "ThreshY", tableNum, tName)
+			NMEventTableWaveManager( "append", "ThreshT", tableName )
+			NMEventTableWaveManager( "append", "ThreshY", tableName )
 			
-			if (NumVarOrDefault(df+"OnsetFlag", 0) == 1)
-				EventTableWave("append", "OnsetT", tableNum, tName)
-				EventTableWave("append", "OnsetY", tableNum, tName)
+			if ( NMEventVar( "OnsetFlag" ) == 1 )
+				NMEventTableWaveManager( "append", "OnsetT", tableName )
+				NMEventTableWaveManager( "append", "OnsetY", tableName )
 			endif
 			
-			if (NumVarOrDefault(df+"PeakFlag", 0) == 1)
-				EventTableWave("append", "PeakT", tableNum, tName)
-				EventTableWave("append", "PeakY", tableNum, tName)
+			if ( NMEventVar( "PeakFlag" ) == 1 )
+				NMEventTableWaveManager( "append", "PeakT", tableName )
+				NMEventTableWaveManager( "append", "PeakY", tableName )
 			endif
 			
-			if (NumVarOrDefault(df+"BaseFlag", 0) == 1)
-				EventTableWave("append", "BaseY", tableNum, tName)
+			if ( NMEventVar( "BaseFlag" ) == 1 )
+				NMEventTableWaveManager( "append", "BaseY", tableName )
 			endif
 		
 	endswitch
 
-End // EventTable
+End // NMNMEventTableManager
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function EventTableWave(option, wtype, tableNum, tname)
-	String option // "make", "clear" or "kill"
-	String wtype
-	Variable tableNum
-	String tname
+Function /S NMEventTableTitle()
 	
-	String wName = EventName(wtype, tableNum)
+	return NMFolderListName("") + " : Events : Ch " + CurrentNMChanChar() + " : " + CurrentNMWavePrefix() + " : " + NMWaveSelectGet()
+
+End // NMEventTableTitle
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventTableWaveManager( option, wtype, tableName )
+	String option // "make" or "clear" or "kill" or "append" or "remove"
+	String wtype // e.g. "ThreshY" or "PeakY"
+	String tableName
 	
-	strswitch(option)
+	String thisfxn = "NMEventTableWaveManager"
+	
+	String wName = NMEventTableWaveName( wtype )
+	
+	strswitch( option )
 	
 		case "make":
-			if (WaveExists($wName) == 0)
+		
+			if ( WaveExists( $wName ) == 0 )
 				Make /D/O/N=0 $wName
-				EventNote(wName, wtype)
+				NMEventTableWaveNote( wName, wtype )
+				return 0
+			else
+				return -1
 			endif
-			break
-			
-		case "append":
-			if ((WaveExists($wName) == 1) && (WinType(tName) == 2))
-				//DoWindow /F $tName
-				AppendToTable $wName
-			endif
-			break
-			
-		case "remove":
-			if ((WaveExists($wName) == 1) && (WinType(tName) == 2))
-				//DoWindow /F $tName
-				RemoveFromTable $wName
-			endif
-			break
 			
 		case "clear":
-			if (WaveExists($wName) == 1)
+		
+			if ( WaveExists( $wName ) == 1 )
 				Wave evWave = $wName
 				Redimension /N=0 evWave
+				return 0
+			else
+				return -1
 			endif
-			break
 			
 		case "kill":
 			KillWaves /Z $wName
-			break
+			return 0
+			
+		case "append":
+		
+			if ( ( WaveExists( $wName ) == 1 ) && ( WinType( tableName ) == 2 ) )
+				AppendToTable /W=$tableName $wName
+				return 0
+			else
+				return -1
+			endif
+			
+		case "remove":
+		
+			if ( ( WaveExists( $wName ) == 1 ) && ( WinType( tableName ) == 2 ) )
+				RemoveFromTable /W=$tableName $wName
+				return 0
+			else
+				return -1
+			endif
+			
+		case "update":
+			return 0
+			
+		default:
+			return NMError( 20, thisfxn, "option", option )
 			
 	endswitch
 
-End // EventTableWave
+End // NMEventTableWaveManager
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function EventNote(wName, wtype)
+Function /S NMEventTableWaveName( prefix ) // return appropriate event wave name
+	String prefix // name prefix
+	
+	String wPrefix, wname, subfolder
+	
+	Variable currentChan = CurrentNMChannel()
+	
+	if ( strlen( prefix ) == 0 )
+		return ""
+	endif
+	
+	if ( CurrentNMEventTableOldFormat() == 1 )
+	
+		wname = NMEventTableOldWaveName( prefix, currentChan, NMEventTableOldNum() )
+		
+		return wname[ 0,30 ]
+	
+	else
+	
+		subfolder = CurrentNMEventSubfolder()
+		 wPrefix = "EV_" + prefix + "_" + NMWaveSelectStr() + "_"
+		 wname = NextWaveName2( subfolder, wPrefix, currentChan, NMEventOverWrite() )
+		 
+		 return subfolder + wname[ 0,30 ]
+	
+	endif
+	
+End // NMEventTableWaveName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventTableWaveNote( wName, wtype )
 	String wName
 	String wtype
-	String wList
 	
-	String yl, xl = "Event#", txt = "", df = EventDF()
+	if ( WaveExists( $wName ) == 0 )
+		return -1
+	endif
 	
-	String  wPrefix = NMCurrentWavePrefix()
+	String yl, xl = "Event#", txt = ""
 	
-	String chX = ChanLabel(-1, "x", "")
-	String chY = ChanLabel(-1, "y", "")
+	String wavePrefix = CurrentNMWavePrefix()
+	
+	String chX = NMChanLabel( -1, "x", "" )
+	String chY = NMChanLabel( -1, "y", "" )
 	
 	Variable tbgn = EventSearchBgn()
 	Variable tend = EventSearchEnd()
 	
-	NVAR SearchMethod = $(df+"SearchMethod")
-	NVAR Thrshld = $(df+"Thrshld")
+	Variable searchMethod = NMEventVar( "SearchMethod" )
+	//Variable thrshld = NMEventVar( "Thrshld" )
+	Variable threshLevel = NMEventVar( "ThreshLevel" )
 	
-	NVAR BaseWin = $(df+"BaseWin")
-	Variable BaseDT = NumVarOrDefault(df+"BaseDT", BaseWin)
+	Variable baseWin = NMEventVar( "BaseWin" )
+	Variable baseDT = NMEventVar( "BaseDT" )
 	
-	NVAR OnsetNstdv = $(df+"OnsetNstdv")
-	NVAR OnsetWin = $(df+"OnsetWin")
-	NVAR OnsetAvg = $(df+"OnsetAvg")
+	Variable onsetNstdv = NMEventVar( "OnsetNstdv" )
+	Variable onsetWin = NMEventVar( "OnsetWin" )
+	Variable onsetAvg = NMEventVar( "OnsetAvg" )
 	
-	NVAR PeakNstdv = $(df+"PeakNstdv")
-	NVAR PeakWin = $(df+"PeakWin")
-	NVAR PeakAvg = $(df+"PeakAvg")
+	Variable peakNstdv = NMEventVar( "PeakNstdv" )
+	Variable peakWin = NMEventVar( "PeakWin" )
+	Variable peakAvg = NMEventVar( "PeakAvg" )
 	
-	NVAR MatchFlag = $(df+"MatchFlag")
-	NVAR MatchWform = $(df+"MatchWform")
-	NVAR MatchTau1 = $(df+"MatchTau1")
-	NVAR MatchTau2 = $(df+"MatchTau2")
-	NVAR MatchBsln = $(df+"MatchBsln")
+	Variable matchFlag = NMEventVar( "MatchFlag" )
+	Variable matchWform = NMEventVar( "MatchWform" )
+	Variable matchTau1 = NMEventVar( "MatchTau1" )
+	Variable matchTau2 = NMEventVar( "MatchTau2" )
+	Variable matchBsln = NMEventVar( "MatchBsln" )
 	
-	SVAR Template = $(df+"Template")
+	String template = NMEventStr( "Template" )
 	
-	txt = "Event Prefix:" + wPrefix
-	txt += "\rEvent Method:" + EventMethod(SearchMethod) + ";Event Thresh:" + num2str(thrshld) + ";"
-	txt += "\rEvent Tbgn:" + num2str(tbgn) + ";Event Tend:" + num2str(tend) + ";"
-	txt += "\rBase Avg:" + num2str(BaseWin) + ";Base DT:" + num2str(BaseDT) + ";"
-	txt += "\rOnset Limit:" + num2str(OnsetWin) + ";Onset Avg:" + num2str(OnsetAvg) + ";"
-	txt += "Onset Nstdv:" + num2str(OnsetNstdv) + ";"
-	txt += "\rPeak Limit:" + num2str(PeakWin) + ";Peak Avg:" + num2str(PeakAvg) + ";"
-	txt += "Peak Nstdv:" + num2str(PeakNstdv) + ";"
+	txt = "Event Prefix:" + wavePrefix
+	txt += "\rEvent Method:" + EventSearchMethodString() + ";Event Thresh:" + num2str( threshLevel ) + ";"
+	txt += "\rEvent Tbgn:" + num2str( tbgn ) + ";Event Tend:" + num2str( tend ) + ";"
+	txt += "\rBase Avg:" + num2str( baseWin ) + ";Base DT:" + num2str( baseDT ) + ";"
+	txt += "\rOnset Limit:" + num2str( onsetWin ) + ";Onset Avg:" + num2str( onsetAvg ) + ";"
+	txt += "Onset Nstdv:" + num2str( onsetNstdv ) + ";"
+	txt += "\rPeak Limit:" + num2str( peakWin ) + ";Peak Avg:" + num2str( peakAvg ) + ";"
+	txt += "Peak Nstdv:" + num2str( peakNstdv ) + ";"
 	
-	switch(MatchFlag)
+	switch( matchFlag )
 		case 1:
-			txt += "\rMatch Template: 2-exp;Match Tau1:" + num2str(MatchTau1) + ";Match Tau2:" + num2str(MatchTau2) + ";"
-			txt += "\rMatch Bsln:" + num2str(MatchBsln) + ";Match Win:" + num2str(MatchWform) + ";"
+			txt += "\rMatch Template: 2-exp;Match Tau1:" + num2str( matchTau1 ) + ";Match Tau2:" + num2str( matchTau2 ) + ";"
+			txt += "\rMatch Bsln:" + num2str( matchBsln ) + ";Match Win:" + num2str( matchWform ) + ";"
 			break
 		case 2: // tau1
-			txt += "\rMatch Template: alpha;Match Tau1:" + num2str(MatchTau1) + ";"
-			txt += "\rMatch Bsln:" + num2str(MatchBsln) + ";Match Win:" + num2str(MatchWform) + ";"
+			txt += "\rMatch Template: alpha;Match Tau1:" + num2str( matchTau1 ) + ";"
+			txt += "\rMatch Bsln:" + num2str( matchBsln ) + ";Match Win:" + num2str( matchWform ) + ";"
 			break
 		case 3: // template
-			txt += "\rMatch Template:" + Template + ";"
+			txt += "\rMatch Template:" + template + ";"
 			break
 	endswitch
 	
-	strswitch(wtype)
+	strswitch( wtype )
 	
 		case "WaveN":
-			yl = wPrefix + "#"
+			yl = wavePrefix + "#"
 			break
 			
 		case "OnsetT":
@@ -2793,73 +4584,24 @@ Function EventNote(wName, wtype)
 			
 	endswitch
 	
-	NMNoteType(wName, "Event "+wtype, xl, yl, txt)
+	NMNoteType( wName, "Event "+wtype, xl, yl, txt )
 	
-End // EventNote
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S EventName(prefix, tnum) // return appropriate event wave name
-	String prefix // name prefix
-	Variable tnum // table number  (-1) TableNum
-	
-	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
-	
-	Variable TableNum = NumVarOrDefault(EventDF() + "TableNum", 0)
-	
-	if (tnum == -1)
-		tnum = TableNum
-	endif
-	
-	if (StringMatch(prefix, "WavePrefix") == 1)
-		prefix = StrVarOrDefault("WavePrefix", "Rcrd") + "N"
-	endif
-	
-	return EventPrefix(prefix + "_" + ChanNum2Char(CurrentChan) + num2str(tnum))
-	
-End // EventName
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function EventTableNum(wName)
-	String wName
-	
-	if (strlen(wName) == 0)
-		return -1
-	endif
-	
-	Variable icnt
-	
-	for (icnt = strlen(wName)-1; icnt >= 0; icnt -= 1)
-		if (numtype(str2num(wName[icnt])) != 0)
-			break // found letter
-		endif
-	endfor
-
-	return str2num(wName[icnt+1, strlen(wName)-1])
-	
-End // EventTableNum
+End // NMEventTableWaveNote
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
 Function EventCount()
+
 	Variable events
+	String wname = NMEventTableWaveName( "ThreshT" )
 	
-	String df = EventDF()
-	
-	Variable tableNum = NumVarOrDefault(df+"TableNum", -1)
-	
-	if (tableNum >= 0)
-		events = numpnts($EventName("ThreshT", tableNum))
+	if ( WaveExists( $wname ) == 1 )
+		events = numpnts( $wname )
 	endif
 	
-	SetNMvar(df+"NumEvents", events)
+	SetNMEventVar( "NumEvents", events )
 	
 	return events
 
@@ -2869,152 +4611,26 @@ End // EventCount
 //****************************************************************
 //****************************************************************
 
-Function /S EventSetName(tableNum)
-	Variable tableNum // (-1) for current table
-	
-	String df = EventDF()
-	
-	if (tableNum < 0)
-		tableNum = NumVarOrDefault(df+"TableNum", -1)
-	endif
-	
-	if (tableNum >= 0)
-		return "EV_Table" + num2str(tableNum)
-	else
-		return ""
-	endif
-	
-End // EventSetName
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function EventSetValue(waveNum)
-	Variable waveNum // (-1) for current wave
-	
-	String df = EventDF()
-	
-	if (waveNum < 0)
-		waveNum = NumVarOrDefault("CurrentWave", 0)
-	endif
-	
-	String setName = EventSetName(-1)
-	
-	if (WaveExists($setName) == 0)
-	
-		return Nan
-		
-	else
-	
-		Wave set = $setName
-		
-		if ((waveNum >= 0) && (waveNum < numpnts(set)))
-			return set[waveNum]
-		endif
-		
-	endif
-	
-	return Nan
-
-End // EventSetValue
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function EventSet(option, tableNum)
-	String option // "make", "clear" or "kill"
-	Variable tableNum
-	
-	if (numtype(tableNum) > 0)
-		return -1
-	endif
-	
-	String setName = EventSetName(tableNum)
-	
-	strswitch(option)
-		case "make":
-			KillWaves /Z $setName
-			NMSetsNew(setName)
-			Wave temp = $setName
-			temp = Nan
-			break
-		case "clear":
-			Wave temp = $setName
-			temp = Nan
-			break
-		case "kill":
-			KillWaves /Z $setName
-			break
-	endswitch
-	
-End // EventSet
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S EventWaveList(tnum)
-	Variable tnum
-
-	Variable icnt
-	String wName, wList, wRemove, tstr = num2str(tnum)
-	
-	String opstr = WaveListText0()
-	
-	if (tnum == -1)
-		tstr = ""
-	endif
-	
-	wList = WaveList("EV_*T_*" + tstr, ";", opstr)
-	wRemove = WaveList("EV_Evnt*", ";", opstr)
-	wRemove += WaveList("EV_*intvl*", ";", opstr)
-	wRemove += WaveList("EV_*hist*", ";", opstr)
-	
-	for (icnt = 0; icnt < ItemsInList(wRemove); icnt += 1)
-		wName = StringFromList(icnt, wRemove)
-		wList = RemoveFromList(wName, wList)
-	endfor
-
-	for (icnt = ItemsInList(wList) - 1; icnt >= 0; icnt -= 1)
-	
-		wName = StringFromList(icnt, wList)
-		
-		WaveStats /Q/Z $wName
-		
-		if (V_numNans == numpnts($wName))
-			wList = RemoveFromList(wName, wList)
-		endif
-		
-	endfor
-	
-	return wList
-
-End // EventWaveList
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function EventRepsCount(waveN)
+Function EventRepsCount( waveN )
 	String waveN
 	
 	Variable icnt, jcnt, rcnt
 	
-	if (WaveExists($waveN) == 0)
+	if ( WaveExists( $waveN ) == 0 )
 		return 0
 	endif
 	
 	Wave yWave = $waveN
 	
-	for (icnt = 0; icnt < NumVarOrDefault("NumWaves", 0); icnt += 1)
+	for ( icnt = 0 ; icnt < NMNumWaves() ; icnt += 1 )
 	
-		for (jcnt = 0; jcnt < numpnts(yWave); jcnt += 1)
-			if (yWave[jcnt] == icnt)
+		for ( jcnt = 0 ; jcnt < numpnts( yWave ) ; jcnt += 1 )
+		
+			if ( yWave[ jcnt ] == icnt )
 				rcnt += 1
 				break
 			endif
+			
 		endfor
 	
 	endfor
@@ -3027,189 +4643,701 @@ End // EventRepsCount
 //****************************************************************
 //****************************************************************
 
-Function Event2WaveCall()
-
-	Variable tnum, ccnt, cbgn, cend, stopyesno = 2
-	String wName, wName2, fname, xl, yl
-	String wlist, prefix, prefix2, vlist = "", df = EventDF()
+Function EventNumFromName( wName )
+	String wName
 	
-	String opstr = WaveListText0()
+	Variable num, foundNum, icnt, slength = strlen( wName )
 	
-	Variable tableNum = NumVarOrDefault(df+"TableNum", -1)
-	
-	Variable currChan = NumVarOrDefault("CurrentChan", 0)
-	Variable nChan = NumVarOrDefault("NumChannels", 1)
-	
-	String wPrefix = NMCurrentWavePrefix()
-	
-	Variable before = NumVarOrDefault(df+"E2W_before", 2)
-	Variable after = NumVarOrDefault(df+"E2W_after", 10)
-	Variable stop = NumVarOrDefault(df+"E2W_stopAtNextEvent", 0)
-	String chan = StrVarOrDefault(df+"E2W_chan", ChanNum2Char(currChan))
-	
-	String elist = EventWaveList(-1)
-	
-	if (ItemsInList(elist) == 0)
-		NMDoAlert("Detected no event waves.")
-		return -1
+	if ( slength == 0 )
+		return Nan
 	endif
 	
-	wName = StringFromList(0, EventWaveList(TableNum))
+	for ( icnt = slength-1; icnt >= 0; icnt -= 1 )
 	
-	if (stop < 0)
+		num = str2num( wName[ icnt ] )
+		
+		if ( numtype( num ) == 0 )
+			foundNum = 1
+		else
+			break // found letter
+		endif
+		
+	endfor
+	
+	if ( foundNum == 1 )
+		return str2num( wName[ icnt+1, slength-1 ] )
+	else
+		return Nan
+	endif
+	
+End // EventNumFromName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+//
+//		Old Format Table Functions
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventTableOldExists()
+
+	String wList = WaveList( "EV_ThreshT_*" , ";", "Text:0" ) // old wave names that reside in current data folder
+	
+	if ( ItemsInList( wList ) > 0 )
+		return 1
+	endif
+
+	return 0
+	
+End // NMEventTableOldExists
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventTableOldName( chanNum, tableNum )
+	Variable chanNum
+	Variable tableNum
+	
+	chanNum = ChanNumCheck( chanNum )
+	
+	if ( ( numtype( tableNum ) == 0 ) && ( tableNum >= 0 ) )
+		return "EV_" + NMFolderPrefix("") + "Table" + "_" + ChanNum2Char( chanNum ) + num2istr( tableNum )
+	endif
+	
+	return ""
+
+End // NMEventTableOldName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventTableOldSelectPrefix()
+
+	return "Event Table "
+
+End // NMEventTableOldSelectPrefix
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventTableOldSelect( chanNum, tableNum ) // e.g. "Event Table A0"
+	Variable chanNum
+	Variable tableNum
+	
+	chanNum = ChanNumCheck( chanNum )
+
+	if ( ( numtype( tableNum ) > 0 ) || ( tableNum < 0 ) )
+		return ""
+	endif
+
+	return NMEventTableOldSelectPrefix() + ChanNum2Char( chanNum ) + num2istr( tableNum )
+
+End // NMEventTableOldSelect
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function CurrentNMEventTableOldFormat()
+	
+	return NMEventTableOldFormat( StrVarOrDefault( "EventTableSelected", "" ) )
+
+End // CurrentNMEventTableOldFormat
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventTableOldFormat( tableTitle )
+	String tableTitle
+	
+	if ( StrSearch( tableTitle, NMEventTableOldSelectPrefix(), 0 ) == 0 )
+		return 1
+	else
+		return 0
+	endif
+	
+End // NMEventTableOldFormat
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventTableOldNum()
+
+	Variable tableNum, items
+	String tableSelect, tableName, tableList
+	
+	if ( NMEventTableOldExists() == 1 )
+	
+		tableSelect = StrVarOrDefault( "EventTableSelected", "" )
+	
+		if ( NMEventTableOldFormat( tableSelect ) == 1 )
+		
+			tableNum = EventNumFromName( tableSelect )
+			
+			if ( ( numtype( tableNum ) == 0 ) && ( tableNum >= 0 ) )
+				return tableNum
+			endif
+			
+		endif
+		
+	endif
+	
+	return -1
+
+End // NMEventTableOldNum
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMEventTableOldNumNext()
+
+	Variable icnt, jcnt, tableNum, found
+
+	String tableList = NMEventTableOldNumList( CurrentNMChannel() )
+	
+	if ( ItemsInList( tableList ) == 0 )
+		return 0
+	endif
+	
+	for ( icnt = 0 ; icnt < 50 ; icnt += 1 )
+	
+		found = 0
+	
+		for ( jcnt = 0 ; jcnt < ItemsInList( tableList ) ; jcnt += 1 )
+		
+			tableNum = str2num( StringFromList( jcnt, tableList ) )
+			
+			if ( tableNum == icnt )
+				found = 1
+				break
+			endif
+		
+		endfor
+		
+		if ( found == 0 )
+			return icnt
+		endif
+	
+	endfor
+
+End // NMEventTableOldNumNext
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventTableOldListAll() // e.g. "Event Table A0;Event Table A1;"
+	
+	Variable ccnt, cbgn, cend = NMNumChannels()
+	String tableList = ""
+	
+	for ( ccnt = cbgn ; ccnt <= cend ; ccnt += 1 )
+		tableList = NMAddToList( NMEventTableOldList( ccnt ), tableList, ";" )
+	endfor
+	
+	return tableList
+	
+End // NMEventTableOldListAll
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventTableOldList( chanNum ) // e.g. "Event Table A0;Event Table A1;"
+	Variable chanNum // -1 for all
+	
+	Variable icnt
+	String wName, wList, suffix, tableList = ""
+	
+	String prefix = "EV_ThreshT_"
+	
+	chanNum = ChanNumCheck( chanNum )
+	
+	wList = WaveList( prefix +  ChanNum2Char( chanNum ) + "*" , ";", "Text:0" )
+		
+	for ( icnt = 0; icnt < ItemsInList( wList ); icnt += 1 )
+		wName = StringFromList( icnt, wList )
+		suffix = ReplaceString( prefix, wName, "" )
+		tableList = AddListItem( NMEventTableOldSelectPrefix() + suffix, tableList, ";", inf )
+	endfor
+	
+	return tableList
+
+End // NMEventTableOldList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventTableOldNumList( chanNum ) // e.g. "0;1;2;"
+	Variable chanNum
+	
+	Variable icnt
+	String prefix, wName, wList, tableNumStr, tableList = ""
+	
+	chanNum = ChanNumCheck( chanNum )
+	
+	prefix = "EV_ThreshT_" + ChanNum2Char( chanNum )
+	
+	wList = WaveList( prefix + "*" , ";", "Text:0" )
+	
+	if ( ItemsInList( wList ) == 0 )
+		return ""
+	endif
+	
+	for ( icnt = 0; icnt < ItemsInList( wList ); icnt += 1 )
+	
+		wName = StringFromList( icnt, wList )
+		tableNumStr = ReplaceString( prefix, wName, "" )
+		
+		if ( numtype( str2num( tableNumStr ) ) == 0 )
+			tableList = AddListItem( tableNumStr, tableList, ";", inf )
+		endif
+		
+	endfor
+	
+	return tableList
+
+End // NMEventTableOldNumList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventTableOldWaveName( prefix, chanNum, tableNum ) // e.g. ""
+	String prefix // name prefix
+	Variable chanNum
+	Variable tableNum
+	
+	if ( strlen( prefix ) == 0 )
+		return ""
+	endif
+	
+	chanNum = ChanNumCheck( chanNum )
+	
+	if ( ( numtype( tableNum ) > 0 ) || ( tableNum < 0 ) )
+		return ""
+	endif
+	
+	String wname = "EV_" + prefix + "_" + ChanNum2Char( chanNum ) + num2istr( tableNum )
+		
+	return wname[ 0,30 ]
+	
+End // NMEventTableOldWaveName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S EventTableNewCall()
+	
+	NMCmdHistory( "EventTableNew", "" )
+	
+	return EventTableNew()
+
+End // EventTableNewCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S EventTableNew()
+	
+	Variable tableNum
+	String tableSelect, tableName
+	
+	if ( NMEventTableOldExists() == 1 ) // create old format table only
+	
+		tableNum = NMEventTableOldNumNext()
+		tableSelect = NMEventTableOldSelect( CurrentNMChannel(), tableNum )
+		
+		tableName = NMEventTableSelect( tableSelect )
+		
+		return tableName
+	
+	endif
+	
+	return ""
+
+End // EventTableNew
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMEventTableOldWaveList()
+
+	Variable wcnt
+	String wname, outList = ""
+
+	String wList = WaveList( "EV_ThreshT_*", ";", "Text:0" )
+	
+	for ( wcnt = 0 ; wcnt < ItemsInList( wList ) ; wcnt += 1 )
+	
+		wname = StringFromList( wcnt, wList )
+		
+		if ( ( strsearch( wname, "intvl", 0 ) < 0 ) && ( strsearch( wname, "hist", 0 ) < 0 ) )
+			outList = AddListItem( wname, outList, ";", inf )
+		endif
+		
+	endfor
+	
+	return outList
+
+End // NMEventTableOldWaveList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S EventWaveList( tableNum ) // DEPRECATED
+	Variable tableNum
+
+	Variable icnt
+	String wName, wList, wRemove, tableNumStr = num2istr( tableNum )
+	
+	if ( tableNum == -1 )
+		tableNumStr = ""
+	endif
+	
+	wList = WaveList( "EV_*T_*" + tableNumStr, ";", "Text:0" )
+	wRemove = WaveList( "EV_Evnt*", ";", "Text:0" )
+	wRemove += WaveList( "EV_*intvl*", ";", "Text:0" )
+	wRemove += WaveList( "EV_*hist*", ";", "Text:0" )
+	
+	for ( icnt = 0; icnt < ItemsInList( wRemove ); icnt += 1 )
+		wName = StringFromList( icnt, wRemove )
+		wList = RemoveFromList( wName, wList )
+	endfor
+
+	for ( icnt = ItemsInList( wList ) - 1; icnt >= 0; icnt -= 1 )
+	
+		wName = StringFromList( icnt, wList )
+		
+		WaveStats /Q/Z $wName
+		
+		if ( V_numNans == numpnts( $wName ) )
+			wList = RemoveFromList( wName, wList )
+		endif
+		
+	endfor
+	
+	return wList
+
+End // EventWaveList
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+//
+//		Misc Functions
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function Event2WaveCall()
+
+	Variable ccnt, cbgn, cend, jcnt, found, slen, askwhichwave, waveSelect, chanNum, stopyesno = 2
+	
+	String tableList, tableSelect, fname, xl, yl, shortstr
+	String wName, wName1, wName2, wName3
+	String wlist, suffix, subfolder, vlist = ""
+	String gPrefix, gName, gTitle
+	
+	Variable tableNum = NMEventTableOldNum()
+	
+	Variable currentChan = CurrentNMChannel()
+	Variable numChannels = NMNumChannels()
+	
+	String wavePrefix = CurrentNMWavePrefix()
+	
+	Variable before = NMEventVar( "E2W_before" )
+	Variable after = NMEventVar( "E2W_after" )
+	Variable stop = NMEventVar( "E2W_stopAtNextEvent" )
+	String chanStr = NMEventStr( "E2W_chan" )
+	
+	String defaultPrefix = NMEventStr( "S2W_WavePrefix" )
+	String outputWavePrefix = NMPrefixUnique( defaultPrefix )
+	
+	tableList = NMEventSubfolderList( "", 0, 0 ) + NMEventTableOldListAll()
+	
+	if ( ItemsInList( tableList ) == 0 )
+	
+		NMDoAlert( "Detected no event table waves." )
+		return -1
+		
+	else
+	
+		tableSelect = CurrentNMEventTableSelect()
+		
+		if ( WhichListItem( tableSelect, tableList ) < 0 )
+			tableSelect = StringFromList( 0, tableList )
+		endif
+	
+	endif
+	
+	if ( stop < 0 )
 		stopyesno = 1
 	endif
 	
-	Prompt wName, "wave of event times:", popup elist
+	Prompt tableSelect, "event table:", popup tableList
 	Prompt before, "time before event (ms):"
 	Prompt after, "time after event (ms):"
-	Prompt stopyesno, "limit data to time before next spike?", popup "no;yes;"
+	Prompt stopyesno, "limit data to time before next event?", popup "no;yes;"
 	Prompt stop, "additional time to limit before next occuring event (ms):"
-	Prompt prefix, "enter new prefix name:"
+	Prompt chanStr, "channel waves to copy:", popup "All;" + NMChanList( "CHAR" )
+	Prompt waveSelect, "choose wave of event times:", popup ""
+	Prompt outputWavePrefix, "prefix name of new event waves:"
 	
-	if (nChan > 1)
+	if ( numChannels > 1 )
 	
-		Prompt chan, "channel waves to copy:", popup "All;" + ChanCharList(-1, ";")
-		DoPrompt "Events to Waves", wName, before, after, stopyesno, chan
+		DoPrompt "Events to Waves", tableSelect, before, after, stopyesno, chanStr
 		
-		cbgn = ChanChar2Num(chan)
-		cend = ChanChar2Num(chan)
-		
-	else
-	
-		DoPrompt "Events to Waves", wName, before, after, stopyesno
-		
-		cbgn = currChan
-		cend = currChan
-		
-	endif
-	
-	if (V_flag == 1)
-		return -1
-	endif
-	
-	if (stopyesno == 2)
-	
-		if (stop < 0)
-			stop = 0
+		if ( V_flag == 1 )
+			return -1 // cancel
 		endif
 		
-		DoPrompt "Events to Waves", stop
+		cbgn = ChanChar2Num( chanStr )
+		cend = ChanChar2Num( chanStr )
+		
+		SetNMEventStr( "E2W_chan", chanStr )
 		
 	else
 	
-		stop = -1
+		DoPrompt "Events to Waves", tableSelect, before, after, stopyesno
+		
+		if ( V_flag == 1 )
+			return 0 // cancel
+		endif
+		
+		cbgn = currentChan
+		cend = currentChan
 		
 	endif
 	
-	if (V_flag == 1)
+	SetNMEventVar( "E2W_before", before )
+	SetNMEventVar( "E2W_after", after )
+	
+	if ( NMEventTableOldFormat( tableSelect ) == 1 )
+	
+		suffix = ReplaceString( NMEventTableOldSelectPrefix(), tableSelect, "" )
+		wName1 = "EV_ThreshT_" + suffix
+		wName2 = "EV_OnsetT_" + suffix
+		wName3 = "EV_WaveN_" + suffix
+		tableNum = EventNumFromName( wName1 )
+		
+	else
+	
+		subfolder = GetDataFolder(1) + tableSelect + ":"
+		
+		wName1 = NMEventSubfolderWaveName( subfolder, "ThreshT" )
+		wName2 = NMEventSubfolderWaveName( subfolder, "OnsetT" )
+		wName3 = NMEventSubfolderWaveName( subfolder, "WaveN" )
+		
+		tableNum = -1
+	
+	endif
+	
+	if ( WaveExists( $wName1 ) == 0 )
+		NMDoAlert( "Event2Wave Abort: cannot locate wave of event times " + NMQuotes( wName1 ) )
 		return -1
 	endif
 	
-	SetNMvar(df+"E2W_before", before)
-	SetNMvar(df+"E2W_after", after)
-	SetNMvar(df+"E2W_stopAtNextEvent", stop)
-	SetNMstr(df+"E2W_chan", chan)
+	if ( WaveExists( $wName2 ) == 0 )
+		NMDoAlert( "Event2Wave Abort: cannot locate wave of event times " + NMQuotes( wName2 ) )
+		return -1
+	endif
 	
-	tnum = EventTableNum(wName)
+	if ( WaveExists( $wName3 ) == 0 )
+		NMDoAlert( "Event2Wave Abort: cannot locate wave of wave numbers " + NMQuotes( wName3 ) )
+		return -1
+	endif
 	
-	wName2 = "EV_WaveN_" + wName[strlen(wName)-2, strlen(wName)-1]
+	if ( StringMatch( wavePrefix, NMNoteStrByKey( wName1, "Event Prefix" ) ) == 0 )
 	
-	if (StringMatch(wPrefix, NMNoteStrByKey(wName, "Event Prefix")) == 0)
-	
-		DoAlert 1, "The current wave prefix does not match that of \"" + wName + "\". Do you want to continue?"
+		wName = GetPathName( wName1, 0 )
 		
-		if (V_Flag != 1)
+		DoAlert 1, "The current wave prefix does not match that of " + NMQuotes( wName ) + ". Do you want to continue?"
+		
+		if ( V_Flag != 1 )
 			return 0
 		endif
 		
 	endif
 	
-	if (WaveExists($wName2) == 0)
-		NMDoAlert("Abort: cannot locate wave " + wName2)
-		return -1
+	if ( strlen( NMNoteStrByKey( wname2, "Match Template" ) ) > 0 )
+		wName1 = "" // use OnsetT wave instead of ThreshT
 	endif
 	
-	prefix = "EV_Event" + num2str(tnum)
+	WaveStats /Q/Z $wName1
 	
-	if (StringMatch(chan, "All") == 1)
+	if ( V_npnts == 0 )
+		wName1 = ""
+	endif
+	
+	WaveStats /Q/Z $wName2
+	
+	if ( V_npnts == 0 )
+		wName2 = ""
+	endif
+	
+	if ( ( strlen( wName1 ) == 0 ) && ( strlen( wName2 ) == 0 ) ) 
+	
+		NMDoAlert( "Event2Wave Abort: detected no events in wave " + wName1 + " or wave " + wName2 )
+		return -1
+		
+	elseif ( ( strlen( wName1 ) > 0 ) && ( strlen( wName2 ) > 0 ) )
+	
+		wName = wName1
+		askwhichwave = 1
+		
+		wList = AddListItem( GetPathName( wName1, 0 ), "", ";", inf )
+		wList = AddListItem( GetPathName( wName2, 0 ), wList, ";", inf )
+		
+		waveSelect = 1
+		
+		Prompt waveSelect, "choose wave of event times:", popup wList
+	
+	elseif ( strlen( wName1 ) > 0 )
+	
+		wName = wName1
+	
+	elseif ( strlen( wName2 ) > 0 )
+	
+		wName = wName2
+	
+	else
+		
+		NMDoAlert( "Event2Wave Abort: detected no events in wave " + wName1 + " or wave " + wName2 )
+		return -1 // should not reach this point
+		
+	endif
+	
+	if ( StringMatch( chanStr, "All" ) == 1 )
 		cbgn = 0
-		cend = nChan - 1
+		cend = numChannels - 1
+		chanNum = -1
+	else
+		chanNum = ChanChar2Num( chanStr )
 	endif
 	
-	for (ccnt = cbgn; ccnt <= cend; ccnt += 1)
+	if ( tableNum >= 0 )
+		outputWavePrefix = defaultPrefix + num2istr( tableNum )
+	else
+		outputWavePrefix = NMPrefixUnique( defaultPrefix )
+	endif
 	
-		do
+	outputWavePrefix = CheckNMPrefixUnique( outputWavePrefix, defaultPrefix, chanNum )
+	
+	if ( askwhichwave == 0 )
+	
+		if ( stopyesno == 2 )
 		
-			fname = prefix + "*" + ChanNum2Char(ccnt) + "*"
-			wlist = WaveList(fname, ";", opstr)
+			if ( stop < 0 )
+				stop = 0
+			endif
 			
-			if (ItemsInList(wlist) == 0)
-				break // no name conflict
+			DoPrompt "Events to Waves", stop, outputWavePrefix
+			
+			if ( V_flag == 1 )
+				return 0 // cancel
+			endif
+			
+			SetNMEventVar( "E2W_stopAtNextEvent", stop )
+			
+		else
+		
+			stop = -1
+			
+		endif
+	
+	else
+	
+		if ( stopyesno == 2 )
+		
+			if ( stop < 0 )
+				stop = 0
+			endif
+			
+			DoPrompt "Events to Waves", stop, waveSelect, outputWavePrefix
+			
+			if ( V_flag == 1 )
+				return 0 // cancel
+			endif
+			
+			SetNMEventVar( "E2W_stopAtNextEvent", stop )
+			
+			if ( waveSelect == 1 )
+				wName = wName1
 			else
-			
-				DoAlert 2, "Warning: waves already exist with prefix name \"" + prefix + "\". Do you want to overwrite these waves?"
-				
-				if (V_flag == 1)
-				
-					KillGlobals(GetDataFolder(1), fname, "001") // kill waves that exist
-					break
-					
-				elseif (V_flag == 2)
-				
-					tnum += 1
-					prefix = "EV_Event" + num2str(tnum)
-					
-					DoPrompt "Event to Waves", prefix
-					
-					if (V_flag == 1)
-						return 0
-					endif
-					
-				else
-				
-					return 0
-					
-				endif
-				
+				wName = wName2
 			endif
+			
+		else
 		
-		while (1)
-		
-		vlist = NMCmdStr(wName2, vlist)
-		vlist = NMCmdStr(wName, vlist)
-		vlist = NMCmdNum(before, vlist)
-		vlist = NMCmdNum(after, vlist)
-		vlist = NMCmdNum(stop, vlist)
-		vlist = NMCmdNum(ccnt, vlist)
-		vlist = NMCmdStr(prefix, vlist)
-		
-		NMCmdHistory("Event2Wave", vlist)
+			stop = -1
+			
+		endif
 	
-		wlist = Event2Wave(wName2, wName, before, after, stop, ccnt, prefix)
+	endif
+	
+	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
 		
-		if (WaveExists($prefix + "Times") == 1)
+		vlist = NMCmdStr( wName3, vlist )
+		vlist = NMCmdStr( wName, vlist )
+		vlist = NMCmdNum( before, vlist )
+		vlist = NMCmdNum( after, vlist )
+		vlist = NMCmdNum( stop, vlist )
+		vlist = NMCmdNum( ccnt, vlist )
+		vlist = NMCmdStr( outputWavePrefix, vlist )
 		
-			prefix2 = ReplaceString("EV_Event", prefix, "EV_Ev")
+		NMCmdHistory( "Event2Wave", vlist )
+	
+		wlist = NMEvent2Wave( wName3, wName, before, after, stop, 1, ccnt, outputWavePrefix )
+		
+		wname = outputWavePrefix + "Times"
+		
+		if ( WaveExists( $wname ) == 1 )
+		
+			wname2 = "EV_Times_" + outputWavePrefix
 			
-			if (WaveExists($prefix2 + "Times") == 0)
-				Rename $(prefix + "Times"), $(prefix2 + "Times")
-			endif
+			Duplicate /O $wname, $wname2
+			KillWaves /Z $wname
 			
 		endif
 		
-		if (strlen(wlist) == 0)
+		if ( strlen( wlist ) == 0 )
 			return 0
 		endif
 		
-		xl = ChanLabel(ccnt, "x", "")
-		yl = ChanLabel(ccnt, "y", "")
+		xl = NMChanLabel( ccnt, "x", "" )
+		yl = NMChanLabel( ccnt, "y", "" )
 		
-		String gPrefix = prefix + "_" + NMFolderPrefix("") + ChanNum2Char(ccnt) + num2str(tnum) 
-		String gName = CheckGraphName(gPrefix)
-		String gTitle = NMFolderListName("") + " : Ch " + ChanNum2Char(ccnt) + " : Events Table" + num2str(tnum) 
+		if ( tableNum >= 0 )
+		
+			gPrefix = outputWavePrefix + "_" + NMFolderPrefix( "" ) + ChanNum2Char( ccnt ) + num2istr( tableNum ) 
+			gName = CheckGraphName( gPrefix )
+			gTitle = NMFolderListName( "" ) + " : Ch " + ChanNum2Char( ccnt ) + " : " + tableSelect
+		
+		else
+		
+			gPrefix = outputWavePrefix + "_" + NMFolderPrefix( "" ) + ChanNum2Char( ccnt ) + num2istr( 0 ) 
+			gName = CheckGraphName( gPrefix )
+			gTitle = NMFolderListName( "" ) + " : Ch " + ChanNum2Char( ccnt ) + " : " + tableSelect
+		
+		endif
 	
-		NMPlotWaves(gName, gTitle, xl, yl, "", wlist)
+		NMPlotWavesOffset( gName, gTitle, xl, yl, "", wlist, 0, 0, 0, 0 )
 		
 	endfor
 
@@ -3221,18 +5349,12 @@ End // Event2WaveCall
 
 Function EventHistoCall()
 	
-	if (ItemsInList(EventWaveList(-1)) == 0)
-		NMDoAlert("Detected no event waves.")
-		return -1
-	endif
+	String yl, subfolder, suffix, wName = "", wName2 = "", vlist = ""
+	String tableList, tableSelect
 	
-	Variable tnum
-	String yl, wName = "", wName2 = "", vlist = ""
-	String df = EventDF()
+	Variable tableNum = NMEventTableOldNum()
 	
-	Variable tableNum = NumVarOrDefault(df+"TableNum", -1)
-	
-	String select = StrVarOrDefault(df+"HistoSelect", "interval")
+	String histoType = NMEventStr( "HistoSelect" )
 	
 	Variable reps = 0
 	Variable dx = 1
@@ -3241,10 +5363,25 @@ Function EventHistoCall()
 	Variable v3 = 0
 	Variable v4 = inf
 	
-	wName = StringFromList(0, EventWaveList(TableNum))
+	tableList = NMEventSubfolderList( "", 0, 0 ) + NMEventTableOldListAll()
 	
-	Prompt wName, "wave:", popup EventWaveList(-1)
-	Prompt select, "historgram type:", popup "time;interval;"
+	if ( ItemsInList( tableList ) == 0 )
+	
+		NMDoAlert( "Detected no event table waves." )
+		return -1
+		
+	else
+	
+		tableSelect = CurrentNMEventTableSelect()
+		
+		if ( WhichListItem( tableSelect, tableList ) < 0 )
+			tableSelect = StringFromList( 0, tableList )
+		endif
+	
+	endif
+	
+	Prompt tableSelect, "event table:", popup tableList
+	Prompt histoType, "historgram type:", popup "time;interval;"
 	
 	Prompt v1, "include events from (ms):"
 	Prompt v2, "include events to (ms):"
@@ -3253,17 +5390,43 @@ Function EventHistoCall()
 	
 	Prompt dx, "histogram bin size (ms):"
 	
-	wName2 = EventName("WaveN", tnum)
+	DoPrompt "Event Histogram", tableSelect, histoType
 	
-	DoPrompt "Event Histogram", wName, select
-	
-	if (V_flag == 1)
+	if ( V_flag == 1 )
 		return 0 // cancel
 	endif
 	
-	SetNMstr(df+"HistoSelect", select)
+	SetNMEventStr( "HistoSelect", histoType )
 	
-	strswitch(select)
+	if ( NMEventTableOldFormat( tableSelect ) == 1 )
+	
+		suffix = ReplaceString( NMEventTableOldSelectPrefix(), tableSelect, "" )
+		wName = "EV_ThreshT_" + suffix
+		wName2 = "EV_WaveN_" + suffix
+		tableNum = EventNumFromName( wName )
+		
+	else
+	
+		subfolder = GetDataFolder(1) + tableSelect + ":"
+		
+		wname = NMEventSubfolderWaveName( subfolder, "ThreshT" )
+		wname2 = NMEventSubfolderWaveName( subfolder, "WaveN" )
+		
+		tableNum = -1
+	
+	endif
+	
+	if ( WaveExists( $wName ) == 0 )
+		NMDoAlert( "Event2Wave Abort: cannot locate wave of event times " + NMQuotes( wName ) )
+		return -1
+	endif
+	
+	if ( WaveExists( $wName2 ) == 0 )
+		NMDoAlert( "Event2Wave Abort: cannot locate wave of wave numbers " + NMQuotes( wName2 ) )
+		return -1
+	endif
+	
+	strswitch( histoType )
 			
 		case "time":
 		
@@ -3274,41 +5437,41 @@ Function EventHistoCall()
 			
 			DoPrompt "Event Histogram", dx, v1, v2, yl
 			
-			if (V_flag == 1)
+			if ( V_flag == 1 )
 				break
 			endif
 			
-			strswitch(yl)
+			strswitch( yl )
 			
 				case "Events / sec":
 				case "Probability":
 			
-					if (WaveExists($wName2) == 1) 
-						reps = EventRepsCount(wName2) // get number of waves
+					if ( WaveExists( $wName2 ) == 1 ) 
+						reps = EventRepsCount( wName2 ) // get number of waves
 					endif
 					
 					DoPrompt "Event Time Histogram", reps
 					
-					if (V_flag == 1)
+					if ( V_flag == 1 )
 						break
 					endif
 					
-					if (reps < 1)
-						NMDoAlert("Bad number of waves.")
+					if ( reps < 1 )
+						NMDoAlert( "Bad number of waves." )
 						return -1
 					endif
 				
 			endswitch
 			
-			vlist = NMCmdStr(wName, vlist)
-			vlist = NMCmdNum(reps, vlist)
-			vlist = NMCmdNum(dx, vlist)
-			vlist = NMCmdNum(v1, vlist)
-			vlist = NMCmdNum(v2, vlist)
-			vlist = NMCmdStr(yl, vlist)
-			NMCmdHistory("EventHisto", vlist)
+			vlist = NMCmdStr( wName, vlist )
+			vlist = NMCmdNum( reps, vlist )
+			vlist = NMCmdNum( dx, vlist )
+			vlist = NMCmdNum( v1, vlist )
+			vlist = NMCmdNum( v2, vlist )
+			vlist = NMCmdStr( yl, vlist )
+			NMCmdHistory( "EventHisto", vlist )
 			
-			EventHisto(wName, reps, dx, v1, v2, yl)
+			EventHisto( wName, reps, dx, v1, v2, yl )
 			
 			break
 			
@@ -3316,20 +5479,20 @@ Function EventHistoCall()
 			
 			DoPrompt "Event Interval Histogram", dx, v1, v2, v3, v4
 			
-			if (V_flag == 1)
+			if ( V_flag == 1 )
 				break
 			endif
 			
-			vlist = NMCmdStr(wName, vlist)
-			vlist = NMCmdNum(dx, vlist)
-			vlist = NMCmdNum(v1, vlist)
-			vlist = NMCmdNum(v2, vlist)
-			vlist = NMCmdNum(v3, vlist)
-			vlist = NMCmdNum(v4, vlist)
+			vlist = NMCmdStr( wName, vlist )
+			vlist = NMCmdNum( dx, vlist )
+			vlist = NMCmdNum( v1, vlist )
+			vlist = NMCmdNum( v2, vlist )
+			vlist = NMCmdNum( v3, vlist )
+			vlist = NMCmdNum( v4, vlist )
 			
-			NMCmdHistory("EventHistoIntvl", vlist)
+			NMCmdHistory( "EventHistoIntvl", vlist )
 			
-			EventHistoIntvl(wName, dx, v1, v2, v3, v4)
+			EventHistoIntvl( wName, dx, v1, v2, v3, v4 )
 			
 			break
 			
@@ -3341,40 +5504,42 @@ End // EventHistoCall
 //****************************************************************
 //****************************************************************
 
-Function EventHisto(wName, reps, bin, winB, winE, yl)
+Function EventHisto( wName, reps, bin, winB, winE, yl )
 	String wName // wave name
-	Variable reps // number of repititions (number of waves)
+	Variable reps // number of repititions ( number of waves )
 	Variable bin // histo bin size
 	Variable winB, winE // begin, end time
-	String yl // y-axis dimensions (see switch below)
+	String yl // y-axis dimensions ( see switch below )
 	
 	Variable nbins
-	String df = EventDF()
+	String hName, gPrefix, gName, gTitle, sName, path
 	
-	String xl = NMNoteLabel("y", wName, "msec")
+	String xl = NMNoteLabel( "y", wName, "msec" )
 	
-	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
+	sName = GetPathName( wName, 0 )
+	path = GetPathName( wName, 1 )
+	hName = NextWaveName2( "", sName + "_hist", -1, NMEventOverWrite() )
+	gPrefix = sName + "_" + NMFolderPrefix( "" ) + "PSTH"
+	gName = NextGraphName( gPrefix, -1, 0 ) // no overwrite, due to long name
+	gTitle = NMFolderListName( "" ) + " : " + sName + " Histogram"
 	
-	String hName = NextWaveName2("", wName + "_hist", -1, NMOverWrite())
-	String gPrefix = wName + "_" + NMFolderPrefix("") + "PSTH"
-	String gName = NextGraphName(gPrefix, -1, 0) // no overwrite, due to long name
-	String gTitle = NMFolderListName("") + " : " + wName + " Histogram"
+	hName = path + hName
 	
 	Make /D/O/N=1 $hName
 	
 	WaveStats /Q/Z $wName
 	
-	nbins = ceil((V_max - V_min) / bin)
+	nbins = ceil( ( V_max - V_min ) / bin )
 	
 	Histogram /B={V_min, bin, nbins} $wName, $hName
 	
-	if (WaveExists($hName) == 0)
+	if ( WaveExists( $hName ) == 0 )
 		return -1
 	endif
 	
 	wave histo = $hName
 	
-	strswitch(yl)
+	strswitch( yl )
 		case "Events / bin":
 			break
 		case "Events / sec":
@@ -3385,13 +5550,13 @@ Function EventHisto(wName, reps, bin, winB, winE, yl)
 			break
 	endswitch
 	
-	NMPlotWaves(gName, gTitle, xl, yl, "", hName)
+	NMPlotWavesOffset( gName, gTitle, xl, yl, "", hName, 0, 0, 0, 0 )
 	
 	ModifyGraph mode=5, hbFill=2
 	
-	NMNoteType(hName, "Event Histogram", xl, yl, "Func:EventHisto")
+	NMNoteType( hName, "Event Histogram", xl, yl, "Func:EventHisto" )
 	
-	Note $hName, "Histo Bin:" + num2str(bin) + ";Histo Tbgn:" + num2str(winB) + ";Histo Tend:" + num2str(winE) + ";"
+	Note $hName, "Histo Bin:" + num2str( bin ) + ";Histo Tbgn:" + num2str( winB ) + ";Histo Tend:" + num2str( winE ) + ";"
 	Note $hName, "Histo Source:" + wName
 	
 End // EventHisto
@@ -3400,77 +5565,80 @@ End // EventHisto
 //****************************************************************
 //****************************************************************
 
-Function EventHistoIntvl(wName, bin, winB, winE, isiMin, isiMax)
+Function EventHistoIntvl( wName, bin, winB, winE, isiMin, isiMax )
 	String wName // wave name
 	Variable bin // histo bin size
 	Variable winB, winE
 	Variable isiMin, isiMax
 	
 	Variable icnt, nbins
-	String df = EventDF()
+	String hName, gPrefix, gName, gTitle, sName, path
+	
 	String yl = "Intvls / bin"
-	String xl = NMNoteLabel("y", wName, "msec")
+	String xl = NMNoteLabel( "y", wName, "msec" )
 	
-	Variable CurrentChan = NumVarOrDefault("CurrentChan", 0)
-	
-	if (numtype(winE) > 0)
-		winE = NumVarOrDefault(df+"SearchEnd", 0)
+	if ( numtype( winE ) > 0 )
+		winE = NMEventVar( "SearchEnd" )
 	endif
 	
-	if (numtype(isiMax) > 0)
-		isiMax = NumVarOrDefault(df+"SearchEnd", 0)
+	if ( numtype( isiMax ) > 0 )
+		isiMax = NMEventVar( "SearchEnd" )
 	endif
 	
-	Variable events = Time2Intervals(wName, winB, winE, isiMin, isiMax) // results saved in U_INTVLS (function in Utility.ipf)
+	Variable events = Time2Intervals( wName, winB, winE, isiMin, isiMax ) // results saved in U_INTVLS ( function in Utility.ipf )
 
-	if (events <= 0)
-		NMDoAlert("No inter-event intervals detected.")
+	if ( events <= 0 )
+		NMDoAlert( "No inter-event intervals detected." )
 		return -1
 	endif
 	
-	String hName = NextWaveName2("", wName + "_intvl", -1, NMOverWrite())
-	String gPrefix = wName + "_" + NMFolderPrefix("") + "ISIH"
-	String gName = NextGraphName(gPrefix, -1, 0) // no overwrite, due to long name
-	String gTitle = NMFolderListName("") + " : " + wName + " Interval Histogram"
+	sName = GetPathName( wName, 0 )
+	path = GetPathName( wName, 1 )
+	hName = NextWaveName2( "", sName + "_intvl", -1, NMEventOverWrite() )
+	gPrefix = sName + "_" + NMFolderPrefix( "" ) + "ISIH"
+	gName = NextGraphName( gPrefix, -1, 0 ) // no overwrite, due to long name
+	gTitle = NMFolderListName( "" ) + " : " + sName + " Interval Histogram"
+	
+	hName = path + hName
 
 	Make /D/O/N=1 $hName
 	
 	WaveStats /Q/Z U_INTVLS
 	
-	nbins = ceil((V_max - isiMin) / bin)
+	nbins = ceil( ( V_max - isiMin ) / bin )
 	
 	Histogram /B={isiMin, bin, nbins} U_INTVLS, $hName
 	
-	if (WaveExists($hName) == 0)
+	if ( WaveExists( $hName ) == 0 )
 		return -1
 	endif
 	
 	Wave histo = $hName
 	
-	for (icnt = numpnts(histo) - 1; icnt >= 0; icnt -= 1)
-		if (histo[icnt] > 0)
+	for ( icnt = numpnts( histo ) - 1; icnt >= 0; icnt -= 1 )
+		if ( histo[ icnt ] > 0 )
 			break
-		elseif (histo[icnt] == 0)
-			histo[icnt] = Nan
+		elseif ( histo[ icnt ] == 0 )
+			histo[ icnt ] = Nan
 		endif
 	endfor
 	
 	WaveStats /Q/Z histo
 	
-	Redimension /N=(V_npnts) histo
+	Redimension /N=( V_npnts ) histo
 	
-	NMPlotWaves(gName, gTitle, xl, yl, "", hName)
+	NMPlotWavesOffset( gName, gTitle, xl, yl, "", hName, 0, 0, 0, 0 )
 	
 	ModifyGraph mode=5, hbFill=2
 	
 	WaveStats /Q/Z U_INTVLS
 	
-	SetAxis bottom 0, (V_max*1.1)
+	SetAxis bottom 0, ( V_max*1.1 )
 	
-	NMNoteType(hName, "Event Intvl Histogram", xl, yl, "Func:EventHistoIntvl")
+	NMNoteType( hName, "Event Intvl Histogram", xl, yl, "Func:EventHistoIntvl" )
 	
-	Note $hName, "Intvl Bin:" + num2str(bin) + ";Intvl Tbgn:" + num2str(winB) + ";Intvl Tend:" + num2str(winE) + ";"
-	Note $hName, "Intvl Min:" + num2str(isiMin) + ";Intvl Max:" + num2str(isiMax) + ";"
+	Note $hName, "Intvl Bin:" + num2str( bin ) + ";Intvl Tbgn:" + num2str( winB ) + ";Intvl Tend:" + num2str( winE ) + ";"
+	Note $hName, "Intvl Min:" + num2str( isiMin ) + ";Intvl Max:" + num2str( isiMax ) + ";"
 	Note $hName, "Intvl Source:" + wName
 	
 	Print "\rIntervals stored in wave U_INTVLS"

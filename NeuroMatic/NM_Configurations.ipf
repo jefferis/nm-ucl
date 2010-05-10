@@ -1,6 +1,5 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -14,11 +13,6 @@
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began 5 May 2002
-//	Last Modified 02 Oct 2007
-//
-//	New Configurations
-//
-//	Unlike old Preferences.ipf, pref variables cannot be set here
 //
 //****************************************************************
 //****************************************************************
@@ -107,7 +101,7 @@ Function /S NMConfigList()
 	
 	if (FindListItem("NeuroMatic", flist) >= 0)
 		flist = RemoveFromList("NeuroMatic", flist)
-		flist = AddListItem("NeuroMatic", flist, ";", 0)
+		flist = "NeuroMatic;" + flist
 	endif
 	
 	return flist
@@ -275,7 +269,7 @@ Function /S NMConfigSave(fname) // save config folder
 		KillDataFolder $tdf // kill temp folder if already exists
 	endif
 	
-	NewDataFolder $LastPathColon(tdf, 0)
+	NewDataFolder $RemoveEnding( tdf, ":" )
 	
 	SetNMstr(tdf+"FileType", "NMConfig")
 	
@@ -284,6 +278,8 @@ Function /S NMConfigSave(fname) // save config folder
 	CheckNMPath()
 	
 	folder = FileBinSave(1, 1, tdf, "NMPath", file, 1, -1) // new file
+	
+	KillNMPath()
 	
 	if (DataFolderExists(tdf) == 1)
 		KillDataFolder $tdf // kill temp folder
@@ -316,6 +312,8 @@ Function /S NMConfigSaveAll()
 	CheckNMPath()
 	
 	file = FileBinSave(1, 1, df, "NMPath", file, 1, -1) // new file
+	
+	KillNMPath()
 	
 	return file
 
@@ -350,6 +348,8 @@ Function NMConfigOpen(file)
 	endif
 	
 	String folder = FileBinOpen(dialogue, 0, "", "NMPath", file, 0) // NM_FileManager.ipf
+	
+	KillNMPath()
 
 	if (strlen(folder) == 0)
 		return error // cancel
@@ -420,17 +420,17 @@ Function NMConfigOpenAuto()
 	String flist = IndexedFile(NMPath, -1, "????")
 	
 	flist = RemoveFromList("NMConfigs.pxp", flist)
-	flist = AddListItem("NMConfigs.pxp", flist, ";", 0) // open NMConfigs first
+	flist = "NMConfigs.pxp;" + flist // open NMConfigs first
 	
 	for (icnt = 0; icnt < ItemsInList(flist); icnt += 1)
 	
 		fname = StringFromList(icnt, flist)
 		
-		if (StrSearchLax(fname, ".ipf", 0) >= 0)
+		if (StrSearch(fname, ".ipf", 0, 2) >= 0)
 			continue // skip procedure files
 		endif
 		
-		if (StrSearchLax(fname, ext, 0) >= 0)
+		if (StrSearch(fname, ext, 0, 2) >= 0)
 			
 			strswitch(ext)
 				case ".nmb":
@@ -448,6 +448,8 @@ Function NMConfigOpenAuto()
 	//UpdateNMConfigMenu()
 	
 	CheckNMConfigsAll()
+	
+	KillNMPath()
 	
 	PathInfo /S Igor // reset path to Igor
 
@@ -626,7 +628,7 @@ Function /S NMConfigVarList(fname, objType)
 			objName = StringFromList(ocnt, objList)
 			
 			if (StringMatch(objName[0,1], "D_") == 0) // do not include "Description" strings
-				rlist = AddListItem(objName, rlist, ";", inf)
+				rlist += objName + ";"
 			endif
 			
 		endfor
@@ -697,11 +699,11 @@ Function NMConfigEdit(flist) // create table to edit config vars
 	Variable x1, x2, y1, y2
 	
 	String fname, objName, tName, tTitle, varList, strList
-	String df, ndf = NMDF()
+	String df
 	
 	String blankStr = ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
 	
-	Variable xPixels = NumVarOrDefault(ndf+"xPixels", 1000)
+	Variable xPixels = NMComputerPixelsX()
 	
 	if (StringMatch(flist, "All") == 1)
 		//flist = NMConfigList()
@@ -729,7 +731,7 @@ Function NMConfigEdit(flist) // create table to edit config vars
 		strList = NMConfigVarList(fname, 3)
 	
 		if ((ItemsInList(varList) == 0) && (ItemsInList(strList) == 0))
-			//DoAlert 0, "Located no  \"" + fname + "\" configurations."
+			//DoAlert 0, "Located no  " + NMQuotes( fname ) + " configurations."
 			Execute /Z fname + "ConfigEdit()" // run particular edit tab config if exists
 			continue
 		endif
@@ -772,7 +774,7 @@ Function NMConfigEdit(flist) // create table to edit config vars
 			
 			AppendToTable Description
 			
-			Execute /Z "ModifyTable title(Point)= \"Entry\""
+			Execute /Z "ModifyTable title(Point)= " + NMQuotes( "Entry" )
 			Execute /Z "ModifyTable alignment(" + df + "VarName)=0, width(" + df + "VarName)=100"
 			Execute /Z "ModifyTable alignment(" + df + "Description)=0, width(" + df + "Description)=500"
 			
@@ -819,13 +821,12 @@ Function NMConfigEditHook(infoStr)
 	String infoStr
 	
 	Variable runhook
-	String df = NMDF()
 	
 	String event = StringByKey("EVENT",infoStr)
 	String win = StringByKey("WINDOW",infoStr)
 	String prefix = "Config_"
 	
-	Variable icnt = StrSearchLax(win, prefix, 0)
+	Variable icnt = StrSearch(win, prefix, 0, 2)
 	
 	if (icnt < 0)
 		return 0
@@ -836,11 +837,11 @@ Function NMConfigEditHook(infoStr)
 	strswitch(event)
 		case "deactivate":
 			runhook = 1
-			SetNMstr(df+"ConfigHookEvent", "deactivate")
+			SetNeuroMaticStr( "ConfigHookEvent", "deactivate" )
 			break
 		case "kill":
 			runhook = 1
-			SetNMstr(df+"ConfigHookEvent", "kill")
+			SetNeuroMaticStr( "ConfigHookEvent", "kill" )
 			break
 	endswitch
 	

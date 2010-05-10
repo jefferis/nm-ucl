@@ -1,6 +1,5 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -19,7 +18,6 @@
 //	"Grid Enabled Modeling Tools and Databases for NeuroInformatics"
 //
 //	Began 1 July 2003
-//	Last modified 10 March 2008
 //
 //****************************************************************
 //****************************************************************
@@ -166,7 +164,7 @@ End // StimIntervalGet
 //****************************************************************
 //****************************************************************
 
-Function StimIntervalGetx(sdf, boardNum)
+Function StimIntervalGet_DEPRECATED(sdf, boardNum)
 	String sdf // stim data folder path
 	Variable boardNum
 	
@@ -177,7 +175,7 @@ Function StimIntervalGetx(sdf, boardNum)
 	
 	sampleInterval = NumVarOrDefault(sdf+"SampleInterval", 1) // default driver value
 
-	varName = sdf + "SampleInterval_" + num2str(boardNum) // board-specific sample interval
+	varName = sdf + "SampleInterval_" + num2istr(boardNum) // board-specific sample interval
 	
 	if (exists(varName) == 2)
 		sampleInterval = NumVarOrDefault(varName, sampleInterval)
@@ -185,7 +183,7 @@ Function StimIntervalGetx(sdf, boardNum)
 	
 	return StimIntervalCheck(sampleInterval)
 		
-End // StimIntervalGetx
+End // StimIntervalGet_DEPRECATED
 
 //****************************************************************
 //****************************************************************
@@ -237,11 +235,11 @@ Function /S StimWavesCheck(sdf, forceUpdate)
 			ORflag = 0
 		endif
 		
-		wlist = WaveListFolder(sdf, wPrefix + "*", ";", "")
-		ulist = WaveListFolder(sdf, "u"+wPrefix + "*", ";", "") // unscaled waves for display
+		wlist = NMFolderWaveList(sdf, wPrefix + "*", ";", "",0)
+		ulist = NMFolderWaveList(sdf, "u"+wPrefix + "*", ";", "",0) // unscaled waves for display
 		
 		if (ItemsInLIst(ulist) == 0)
-			ulist = WaveListFolder(sdf, "My"+wPrefix + "*", ";", "") // try "My" waves
+			ulist = NMFolderWaveList(sdf, "My"+wPrefix + "*", ";", "",0) // try "My" waves
 		endif
 		
 		wlist = RemoveFromList(wPrefix + "_pulse", wlist)
@@ -272,7 +270,7 @@ Function /S StimWavesCheck(sdf, forceUpdate)
 	
 	if (new == 1)
 	
-		klist = WaveListFolder(sdf, "ITCoutWave*", ";", "")
+		klist = NMFolderWaveList(sdf, "ITCoutWave*", ";", "",0)
 		
 		for (icnt = 0; icnt < ItemsInList(klist); icnt += 1)
 			KillWaves /Z $StringFromList(icnt, klist)
@@ -356,7 +354,7 @@ Function /S StimWavesMake(sdf, io, config, ORflag)
 	
 		for (wcnt = 0; wcnt < numWaves; wcnt += 1)
 		
-			wname = wPrefix + "_" + num2str(wcnt)
+			wname = wPrefix + "_" + num2istr(wcnt)
 			
 			if (WaveExists($sdf+"My"+wname) == 1)
 			
@@ -504,7 +502,7 @@ Function /S StimTable(sdf, pName, df, prefix)
 	AppendToTable $df+prefix+"Tau2"
 	AppendToTable $df+prefix+"TD"
 	
-	Execute /Z "ModifyTable title(Point)= \"Config\""
+	Execute /Z "ModifyTable title(Point)= " + NMQuotes( "Config" )
 	
 	Execute /Z "ModifyTable width=55"
 	Execute /Z "ModifyTable width("+df+prefix+"ND)=40"
@@ -634,7 +632,7 @@ Function StimBoardConfigTable(sdf, io, wlist, hook)
 	DoWindow /K $tName
 	Edit /N=$tName/W=(0,0,0,0)/K=1 as title[0,30]
 	SetCascadeXY(tName)
-	Execute "ModifyTable title(Point)= \"Config\""
+	Execute "ModifyTable title(Point)= " + NMQuotes( "Config" )
 	
 	if (hook == 1)
 		SetWindow $tName
@@ -708,7 +706,7 @@ Function /S StimPrefixList(sdf, io)
 		
 		for (icnt = 0; icnt < numpnts(name); icnt += 1)
 			if (strlen(name[icnt]) > 0)
-				wlist = AddListItem(io + "_" + num2str(icnt), wlist, ";", inf)
+				wlist = AddListItem(io + "_" + num2istr(icnt), wlist, ";", inf)
 			endif
 		endfor
 		
@@ -724,7 +722,7 @@ Function /S StimPrefixList(sdf, io)
 	
 		for (icnt = 0; icnt < numpnts(wTemp); icnt += 1)
 			if (wTemp[icnt] == 1)
-				wlist = AddListItem(io + "_" + num2str(icnt), wlist, ";", inf)
+				wlist = AddListItem(io + "_" + num2istr(icnt), wlist, ";", inf)
 			endif
 		endfor
 	
@@ -768,7 +766,7 @@ Function /S StimNameList(sdf, io)
 		
 		for (icnt = 0; icnt < numpnts(name); icnt += 1)
 			if (strlen(name[icnt]) > 0)
-				txt = io + "_" + num2str(icnt) + " : " + name[icnt]
+				txt = io + "_" + num2istr(icnt) + " : " + name[icnt]
 				wlist = AddListItem(txt, wlist, ";", inf)
 			endif
 		endfor
@@ -787,7 +785,7 @@ Function /S StimNameList(sdf, io)
 	
 		for (icnt = 0; icnt < numpnts(wTemp); icnt += 1)
 			if (wTemp[icnt] == 1)
-				txt = io + "_" + num2str(icnt) + " : " + wTemp2[icnt]
+				txt = io + "_" + num2istr(icnt) + " : " + wTemp2[icnt]
 				wlist = AddListItem(txt, wlist, ";", inf)
 			endif
 		endfor
@@ -807,7 +805,7 @@ Function /S StimPulseList(sdf)
 	
 	String wlist = FolderObjectList(sdf, 5)
 	
-	return MatchStrList(wlist, "*_pulse")
+	return ListMatch( wlist, "*_pulse", ";" )
 	
 End // StimPulseList
 
@@ -860,11 +858,11 @@ Function /S StimWaveName(prefix, config, waveNum)
 	Variable waveNum // (-1) for none
 	
 	if (config >= 0)
-		prefix += "_" + num2str(config)
+		prefix += "_" + num2istr(config)
 	endif
 	
 	if (waveNum >= 0)
-		prefix += "_" + num2str(waveNum)
+		prefix += "_" + num2istr(waveNum)
 	endif
 	
 	return prefix // e.g. "DAC_0_1"
@@ -1012,7 +1010,7 @@ Function /S SubStimDF()
 
 	String sName = SubStimName("")
 
-	if (strlen(sName) > 0)
+	if ( strlen(sName) > 0 )
 		return GetDataFolder(1) + sName + ":"
 	else
 		return ""
@@ -1030,16 +1028,16 @@ Function SubStimDetails()
 	
 	Variable acqMode = NumVarOrDefault(sdf+"AcqMode", 0)
 	
-	NMHistory("\rStim: " + LastPathColon(sdf, 0))
+	NMHistory("\rStim: " + RemoveEnding( sdf, ":" ))
 	NMHistory("Acquisition Mode: " + StimAcqModeStr(acqMode))
-	NMHistory("Waves/Groups: " + num2str(NumVarOrDefault(sdf+"NumStimWaves", 0)))
+	NMHistory("Waves/Groups: " + num2istr(NumVarOrDefault(sdf+"NumStimWaves", 0)))
 	NMHistory("Wave Length (ms): " + num2str(NumVarOrDefault(sdf+"WaveLength", 0)))
-	NMHistory("Samples per Wave: " + num2str(NumVarOrDefault(sdf+"SamplesPerWave", Nan)))
+	NMHistory("Samples per Wave: " + num2istr(NumVarOrDefault(sdf+"SamplesPerWave", Nan)))
 	NMHistory("Sample Interval (ms): " + num2str(NumVarOrDefault(sdf+"SampleInterval", Nan)))
 	NMHistory("Stim Interlude (ms): " + num2str(NumVarOrDefault(sdf+"InterStimTime", Nan)))
 	//NMHistory("Stim Rate (ms): " + num2str(NumVarOrDefault(sdf+"StimRate", Nan)))
 	
-	NMHistory("Repetitions: " + num2str(NumVarOrDefault(sdf+"NumStimReps", Nan)))
+	NMHistory("Repetitions: " + num2istr(NumVarOrDefault(sdf+"NumStimReps", Nan)))
 	NMHistory("Rep Interlude (ms): " + num2str(NumVarOrDefault(sdf+"InterRepTime", Nan)))
 	//NMHistory("Rep Rate (ms): " + num2str(NumVarOrDefault(sdf+"RepRate", Nan)))
 
@@ -1051,20 +1049,21 @@ End // SubStimDetails
 
 Function SubStimWavesRetrieveCall()
 
-	String ndf = NMDF(), sdf = SubStimDF()
+	String sdf = SubStimDF()
 
 	String plist = StimPrefixListAll(sdf)
 	String pSelect = "", vlist = ""
 	
-	Variable retrieveAs = NumVarOrDefault(ndf+"StimRetrieveAs", 1)
+	Variable retrieveAs = NeuroMaticVar( "StimRetrieveAs" )
 	
 	Prompt retrieveAs, "retrieve as:", popup "DAC/TTL pulse waves;channel waves;"
 	
 	if (ItemsInlist(plist) > 1)
 		Prompt pSelect, "choose stim configuration:", popup "All;" + plist
-		DoPrompt "Retrieve Stim Waves To Current Folder", pSelect, retrieveAs
+		//DoPrompt "Retrieve Stim Waves To Current Folder", pSelect, retrieveAs
+		DoPrompt "Retrieve Stim Waves To Current Folder", pSelect
 	else
-		DoPrompt "Retrieve Stim Waves To Current Folder", retrieveAs
+		//DoPrompt "Retrieve Stim Waves To Current Folder", retrieveAs
 		pSelect = plist
 	endif
 	
@@ -1076,7 +1075,7 @@ Function SubStimWavesRetrieveCall()
 		pSelect = plist
 	endif
 	
-	SetNMvar(ndf+"StimRetrieveAs", retrieveAs)
+	SetNeuroMaticVar( "StimRetrieveAs", retrieveAs )
 	
 	retrieveAs -= 1
 	
@@ -1094,25 +1093,19 @@ End // SubStimWavesRetrieveCall
 
 Function SubStimWavesRetrieve(plist, asChan) // retrieve sub folder stim waves
 	String plist // prefix list
-	Variable asChan // as channel waves (0) no (1) yes
+	Variable asChan // this option has been deprecated
 	
 	Variable icnt, wcnt
 	String prefix, newprefix, pname, dpName, ioName, ioUnits, wname, wList = ""
 	String gName, gTitle
 	
-	if (WaveExists(yLabel) == 0)
-		return 0
-	endif
-	
 	String sdf = SubStimDF(), bdf = StimBoardDF(sdf), df = GetDataFolder(1)
 	
-	Variable chanNum = NumVarOrDefault("NumChannels", 0)
-	
-	String wPrefix = StrVarOrDefault("WavePrefix", "Record")
+	if ( strlen( sdf ) == 0 )
+		return -1
+	endif
 	
 	Variable pgOff = NumVarOrDefault(sdf+"PulseGenOff", 0)
-	
-	Wave /T yLabel
 	
 	for (icnt = 0; icnt < ItemsInList(plist); icnt += 1)
 		
@@ -1126,12 +1119,12 @@ Function SubStimWavesRetrieve(plist, asChan) // retrieve sub folder stim waves
 		
 		if (pgOff == 1)
 			newPrefix = "My" + prefix
-			wlist = WaveListFolder(sdf, newPrefix + "*", ";", "") // user "My" waves
+			wlist = NMFolderWaveList(sdf, newPrefix + "*", ";", "",0) // user "My" waves
 		endif
 		
 		if (ItemsInList(wlist) == 0)
 			newPrefix = "u" + prefix
-			wlist = WaveListFolder(sdf, newPrefix + "*", ";", "") // unscaled waves for display
+			wlist = NMFolderWaveList(sdf, newPrefix + "*", ";", "",0) // unscaled waves for display
 		endif
 		
 		for (wcnt = 0; wcnt < ItemsInList(wlist); wcnt += 1)
@@ -1142,30 +1135,13 @@ Function SubStimWavesRetrieve(plist, asChan) // retrieve sub folder stim waves
 		ioName = StimConfigStr(sdf, pname, "name")
 		ioUnits = StimConfigStr(sdf, pname, "units")
 		
-		if (asChan == 1)
-		
-			StimWavesToChannel(StimPrefix(pname), StimConfigNum(pname), chanNum)
-			Redimension /N=(chanNum+1) yLabel
-			
-			yLabel[chanNum] = ioName + " (" + ioUnits + ")"
-			
-			chanNum += 1
-		
-		else
-		
-			gName = MainPrefix("") + NMFolderPrefix("") + pname
-			gTitle = ioName + " : " + pname
-			NMPlotWaves(gName, gTitle, "msec", ioUnits, "", wList)
-			GraphRainbow(gName)
-			NMPrefixAdd(newPrefix)
-		
-		endif
+		gName = MainPrefix("") + NMFolderPrefix("") + pname
+		gTitle = ioName + " : " + pname
+		NMPlotWavesOffset(gName, gTitle, "msec", ioUnits, "", wList, 0, 0, 0, 0 )
+		GraphRainbow( gName, "_All_" )
+		NMPrefixAdd(newPrefix)
 		
 	endfor
-	
-	if (asChan == 1)
-		NMPrefixSelectSilent(wPrefix)
-	endif
 
 End // SubStimWavesRetrieve
 
@@ -1185,7 +1161,7 @@ Function StimWavesToChannel(io, config, chanNum)
 	
 	String wPrefix = StrVarOrDefault("WavePrefix", "Record")
 	
-	prefix = io + "_" + num2str(config)
+	prefix = io + "_" + num2istr(config)
 	
 	olist = WaveList(prefix + "*", ";", "")
 	

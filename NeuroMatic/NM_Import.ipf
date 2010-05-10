@@ -1,6 +1,5 @@
 #pragma rtGlobals=1		// Use modern global access method.
-#pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -13,17 +12,17 @@
 //
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
-//	Last modified 25 Feb 2008
-//
 //	Import data file types currently supported:
 //		1) Axograph
 //		2) Pclamp
+//		3) Text files
 //
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
 Function /S ImportDF()
+
 	String df = PackDF("Import")
 	
 	if (DataFolderExists(df) == 1)
@@ -73,7 +72,7 @@ Function CallNMImportFileManager(file, df, fileType, option) // call appropriate
 	endif
 	
 	if (success <= 0)
-		NMDoAlert("Abort NMImportData: file format not recognized.")
+		NMDoAlert("Abort NMImportFileManager: file format not recognized.")
 		fileType = ""
 		success = -1
 	endif
@@ -113,11 +112,11 @@ Function NMImportFileManager(file, df, filetype, option) // call appropriate imp
 		
 			strswitch(option)
 				case "header":
-					Execute "success = ReadAxograph(\"" + file + "\",\"" + df + "\", 0)"
+					Execute "success = ReadAxograph(" + NMQuotes( file ) + "," + NMQuotes( df ) + ", 0)"
 					break
 					
 				case "data":
-					Execute "success = ReadAxograph(\"" + file + "\",\"" + df + "\", 1)"
+					Execute "success = ReadAxograph(" + NMQuotes( file ) + "," + NMQuotes( df ) + ", 1)"
 					break
 					
 				case "test":
@@ -133,11 +132,11 @@ Function NMImportFileManager(file, df, filetype, option) // call appropriate imp
 			strswitch(option)
 			
 				case "header":
-					Execute "success = ReadPclampHeader(\"" + file + "\",\"" + df + "\")"
+					Execute "success = ReadPclampHeader(" + NMQuotes( file ) + "," + NMQuotes( df ) + ")"
 					break
 					
 				case "data":
-					Execute "success = ReadPclampData(\"" + file + "\",\"" + df + "\")"
+					Execute "success = ReadPclampData(" + NMQuotes( file ) + "," + NMQuotes( df ) + ")"
 					break
 					
 				case "test":
@@ -162,7 +161,16 @@ End // NMImportFileManager
 //****************************************************************
 //****************************************************************
 
+Function NMImportAllCall()
+
+End // NMImportAllCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function NMImportFileCall() // open a data file
+
 	Variable newfolder
 	String file = "", folder = "", vlist = "", df
 
@@ -178,7 +186,7 @@ Function NMImportFileCall() // open a data file
 	
 		newfolder = 1
 	
-	elseif (NumVarOrDefault("NumWaves", 0) > 0)
+	elseif (NMNumWaves() > 0)
 	
 		newfolder = 1 + NumVarOrDefault(df+"AskNewFolder", 1)
 		
@@ -249,7 +257,7 @@ Function /S NMImportFile(folder, file) // import a data file
 		
 	endif
 	
-	if ((NumVarOrDefault("NumWaves", 0) == 0) && (strlen(StrVarOrDefault("CurrentFile", "")) == 0))
+	if ((NMNumWaves() == 0) && (strlen(StrVarOrDefault("CurrentFile", "")) == 0))
 		renameFolder = 1
 	endif
 	
@@ -267,7 +275,7 @@ Function /S NMImportFile(folder, file) // import a data file
 	UpdateNM(0)
 	
 	KillVariables /Z V_Flag, WaveBgn, WaveEnd
-	KillStrings /Z S_path, S_filename, S_wavenames
+	KillStrings /Z S_filename, S_wavenames
 	
 	return folder
 
@@ -277,28 +285,27 @@ End // NMImportFile
 //****************************************************************
 //****************************************************************
 
-Function NMImport(file, newFolder) // main load data function
+Function NMImport( file, newFolder ) // main load data function
 	String file
 	Variable newFolder // (0) no (1) yes
 	
-	Variable success, amode, saveprompt
-	String acqMode, wPrefix, wList, seq, folder, df = ImportDF(), ndf = NMDF()
-	
-	Variable importPrompt = NumVarOrDefault(NMDF()+"ImportPrompt", 1)
-	String saveWavePrefix = StrVarOrDefault("WavePrefix", "Record")
+	Variable success, amode, saveprompt, totalNumWaves, numChannels
+	String acqMode, wPrefix, wList, seq, folder, prefixFolder
+	String df = ImportDF()
 	
 	if (CheckCurrentFolder() == 0)
 		return 0
 	endif
+	
+	Variable importPrompt = NeuroMaticVar("ImportPrompt")
+	String saveWavePrefix = StrVarOrDefault("WavePrefix", "Record")
 	
 	if (FileExists(file) == 0)
 		NMDoAlert("Error: external data file has not been selected.")
 		return -1
 	endif
 	
-	Variable emptyfolder = ((NumVarOrDefault("NumWaves", 0) == 0) && (strlen(StrVarOrDefault("CurrentFile", "")) == 0))
-	
-	String setList = NMSetsList(1) // save list of Sets before appending
+	Variable emptyfolder = ((NMNumWaves() == 0) && (strlen(StrVarOrDefault("CurrentFile", "")) == 0))
 	
 	success = CallNMImportFileManager(file, df, "", "header")
 	
@@ -306,10 +313,13 @@ Function NMImport(file, newFolder) // main load data function
 		return -1
 	endif
 	
+	totalNumWaves = NumVarOrDefault(df+"TotalNumWaves", 0)
+	numChannels = NumVarOrDefault(df+"NumChannels", 1)
+	
 	SetNMvar(df+"WaveBgn", 0)
-	SetNMvar(df+"WaveEnd", floor(NumVarOrDefault(df+"TotalNumWaves", 0) / NumVarOrDefault(df+"NumChannels", 1)) - 1)
+	SetNMvar(df+"WaveEnd", floor(totalNumWaves / numChannels ) - 1)
 	SetNMstr(df+"ImportSeqStr", "")
-	CheckNMstr(df+"WavePrefix", StrVarOrDefault("WavePrefix", "Record"))
+	CheckNMstr(df+"WavePrefix", "Record")
 	
 	if (importPrompt == 1)
 		NMImportPanel(1) // open panel to display header info and request user input
@@ -326,7 +336,6 @@ Function NMImport(file, newFolder) // main load data function
 	
 	SetNMstr("WavePrefix", wPrefix)
 	SetNMstr("CurrentFile", file)
-	SetNMstr("FileName", GetPathName(file, 0))
 	
 	seq = StrVarOrDefault(df+"ImportSeqStr", "")
 	
@@ -350,12 +359,14 @@ Function NMImport(file, newFolder) // main load data function
 		return -1
 	endif
 	
-	PrintFileDetails()
-	NMPrefixSelectSilent(wPrefix)
+	PrintNMFolderDetails( GetDataFolder( 1 ) )
+	NMPrefixSelectSilent( wPrefix )
 	
-	if (StringMatch(wPrefix, saveWavePrefix) == 1)
-		NMSetsDataNew()
-	endif
+	prefixFolder = CurrentNMPrefixFolder()
+	
+	//if (StringMatch(wPrefix, saveWavePrefix) == 1)
+	//	NMSetsDataNew()
+	//endif
 	
 	acqMode = StrVarOrDefault(df+"AcqMode", "")
 	
@@ -365,26 +376,18 @@ Function NMImport(file, newFolder) // main load data function
 	
 		if (NumVarOrDefault(df+"ConcatWaves", 0) == 1)
 		
-			if (WaveExists(ChanSelect) == 1)
-				Wave ChanSelect
-				ChanSelect = 1
-			endif
+			NMChanSelect( "All" )
 		
 			wList = NMConcatWaves( "C_Record" )
 			
-			if (ItemsInList(wList) == NumVarOrDefault("NumWaves", 0) * NumVarOrDefault("NumChannels", 0))
-				SetNMvar(NMDF()+"NMDeleteWavesNoAlert", 1)
+			if (ItemsInList(wList) == NMNumWaves() * NMNumChannels())
+				SetNeuroMaticVar( "NMDeleteWavesNoAlert", 1 )
 				NMDeleteWaves()
 			else
 				NMDoAlert("Alert: waves may have not been properly concatenated.")
 			endif
 			
-			saveprompt = NumVarOrDefault(ndf+"ChangePrefixPrompt", 1)
-			SetNMvar(ndf+"ChangePrefixPrompt", 0)
-			
-			NMPrefixSelect( "C_Record" )
-			
-			SetNMvar(ndf+"ChangePrefixPrompt", saveprompt)
+			NMPrefixSelectSilent( "C_Record" )
 			
 		else
 			NMTimeScaleMode(1) // make continuous
@@ -408,13 +411,13 @@ Function NMImportFileSeq(fileName, ImportSeqStr)
 	String fileName
 	String ImportSeqStr
 	
-	Variable icnt, jcnt, success, newfolder, amode
+	Variable icnt, jcnt, success, newfolder, amode, totalNumWaves, numChannels
 	String acqMode, setList, file, seq, ext = "", wlist, wprefix, folder, df = ImportDF()
 	
 	String saveCurrentFile = StrVarOrDefault("CurrentFile", "")
 	String saveWavePrefix = StrVarOrDefault("WavePrefix", "Record")
 	
-	Variable importPrompt = NumVarOrDefault(NMDF()+"ImportPrompt", 1)
+	Variable importPrompt = NeuroMaticVar( "ImportPrompt" )
 	
 	if (ItemsInList(ImportSeqStr) == 0)
 		return 1
@@ -442,7 +445,7 @@ Function NMImportFileSeq(fileName, ImportSeqStr)
 			continue // not allowed
 		endif
 		
-		setList = NMSetsList(1) // save list of Sets before appending
+		//setList = NMSetsList( "", 1 ) // save list of Sets before appending
 		
 		if (FileExists(file) == 0)
 			NMDoAlert(file + " does not exist.")
@@ -467,9 +470,12 @@ Function NMImportFileSeq(fileName, ImportSeqStr)
 		if (success <= 0)
 			continue
 		endif
+		
+		totalNumWaves = NumVarOrDefault(df+"TotalNumWaves", 0)
+		numChannels = NumVarOrDefault(df+"NumChannels", 0)
 	
 		SetNMvar(df+"WaveBgn", 0)
-		SetNMvar(df+"WaveEnd", floor(NumVarOrDefault(df+"TotalNumWaves", 0) / NumVarOrDefault(df+"NumChannels", 0)) - 1)
+		SetNMvar(df+"WaveEnd", floor( totalNumWaves / numChannels ) - 1)
 		CheckNMstr(df+"WavePrefix", StrVarOrDefault("WavePrefix", "Record"))
 		
 		if (importPrompt == 1)
@@ -487,7 +493,6 @@ Function NMImportFileSeq(fileName, ImportSeqStr)
 	
 		SetNMstr("WavePrefix", wPrefix)
 		SetNMstr("CurrentFile", file)
-		SetNMstr("FileName", GetPathName(file, 0))
 		
 		success = CallNMImportFileManager(file, "", StrVarOrDefault(df+"DataFileType", ""), "data") // read data
 		
@@ -495,12 +500,12 @@ Function NMImportFileSeq(fileName, ImportSeqStr)
 			continue
 		endif
 		
-		PrintFileDetails()
+		PrintNMFolderDetails( GetDataFolder( 1 ) )
 		NMPrefixSelectSilent(wPrefix)
 		
-		if (StringMatch(wPrefix, saveWavePrefix) == 1)
-			NMSetsDataNew()
-		endif
+		//if (StringMatch(wPrefix, saveWavePrefix) == 1)
+		//	NMSetsDataNew()
+		//endif
 		
 		acqMode = StrVarOrDefault(df+"AcqMode", "")
 	
@@ -512,8 +517,8 @@ Function NMImportFileSeq(fileName, ImportSeqStr)
 			
 				wList = NMConcatWaves( "C_Record" )
 				
-				if (ItemsInList(wList) == NumVarOrDefault("NumWaves", 0))
-					SetNMvar(NMDF()+"NMDeleteWavesNoAlert", 1)
+				if (ItemsInList(wList) == NMNumWaves())
+					SetNeuroMaticVar( "NMDeleteWavesNoAlert", 1 )
 					NMDeleteWaves()
 				else
 					NMDoAlert("Alert: waves were not properly concatenated.")
@@ -540,49 +545,6 @@ End // NMImportFileSeq
 //****************************************************************
 //****************************************************************
 //****************************************************************
-
-Function PrintFileDetails()
-	Variable nwaves, chncnt, scale 
-	String txt
-	
-	Variable numWaves = NumVarOrDefault("NumWaves", Nan)
-	Variable numChannels = NumVarOrDefault("NumChannels", Nan)
-	Variable WaveBgn = NumVarOrDefault("WaveBgn", 0)
-	Variable waveEnd = NumVarOrDefault("WaveEnd", numWaves)
-	
-	nwaves = waveEnd - WaveBgn + 1
-	
-	NMHistory("Data File: " + StrVarOrDefault("CurrentFile", "Unknown Data File"))
-	NMHistory("File Type: " + StrVarOrDefault("DataFileType", "Unknown"))
-	NMHistory("Acquisition Mode: " + StrVarOrDefault("AcqMode", "Unknown"))
-	NMHistory("Channels: " + num2str(NumVarOrDefault("NumChannels", Nan)))
-	NMHistory("Waves per Channel: " + num2str(nwaves))
-	NMHistory("Waves: " + num2str(WaveBgn) + " - " + num2str(waveEnd))
-	NMHistory("Samples per Wave: " + num2str(NumVarOrDefault("SamplesPerWave", Nan)))
-	NMHistory("Sample Interval (ms): " + num2str(NumVarOrDefault("SampleInterval", Nan)))
-	
-	if (WavesExist("FileScaleFactors;MyScaleFactors") == 0)
-		return 0
-	endif
-	
-	Wave FileScaleFactors, MyScaleFactors
-	
-	for (chncnt = 0; chncnt < numChannels; chncnt += 1)
-		txt = "Chan " + ChanNum2Char(chncnt) + " Scale Factor: " + num2str(FileScaleFactors[chncnt])
-		scale = MyScaleFactors[chncnt]
-		if (scale != 1)
-			txt += " * " + num2str(scale)
-		endif
-		NMHistory(txt)
-	endfor
-	
-	NMHistory(" ")
-
-End // PrintFileDetails
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
 //
 //		Import File Panel
 //		(panel called to request user input)
@@ -601,7 +563,7 @@ Function NMImportPanel(showSeq) // Bring up "Load File Panel" to request user in
 	Variable x1, x2, y1, y2, yinc, seq, height = 330, width = 280
 	String seqstr, df = ImportDF()
 	
-	Variable xPixels = NumVarOrDefault(NMDF() + "xPixels", 1000)
+	Variable xPixels = NMComputerPixelsX()
 	Variable newFolder = NumVarOrDefault(df+"NewFolder", 1)
 	Variable waveEnd = NumVarOrDefault(df+"WaveEnd", 0)
 	Variable concat = NumVarOrDefault(df+"ConcatWaves", 0)
@@ -622,7 +584,7 @@ Function NMImportPanel(showSeq) // Bring up "Load File Panel" to request user in
 		seq = 6
 	endif
 	
-	seqstr = "file seq (e.g. " + num2str(seq) + "-" + num2str(seq+2) + ", " + num2str(seq+4) + ", " + num2str(seq+7) + ") "
+	seqstr = "file seq (e.g. " + num2istr(seq) + "-" + num2istr(seq+2) + ", " + num2istr(seq+4) + ", " + num2istr(seq+7) + ") "
 	
 	DoWindow /K ImportPanel
 	NewPanel /N=ImportPanel/W=(x1,y1,x2,y2) as "Import " + fileType + " File"
@@ -709,16 +671,17 @@ End // NMImportButton
 Function NMImportSetVariable(ctrlName, varNum, varStr, varName) : SetVariableControl
 	String ctrlName; Variable varNum; String varStr, varName
 	
-	Variable chncnt
+	Variable chncnt, totalWaves, numChannels
 	String df = ImportDF()
-	
-	Variable numChannels = NumVarOrDefault("NumChannels", 0)
-	Variable totalNumWaves = NumVarOrDefault("TotalNumWaves", 0)
 	
 	strswitch(ctrlName)
 	
 		case "NM_NumChannelSet":
-			SetNMvar(df+"WaveEnd", totalNumWaves / numChannels)
+		
+			totalWaves = NumVarOrDefault( df+"TotalNumWaves", 0 )
+			numChannels = NumVarOrDefault( df+"NumChannels", 1 )
+			SetNMvar(df+"WaveEnd", floor( totalWaves / numChannels ) - 1 )
+			
 			break
 			
 		case "NM_FileSeq":
@@ -729,6 +692,135 @@ Function NMImportSetVariable(ctrlName, varNum, varStr, varName) : SetVariableCon
 	endswitch
 
 End // NMImportSetVariable
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+//
+//	Text File Import Functions
+//
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMLoadAllWavesFromExtFolderCall()
+
+	String vlist = ""
+	String df = ImportDF()
+
+	String fileType = StrVarOrDefault( df+"LoadWavesFileType", "Igor Binary" )
+	String fileExt = StrVarOrDefault( df+"LoadWavesFileExt", "ibw" )
+	Variable createNewFolder = 1 + NumVarOrDefault( df+"LoadWavesNewFolder", 1 )
+	
+	Prompt fileType "type of files to load:", popup "Igor Binary;Igor Text;General Text;Delimited Text;"
+	Prompt fileExt "file extension (e.g. \"ibw\" or \"itx\" or \"txt\")"
+	Prompt createNewFolder "import to a new data folder?", popup "no;yes;"
+	DoPrompt "Load all waves that reside in an external folder", fileType, fileExt, createNewFolder
+	
+	if (V_flag == 1)
+		return "" // cancel
+	endif
+	
+	createNewFolder -= 1
+	
+	SetNMstr( df+"LoadWavesFileType", fileType )
+	SetNMstr( df+"LoadWavesFileExt", fileExt )
+	SetNMvar( df+"LoadWavesNewFolder", createNewFolder )
+	
+	vlist = NMCmdStr(fileType, vlist)
+	vlist = NMCmdStr(fileExt, vlist)
+	vlist = NMCmdNum(createNewFolder, vlist)
+	NMCmdHistory("NMLoadAllWavesFromExtFolder", vlist)
+	
+	return NMLoadAllWavesFromExtFolder( fileType, fileExt, createNewFolder )
+
+End // NMLoadAllWavesFromExtFolderCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S NMLoadAllWavesFromExtFolder( fileType, fileExt, createNewFolder )
+	String fileType // "Igor Binary" or "Igor Text" or "General Text" or "Delimited Text"
+	String fileExt // file extension of waves to load ( e.g. "txt" or "dat" )
+	Variable createNewFolder // ( 0 ) no ( 1 ) yes
+	
+	Variable numFiles, icnt, slen
+	String file, pathStr, fname, newFolder, fileList, wname, wname2, wList = ""
+	
+	if ( StringMatch( fileExt[0,0], "." ) == 0 )
+		fileExt = "." + fileExt
+	endif
+	
+	file = FileDialogue(0, "", "", ".*")
+		
+	if (strlen(file) == 0)
+		return "" // cancel
+	endif
+	
+	pathStr = GetPathName(file, 1)
+	fname = GetPathName(file, 0)
+	
+	NewPath /Q/O OpenAllPath, pathStr
+	
+	fileList = IndexedFile(OpenAllPath,-1,"????")
+	
+	numFiles = ItemsInList(fileList)
+	
+	if (numFiles == 0)
+		return ""
+	endif
+	
+	if ( createNewFolder == 1 )
+		newFolder = FolderNameCreate(pathStr)
+		NMFolderNew( "" )
+	endif
+	
+	for (icnt = 0; icnt < numFiles; icnt += 1)
+	
+		file = StringFromList(icnt, fileList)
+		
+		slen = strlen(file)
+			
+		if ( StringMatch(file[slen-strlen(fileExt),slen-1], fileExt) == 1 )
+		
+			strswitch( fileType )
+				case "Igor Binary":
+					LoadWave /A=NMwave/O/P=OpenAllPath/Q file
+					break
+				case "Igor Text":
+					LoadWave /A=NMwave/T/O/P=OpenAllPath/Q file
+					break
+				case "General Text":
+					LoadWave /A=NMwave/D/G/O/P=OpenAllPath/Q file
+					break
+				case "Delimited Text":
+					LoadWave /A=NMwave/D/J/K=1/O/P=OpenAllPath/Q file
+					break
+				default:
+					return "" // wrong format
+			endswitch
+			
+			wname = StringFromList(0, S_waveNames)
+			wname2 = file[0,slen-5]
+			
+			Duplicate /O $wname, $wname2
+			
+			KillWaves /Z $wname
+			
+			wList = AddListItem( wname2, wList, ";", inf )
+			
+		endif
+		
+	endfor
+	
+	if ( ( createNewFolder == 1 ) && ( DataFolderExists( CheckNMFolderPath( newFolder ) ) == 0 ) )
+		NMFolderRename( "" , newFolder )
+	endif
+	
+	return wList
+	
+End // NMLoadAllWavesFromExtFolder
 
 //****************************************************************
 //****************************************************************

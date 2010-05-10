@@ -1,5 +1,4 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
 #pragma version = 2
 
 //****************************************************************
@@ -14,7 +13,6 @@
 //	By Jason Rothman ( Jason@ThinkRandom.com )
 //
 //	Began 5 May 2002
-//	Last Modified 15 May 2007
 //
 //	Functions for displaying and maintaining channel graphs
 //
@@ -25,9 +23,13 @@
 Function /S ChanDF( chanNum ) // channel folder path
 	Variable chanNum // ( -1 ) for current channel
 	
-	chanNum = ChanNumCheck( chanNum )
+	String cdf = ChanDFname( chanNum )
 	
-	return GetDataFolder( 1 ) + ChanGraphName( chanNum ) + ":"
+	if ( ( strlen( cdf ) == 0 ) || ( DataFolderExists( cdf ) == 0 ) )
+		return ""
+	endif
+	
+	return cdf
 	
 End // ChanDF
 
@@ -35,16 +37,39 @@ End // ChanDF
 //****************************************************************
 //****************************************************************
 
-Function ChanNumCheck( chanNum )
+Function /S ChanDFname( chanNum )
 	Variable chanNum
 	
-	if ( chanNum < 0 )
-		chanNum = NMCurrentChan( )
+	String prefixFolder = CurrentNMPrefixFolder()
+	String gname = ChanGraphName( chanNum )
+	
+	if ( strlen( prefixFolder ) == 0 )
+		return ""
 	endif
 	
-	return chanNum
+	return prefixFolder + gname + ":"
 	
-End // ChanNumCheck
+End // ChanDFname
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ChanGraphPrefix()
+
+	return "Chan"
+
+End // ChanGraphPrefix
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S CurrentChanGraphName()
+
+	return ChanGraphName( -1 )
+	
+End // CurrentChanGraphName
 
 //****************************************************************
 //****************************************************************
@@ -53,7 +78,9 @@ End // ChanNumCheck
 Function /S ChanGraphName( chanNum )
 	Variable chanNum
 	
-	return GetGraphName( "Chan", ChanNumCheck( chanNum ) )
+	chanNum = ChanNumCheck( chanNum )
+	
+	return GetGraphName( ChanGraphPrefix(),  chanNum)
 	
 End // ChanGraphName
 
@@ -61,11 +88,16 @@ End // ChanGraphName
 //****************************************************************
 //****************************************************************
 
-Function /S CurrentChanGraphName( )
-
-	return ChanGraphName( -1 )
+Function IsChanGraph( gname )
+	String gname
 	
-End // CurrentChanGraphName
+	if ( ( strlen( gname ) > 0 ) && ( strsearch( gname, ChanGraphPrefix(), 0, 2 ) == 0 ) )
+		return 1
+	endif
+
+	return 0
+	
+End // IsChanGraph
 
 //****************************************************************
 //****************************************************************
@@ -82,16 +114,6 @@ End // ChanDisplayWave
 //****************************************************************
 //****************************************************************
 
-Function /S CurrentChanDisplayWave( ) 
-	
-	return ChanDisplayWave( -1 )
-	
-End // CurrentChanDisplayWave
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
 Function /S ChanDisplayWaveName( directory, chanNum, wavNum )
 	Variable directory // ( 0 ) no directory ( 1 ) include directory
 	Variable chanNum
@@ -100,12 +122,11 @@ Function /S ChanDisplayWaveName( directory, chanNum, wavNum )
 	String df = ""
 	
 	if ( directory == 1 )
-		df = NMDF( )
+		df = NMDF()
 	endif
 	
-	chanNum = ChanNumCheck( chanNum )
 	
-	return df + GetWaveName( "Display", chanNum, wavNum )
+	return df + GetWaveName( "Display", ChanNumCheck( chanNum ), wavNum )
 	
 End // ChanDisplayWaveName
 
@@ -117,23 +138,27 @@ Function CheckChanSubFolder( chanNum )
 	Variable chanNum // ( -1 ) for all
 	
 	Variable snum, ccnt, cbgn = chanNum, cend = chanNum
-	String df, pdf = PackDF( "Chan" )
+	String cdf
 	
 	if ( chanNum == -1 )
 		cbgn = 0
-		cend = NMNumChannels( ) - 1
+		cend = NMNumChannels() - 1
 	endif
 	
 	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
 	
-		df = ChanDF( ccnt )
+		cdf = ChanDFname( ccnt )
 		
-		if ( DataFolderExists( df ) == 0 )
-			NewDataFolder $LastPathColon( df, 0 )
+		if ( strlen( cdf ) == 0 )
+			continue
 		endif
 		
-		CheckNMvar( df+"SmoothN",  NumVarOrDefault( df+"SmthNum", 0 ) )
-		CheckNMvar( df+"Overlay", 0 )
+		if ( DataFolderExists( cdf ) == 0 )
+			NewDataFolder $RemoveEnding( cdf, ":" )
+		endif
+		
+		CheckNMvar( cdf+"SmoothN",  0 )
+		CheckNMvar( cdf+"Overlay", 0 )
 	
 	endfor
 
@@ -147,27 +172,32 @@ Function ChanSubFolderDefaultsSet( chanNum )
 	Variable chanNum // ( -1 ) for all
 	
 	Variable ccnt, cbgn = chanNum, cend = chanNum
-	String df, pdf = PackDF( "Chan" )
+	String cdf
 	
 	if ( chanNum == -1 )
-		cbgn = 0; cend = NMNumChannels( ) - 1;
+		cbgn = 0
+		cend = NMNumChannels() - 1
 	endif
 	
 	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
 	
-		df = ChanDF( ccnt )
+		cdf = ChanDFname( ccnt )
 		
-		if ( DataFolderExists( df ) == 0 )
-			NewDataFolder $LastPathColon( df, 0 )
+		if ( strlen( cdf ) == 0 )
+			continue
 		endif
 		
-		SetNMvar( df+"SmoothN", 0 ) // Smooth and Filter parameter number
-		SetNMstr( df+"SmoothA", "" ) // Smooth and Filter algorithm
-		SetNMvar( df+"Overlay", 0 )
-		SetNMvar( df+"Ft", 0 )
-		SetNMvar( df+"AutoScale", 1 )
-		SetNMvar( df+"AutoScaleX", 0 )
-		SetNMvar( df+"AutoScaleY", 0 )
+		if ( DataFolderExists( cdf ) == 0 )
+			NewDataFolder $RemoveEnding( cdf, ":" )
+		endif
+		
+		SetNMvar( cdf+"SmoothN", 0 ) // Smooth and Filter parameter number
+		SetNMstr( cdf+"SmoothA", "" ) // Smooth and Filter algorithm
+		SetNMvar( cdf+"Overlay", 0 )
+		SetNMvar( cdf+"Ft", 0 )
+		SetNMvar( cdf+"AutoScale", 1 )
+		SetNMvar( cdf+"AutoScaleX", 0 )
+		SetNMvar( cdf+"AutoScaleY", 0 )
 	
 	endfor
 
@@ -185,7 +215,8 @@ Function ChanFolderCopy( chanNum, fromDF, toDF, saveScales )
 	Variable ccnt, cbgn = chanNum, cend = chanNum
 	
 	if ( chanNum == -1 )
-		cbgn = 0; cend = NMNumChannels( ) - 1;
+		cbgn = 0
+		cend = NMNumChannels() - 1
 	endif
 	
 	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
@@ -211,19 +242,13 @@ End // ChanFolderCopy
 //****************************************************************
 //****************************************************************
 //****************************************************************
-//
-//	Chan graph functions
-//
-//
-//****************************************************************
-//****************************************************************
-//****************************************************************
 
 Function ChanGraphMake( chanNum ) // create channel display graph
 	Variable chanNum // channel number
 
-	Variable scale, grid, y0 = 5
+	Variable scale, grid, y0 = 8
 	Variable gx0, gy0, gx1, gy1
+	String cdf, tcolor
 	
 	Variable r = NMPanelRGB( "r" )
 	Variable g = NMPanelRGB( "g" )
@@ -231,56 +256,63 @@ Function ChanGraphMake( chanNum ) // create channel display graph
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	String cc = num2str( chanNum ), df = ChanDF( chanNum )
+	String cc = num2istr( chanNum )
 	
-	String Computer = StrVarOrDefault( NMDF( )+"Computer", "mac" )
+	String computer = NMComputerType()
 	
-	String gName = ChanGraphName( chanNum )
-	String wName = ChanDisplayWave( chanNum )
-	String xWave = NMXwave( )
-	
-	String tcolor = StrVarOrDefault( df+"TraceColor", "0,0,0" )
+	String gname = ChanGraphName( chanNum )
+	String wname = ChanDisplayWave( chanNum )
+	String xWave = NMXwave()
 	
 	CheckChanSubFolder( chanNum )
+	cdf = ChanDF( chanNum )
 	
-	ChanGraphsSetCoordinates( )
+	if ( strlen( cdf ) == 0 )
+		return -1
+	endif
 	
-	gx0 = NumVarOrDefault( df+"GX0", Nan )
-	gy0 = NumVarOrDefault( df+"GY0", Nan )
-	gx1 = NumVarOrDefault( df+"GX1", Nan )
-	gy1 = NumVarOrDefault( df+"GY1", Nan )
+	tcolor = StrVarOrDefault( cdf+"TraceColor", "0,0,0" )
+	
+	ChanGraphSetCoordinates( chanNum )
+	
+	gx0 = NumVarOrDefault( cdf+"GX0", Nan )
+	gy0 = NumVarOrDefault( cdf+"GY0", Nan )
+	gx1 = NumVarOrDefault( cdf+"GX1", Nan )
+	gy1 = NumVarOrDefault( cdf+"GY1", Nan )
 	
 	if ( numtype( gx0 * gy1 * gx1 * gy1 ) > 0 )
 		return 0
 	endif
 	
-	Make /O $wName = Nan
+	Make /O $wname = Nan
 	
 	// kill waves that conflict with graph name
 	
-	DoWindow /K $gName
+	if ( WinType( gname ) != 0 )
+		DoWindow /K $gname
+	endif
 	
 	if ( WaveExists( $Xwave ) == 1 )
-		Display /N=$gName/W=( gx0,gy0,gx1,gy1 )/K=1 $wName vs $xWave
+		Display /N=$gname/W=( gx0,gy0,gx1,gy1 )/K=1 $wname vs $xWave
 	else
-		Display /N=$gName/W=( gx0,gy0,gx1,gy1 )/K=1 $wName
+		Display /N=$gname/W=( gx0,gy0,gx1,gy1 )/K=1 $wname
 	endif
 		
-	ModifyGraph /W=$gName standoff( left )=0, standoff( bottom )=0
-	ModifyGraph /W=$gName margin( left )=55, margin( right )=0, margin( top )=19, margin( bottom )=0
-	Execute /Z "ModifyGraph /W=" + gName + " rgb=( " + tcolor + " )"
-	ModifyGraph /W=$gName wbRGB = ( r, g, b ), cbRGB = ( r, g, b ) // set margins gray
+	ModifyGraph /W=$gname standoff( left )=0, standoff( bottom )=0
+	ModifyGraph /W=$gname margin( left )=55, margin( right )=0, margin( top )=22, margin( bottom )=0
+	Execute /Z "ModifyGraph /W=" + gname + " rgb=(" + tcolor + ")"
+	ModifyGraph /W=$gname wbRGB = ( r, g, b ), cbRGB = ( r, g, b ) // set margins gray
 	
 	if ( StringMatch( computer, "mac" ) == 1 )
-		y0 = 3
+		y0 = 4
 	endif
 	
-	PopupMenu $( "PlotMenu"+cc ), pos={0,0}, size={15,0}, bodyWidth= 20, mode=1, value=ChanPopupListDefault( ), proc=ChanPopup, win=$gName
-	SetVariable $( "Overlay"+cc ), title="Overlay", pos={90,y0-1}, size={90,50}, limits={0,10,1}, value=$( df+"Overlay" ), proc=ChanSetVariable, win=$gName
-	SetVariable $( "SmoothSet"+cc ), title="Filter", pos={230,y0-1}, size={90,50}, limits={0,inf,1}, value=$( df+"SmoothN" ), proc=ChanSetVariable, win=$gName
-	CheckBox $( "FtCheck"+cc ), title="F( t )", pos={375,y0}, size={16,18}, value=0, proc=ChanCheckbox, win=$gName
-	CheckBox $( "ToFront"+cc ), title="To Front", pos={475,y0}, size={16,18}, value=0, proc=ChanCheckbox, win=$gName
-	CheckBox $( "ScaleCheck"+cc ), title="Autoscale", pos={590,y0}, size={16,18}, value=1, proc=ChanCheckbox, win=$gName
+	PopupMenu $( "PlotMenu"+cc ), pos={0,0}, size={15,0}, bodyWidth= 20, mode=1, value=NMChanPopupList(), proc=NMChanPopup, win=$gname
+	SetVariable $( "Overlay"+cc ), title="Overlay", pos={90,y0-1}, size={90,50}, limits={0,10,1}, value=$( cdf+"Overlay" ), proc=NMChanSetVariable, win=$gname
+	SetVariable $( "SmoothSet"+cc ), title="Filter", pos={210,y0-1}, size={90,50}, limits={0,inf,1}, value=$( cdf+"SmoothN" ), proc=NMChanSetVariable, win=$gname
+	CheckBox $( "FtCheck"+cc ), title="Transform", pos={330,y0}, size={16,18}, value=0, proc=NMChanCheckbox, win=$gname
+	CheckBox $( "ScaleCheck"+cc ), title="Autoscale", pos={430,y0}, size={16,18}, value=1, proc=NMChanCheckbox, win=$gname
+	CheckBox $( "ToFront"+cc ), title="To Front", pos={530,y0}, size={16,18}, value=0, proc=NMChanCheckbox, win=$gname
 	
 End // ChanGraphMake
 
@@ -288,17 +320,16 @@ End // ChanGraphMake
 //****************************************************************
 //****************************************************************
 
-Function ChanGraphsUpdate( ) // update channel display graphs
-	Variable ccnt, numChannels = NMNumChannels( )
+Function ChanGraphsUpdate() // update channel display graphs
+
+	Variable ccnt, numChannels = NMNumChannels()
 	
 	for ( ccnt = 0; ccnt < numChannels; ccnt+=1 )
 		ChanGraphUpdate( ccnt, 1 )
 		ChanGraphControlsUpdate( ccnt )
 	endfor
 	
-	//ChanGraphsToFront( )
-	
-	KillVariables /Z $( NMDF( )+"ChanScaleSaveBlock" )
+	KillVariables /Z $( NMDF()+"ChanScaleSaveBlock" )
 
 End // ChanGraphsUpdate
 
@@ -310,37 +341,41 @@ Function /S ChanGraphUpdate( chanNum, makeWave ) // update channel display graph
 	Variable chanNum // ( -1 ) for current chan
 	Variable makeWave // ( 0 ) no ( 1 ) yes
 	
-	String sName, dName, ddName, gName, fName, df
 	Variable autoscale, count, grid, ft, toFront
+	String sName, dname, ddname, gname, fName, info, cdf
 	
-	Variable scaleblock = NumVarOrDefault( NMDF( )+"ChanScaleSaveBlock", 0 )
+	Variable scaleblock = NumVarOrDefault( NMDF()+"ChanScaleSaveBlock", 0 )
 	
 	fname = NMFolderListName( "" )
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	df = ChanDF( chanNum )
-	gName = ChanGraphName( chanNum )
-	dName = ChanDisplayWave( chanNum ) // display wave
-	ddName = GetPathName( dName, 0 )
-	sName = ChanWaveName( chanNum, -1 ) // source wave
-	
-	autoscale = NumVarOrDefault( df+"AutoScale", 1 )
-	toFront = NumVarOrDefault( df+"ToFront", 1 )
+	gname = ChanGraphName( chanNum )
+	dname = ChanDisplayWave( chanNum ) // display wave
+	ddname = GetPathName( dname, 0 )
+	sName = NMChanWaveName( chanNum, -1 ) // source wave
 	
 	CheckChanSubFolder( chanNum )
+	cdf = ChanDF( chanNum )
 	
-	if ( NumVarOrDefault( df+"On", 1 ) == 0 )
+	autoscale = NumVarOrDefault( cdf+"AutoScale", 1 )
+	toFront = NumVarOrDefault( cdf+"ToFront", 1 )
+	
+	if ( strlen( cdf ) == 0 )
+		return ""
+	endif
+	
+	if ( NumVarOrDefault( cdf+"On", 1 ) == 0 )
 		ChanGraphClose( chanNum, 0 )
 		return ""
 	endif
 
-	if ( Wintype( gName ) == 0 )
+	if ( Wintype( gname ) == 0 )
 		ChanGraphMake( chanNum )
 		scaleblock = 1
 	endif
 	
-	if ( Wintype( gName ) == 0 )
+	if ( Wintype( gname ) == 0 )
 		return ""
 	endif
 	
@@ -349,76 +384,78 @@ Function /S ChanGraphUpdate( chanNum, makeWave ) // update channel display graph
 	endif
 	
 	if ( strlen( fName ) > 0 )
-		DoWindow /T $gName, fName + " : " + sName
+		DoWindow /T $gname, fname + " : Ch " + ChanNum2Char( chanNum ) + " : " + sName
 	else
-		DoWindow /T $gName, sName
+		DoWindow /T $gname, "Ch " + ChanNum2Char( chanNum ) + " : " + sName
 	endif
 
-	if ( NumVarOrDefault( df+"Overlay", 0 ) > 0 )
+	if ( NumVarOrDefault( cdf+"Overlay", 0 ) > 0 )
 		ChanOverlayUpdate( chanNum )
 	endif
 	
 	if ( makeWave == 1 )
-		ChanWaveMake( chanNum, sName, dName )
+		ChanWaveMake( chanNum, sName, dname )
 	endif
 	
 	//ChanGraphControlsUpdate( chanNum )
 	
-	//if ( numpnts( $dName ) < 0 ) // if waves have Nans, change mode to line+symbol
+	//if ( numpnts( $dname ) < 0 ) // if waves have Nans, change mode to line+symbol
 		
-	//	WaveStats /Q $dName
+	//	WaveStats /Q $dname
 		
 	//	count = ( V_numNaNs * 100 / V_npnts )
 
 	//	if ( ( numtype( count ) == 0 ) && ( count > 25 ) )
-	//		ModifyGraph /W=$gName mode( $ddName )=4
+	//		ModifyGraph /W=$gname mode( $ddname )=4
 	//	else
-	//		ModifyGraph /W=$gName mode( $ddName )=0
+	//		ModifyGraph /W=$gname mode( $ddname )=0
 	//	endif
 	
 	//endif
 	
 	if ( autoscale == 1 )
-		SetAxis /A/W=$gName
+		SetAxis /A/W=$gname
 	else
 		ChanGraphAxesSet( chanNum )
 	endif
 	
-	Label /W=$gName bottom ChanLabel( chanNum, "x", sName )
+	info = AxisInfo( gname, "bottom" )
 	
-	ft = ChanFuncGet( chanNum )
-	
-	switch( ft )
-		default:
-			Label /W=$gName left ChanLabel( chanNum, "y", sName )
-			break
-		case 1:
-			Label /W=$gName left "d/dt"
-			break
-		case 2:
-			Label /W=$gName left "dd/dt*dt"
-			break
-		case 3:
-			Label /W=$gName left "integral"
-			break
-		case 4:
-			Label /W=$gName left "normalized"
-			break
-		case 5:
-			Label /W=$gName left "dF/Fo"
-			break 
-	endswitch
-	
-	grid = NumVarOrDefault( df+"GridFlag", 1 )
-	
-	ModifyGraph /W=$gName grid( bottom )=grid, grid( left )=grid, gridRGB=( 24576,24576,65535 )
-	
-	if ( toFront == 1 )
-		ChanGraphMove( chanNum )
-		DoWindow /F $gName
+	if ( strlen( info ) > 0 )
+		Label /W=$gname bottom NMChanLabel( chanNum, "x", sName )
 	endif
 	
-	return gName
+	info = AxisInfo( gname, "left" )
+	
+	if ( strlen( info ) > 0 )
+	
+		ft = ChanFuncGet( chanNum )
+		
+		switch( ft )
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+				Label /W=$gname left ChanFuncNum2Name( ft )
+				break
+			default:
+				Label /W=$gname left NMChanLabel( chanNum, "y", sName )
+		endswitch
+		
+		grid = NumVarOrDefault( cdf+"GridFlag", 1 )
+		
+		ModifyGraph /W=$gname grid( bottom )=grid, grid( left )=grid, gridRGB=( 24576,24576,65535 )
+	
+	endif
+	
+	ChanGraphMove( chanNum )
+	
+	if ( toFront == 1 )
+		DoWindow /F $gname
+	endif
+	
+	return gname
 
 End // ChanGraphsUpdate
 
@@ -426,19 +463,9 @@ End // ChanGraphsUpdate
 //****************************************************************
 //****************************************************************
 
-Function ChanGraphsUpdateWaves( )
+Function ChanGraphsRemoveWaves()
 
-	ChanGraphsRemoveWaves( )
-	ChanGraphsAppendDisplayWave( )
-
-End // ChanGraphsUpdateWaves
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ChanGraphsRemoveWaves( )
-	Variable ccnt, numChannels = NMNumChannels( )
+	Variable ccnt, numChannels = NMNumChannels()
 	
 	for ( ccnt = 0; ccnt < numChannels; ccnt+=1 )
 		ChanGraphRemoveWaves( ccnt )
@@ -454,14 +481,20 @@ Function ChanGraphRemoveWaves( chanNum )
 	Variable chanNum
 	
 	Variable wcnt
-	String gName = ChanGraphName( chanNum )
+	String wname, wList, gname = ChanGraphName( chanNum )
 	
-	String wName, wList = TraceNameList( gName, ";", 1 )
+	if ( WinType( gname ) != 1 )
+		return -1
+	endif
+	
+	wList = TraceNameList( gname, ";", 1 )
 	
 	for ( wcnt = 0; wcnt < ItemsInlist( wList ); wcnt += 1 )
-		wName = StringFromList( wcnt, wList )
-		RemoveFromGraph /W=$gName $wName
+		wname = StringFromList( wcnt, wList )
+		RemoveFromGraph /W=$gname $wname
 	endfor
+	
+	return 0
 
 End // ChanGraphRemoveWaves
 
@@ -469,8 +502,9 @@ End // ChanGraphRemoveWaves
 //****************************************************************
 //****************************************************************
 
-Function ChanGraphsAppendDisplayWave( )
-	Variable ccnt, numChannels = NMNumChannels( )
+Function ChanGraphsAppendDisplayWave()
+
+	Variable ccnt, numChannels = NMNumChannels()
 	
 	for ( ccnt = 0; ccnt < numChannels; ccnt+=1 )
 		ChanGraphAppendDisplayWave( ccnt )
@@ -486,22 +520,22 @@ Function ChanGraphAppendDisplayWave( chanNum )
 	Variable chanNum
 	
 	String cdf = ChanDF( chanNum )
-	String gName = ChanGraphName( chanNum )
-	String wName = ChanDisplayWave( chanNum )
-	String xWave = NMXWave( )
+	String gname = ChanGraphName( chanNum )
+	String wname = ChanDisplayWave( chanNum )
+	String xWave = NMXWave()
 	String tcolor = StrVarOrDefault( cdf+"TraceColor", "0,0,0" )
 	
-	if ( ( WinType( gName ) == 0 ) || ( WaveExists( $wName ) == 0 ) )
+	if ( ( strlen( cdf ) == 0 ) || ( WinType( gname ) != 1 ) || ( WaveExists( $wname ) == 0 ) )
 		return -1
 	endif
 	
 	if ( WaveExists( $xWave ) == 1 )
-		AppendToGraph /W=$gName $wName vs $xWave
+		AppendToGraph /W=$gname $wname vs $xWave
 	else
-		AppendToGraph /W=$gName $wName
+		AppendToGraph /W=$gname $wname
 	endif
 	
-	Execute /Z "ModifyGraph /W=" + gName + " rgb=( " + tcolor + " )"
+	Execute /Z "ModifyGraph /W=" + gname + " rgb=(" + tcolor + ")"
 
 End // ChanGraphAppendDisplayWave
 
@@ -512,27 +546,32 @@ End // ChanGraphAppendDisplayWave
 Function ChanGraphControlsUpdate( chanNum )
 	Variable chanNum
 	
+	Variable tofront, autoscale
+	
 	chanNum = ChanNumCheck( chanNum )
 	
-	String gName = ChanGraphName( chanNum )
-	String df = ChanDF( chanNum )
-	String cc = num2str( chanNum )
+	String gname = ChanGraphName( chanNum )
+	String cdf = ChanDF( chanNum )
+	String cc = num2istr( chanNum )
 	
-	Variable tofront = NumVarOrDefault( df+"ToFront", 1 )
-	Variable autoscale = NumVarOrDefault( df+"AutoScale", 1 )
+	if ( strlen( cdf ) == 0 )
+		return -1
+	endif
 	
-	if ( winType( gName ) == 0 )
+	tofront = NumVarOrDefault( cdf+"ToFront", 1 )
+	autoscale = NumVarOrDefault( cdf+"AutoScale", 1 )
+	
+	if ( ( strlen( cdf ) == 0 ) || ( winType( gname ) == 0 ) )
 		return 0
 	endif
 	
 	//ChanControlsDisable( chanNum, "000000" ) // turn controls back on
 		
-	SetVariable $( "Overlay"+cc ), value=$( df+"Overlay" ), win=$gName, proc=ChanSetVariable
+	SetVariable $( "Overlay"+cc ), value=$( cdf+"Overlay" ), win=$gname, proc=NMChanSetVariable
 	
-	CheckBox $( "ScaleCheck"+cc ), value=autoscale, win=$gName, proc=ChanCheckbox
-	CheckBox $( "ToFront"+cc ), value=tofront, win=$gName, proc=ChanCheckbox
+	CheckBox $( "ScaleCheck"+cc ), value=autoscale, win=$gname, proc=NMChanCheckbox
+	CheckBox $( "ToFront"+cc ), value=tofront, win=$gname, proc=NMChanCheckbox
 	
-	ChanPopupUpdate( chanNum )
 	ChanFilterUpdate( chanNum )
 	ChanFuncUpdate( chanNum )
 	
@@ -542,14 +581,16 @@ End // ChanGraphControlsUpdate
 //****************************************************************
 //****************************************************************
 
-Function ChanGraphsReset( )
+Function ChanGraphsReset()
 
 	ChanGraphClose( -2, 0 ) // close unecessary windows
 	ChanOverlayKill( -1 ) // kill unecessary waves
 	ChanGraphClear( -1 )
-	ChanGraphsUpdateWaves( )
+	ChanGraphsRemoveWaves()
+	ChanGraphsAppendDisplayWave()
 	ChanGraphTagsKill( -1 )
-	SetNMvar( NMDF( )+"ChanScaleSaveBlock", 1 )
+	
+	SetNeuroMaticVar( "ChanScaleSaveBlock", 1 )
 
 End // ChanGraphsReset
 
@@ -561,25 +602,26 @@ Function ChanGraphTagsKill( chanNum )
 	Variable chanNum // ( -1 ) for all
 	
 	Variable icnt, ccnt, cbgn = chanNum, cend = chanNum
-	String gName, aName, aList
+	String gname, aName, aList
 	
 	if ( chanNum == -1 )
-		cbgn = 0; cend = NMNumChannels( ) - 1;
+		cbgn = 0
+		cend = NMNumChannels() - 1
 	endif
 	
 	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
 	
-		gName = ChanGraphName( ccnt )
+		gname = ChanGraphName( ccnt )
 		
-		if ( Wintype( gName ) == 0 )
+		if ( Wintype( gname ) == 0 )
 			continue
 		endif
 		
-		alist = AnnotationList( gName ) // list of tags
+		alist = AnnotationList( gname ) // list of tags
 			
 		for ( icnt = 0; icnt < ItemsInList( alist ); icnt += 1 )
 			aName = StringFromList( icnt, alist )
-			Tag /W=$gName /N=$aName /K // kill tags
+			Tag /W=$gname /N=$aName /K // kill tags
 		endfor
 		
 	endfor
@@ -590,14 +632,29 @@ End // ChanGraphTagsKill
 //****************************************************************
 //****************************************************************
 
-Function ChanGraphsToFront( )
+Function ChanGraphsToFront()
 
-	Variable ccnt, cbgn, cend = NMNumChannels( ) - 1
+	Variable ccnt, cbgn, cend = NMNumChannels() - 1
+	String gname, cdf
 	
 	for ( ccnt = cbgn; ccnt <= cend; ccnt+=1 )
-		if ( NumVarOrDefault( ChanDF( ccnt )+"ToFront", 1 ) == 1 )
-			DoWindow /F $ChanGraphName( ccnt )
+		
+		cdf = ChanDF( ccnt )
+		
+		if ( strlen( cdf ) == 0 )
+			continue
 		endif
+		
+		if ( NumVarOrDefault( cdf+"ToFront", 1 ) == 1 )
+		
+			gname = ChanGraphName( ccnt )
+			
+			if ( WinType( gname ) == 1 )
+				DoWindow /F $gname
+			endif
+			
+		endif
+		
 	endfor
 	
 End // ChanGraphsToFront
@@ -611,34 +668,34 @@ Function ChanGraphAxesSet( chanNum ) // set channel graph size and placement
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	if ( IsChanGraph( chanNum ) == 0 )
-		return 0
+	String gname = ChanGraphName( chanNum )
+	String wname = ChanDisplayWave( chanNum )
+	String cdf = ChanDF( chanNum )
+	
+	if ( ( strlen( cdf ) == 0 ) || ( WinType( gname ) != 1 ) )
+		return -1
 	endif
 	
-	String gName = ChanGraphName( chanNum )
-	String wName = ChanDisplayWave( chanNum )
-	String df = ChanDF( chanNum )
+	Variable autoX = NumVarOrDefault( cdf+"AutoScaleX", 0 )
+	Variable autoY = NumVarOrDefault( cdf+"AutoScaleY", 0 )
 	
-	Variable autoX = NumVarOrDefault( df+"AutoScaleX", 0 )
-	Variable autoY = NumVarOrDefault( df+"AutoScaleY", 0 )
-	
-	Variable xmin = NumVarOrDefault( df+"Xmin", 0 )
-	Variable xmax = NumVarOrDefault( df+"Xmax", 1 )
-	Variable ymin = NumVarOrDefault( df+"Ymin", 0 )
-	Variable ymax = NumVarOrDefault( df+"Ymax", 1 )
+	Variable xmin = NumVarOrDefault( cdf+"Xmin", 0 )
+	Variable xmax = NumVarOrDefault( cdf+"Xmax", 1 )
+	Variable ymin = NumVarOrDefault( cdf+"Ymin", 0 )
+	Variable ymax = NumVarOrDefault( cdf+"Ymax", 1 )
 	
 	if ( autoX == 1 )
-		SetAxis /W=$gName/A
-		SetAxis /W=$gName left ymin, ymax
+		SetAxis /W=$gname/A
+		SetAxis /W=$gname left ymin, ymax
 		return 0
 	elseif ( autoY == 1 )
-		WaveStats /Q/R=( xmin,xmax ) $wName
+		WaveStats /Q/R=( xmin,xmax ) $wname
 		ymin = V_min
 		ymax = V_max
 	endif
 	
-	SetAxis /W=$gName bottom xmin, xmax
-	SetAxis /W=$gName left ymin, ymax
+	SetAxis /W=$gname bottom xmin, xmax
+	SetAxis /W=$gname left ymin, ymax
 		
 End // ChanGraphAxesSet
 
@@ -646,11 +703,11 @@ End // ChanGraphAxesSet
 //****************************************************************
 //****************************************************************
 
-Function ChanGraphsMove( )
+Function ChanGraphsMove()
 
 	Variable ccnt
 	
-	for ( ccnt = 0; ccnt < NMNumChannels( ); ccnt+=1 )
+	for ( ccnt = 0; ccnt < NMNumChannels(); ccnt+=1 )
 		ChanGraphMove( ccnt )
 	endfor
 
@@ -665,12 +722,12 @@ Function ChanGraphMove( chanNum ) // set channel graph size and placement
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	if ( IsChanGraph( chanNum ) == 0 )
-		return 0
-	endif
-	
 	String cdf = ChanDF( chanNum )
-	String gName = ChanGraphName( chanNum )
+	String gname = ChanGraphName( chanNum )
+	
+	if ( ( strlen( cdf ) == 0 ) || ( WinType ( gname ) != 1 ) )
+		return -1
+	endif
 	
 	Variable x0 = NumVarOrDefault( cdf+"GX0", Nan )
 	Variable y0 = NumVarOrDefault( cdf+"GY0", Nan )
@@ -678,7 +735,7 @@ Function ChanGraphMove( chanNum ) // set channel graph size and placement
 	Variable y1 = NumVarOrDefault( cdf+"GY1", Nan )
 	
 	if ( ( numtype( x0 * y0 * x1 * y1 ) == 0 ) && ( x1 > x0 ) && ( y0 < y1 ) ) 
-		MoveWindow /W=$gName x0, y0, x1, y1
+		MoveWindow /W=$gname x0, y0, x1, y1
 	endif
 
 End // ChanGraphMove
@@ -687,11 +744,11 @@ End // ChanGraphMove
 //****************************************************************
 //****************************************************************
 
-Function ChanGraphsResetCoordinates( )
+Function ChanGraphsResetCoordinates()
 
 	Variable ccnt
 	
-	for ( ccnt = 0; ccnt < NMNumChannels( ); ccnt+=1 )
+	for ( ccnt = 0; ccnt < NMNumChannels(); ccnt+=1 )
 		ChanGraphResetCoordinates( ccnt )
 	endfor
 
@@ -705,6 +762,10 @@ Function ChanGraphResetCoordinates( chanNum ) // reset channel graph placement v
 	Variable chanNum // channel number
 	
 	String cdf = ChanDF( chanNum )
+	
+	if ( strlen( cdf ) == 0 )
+		return -1
+	endif
 	
 	SetNMvar( cdf+"GX0", Nan )
 	SetNMvar( cdf+"GY0", Nan )
@@ -721,20 +782,6 @@ End // ChanGraphResetCoordinates
 //****************************************************************
 //****************************************************************
 
-Function ChanGraphsSetCoordinates( )
-
-	Variable ccnt
-	
-	for ( ccnt = 0; ccnt < NMNumChannels( ); ccnt+=1 )
-		ChanGraphSetCoordinates( ccnt )
-	endfor
-
-End // ChanGraphsSetCoordinates
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
 Function ChanGraphSetCoordinates( chanNum ) // set channel graph placement variables
 	Variable chanNum // channel number
 	
@@ -743,29 +790,53 @@ Function ChanGraphSetCoordinates( chanNum ) // set channel graph placement varia
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	String ndf = NMDF( ), cdf = ChanDF( chanNum )
+	String  cdf = ChanDF( chanNum )
+	
+	if ( strlen( cdf ) == 0 )
+		return -1
+	endif
 	
 	Variable x0 = NumVarOrDefault( cdf+"GX0", Nan )
 	Variable y0 = NumVarOrDefault( cdf+"GY0", Nan )
 	Variable x1 = NumVarOrDefault( cdf+"GX1", Nan )
 	Variable y1 = NumVarOrDefault( cdf+"GY1", Nan )
 	
-	Variable yPixels = NumVarOrDefault( ndf+"yPixels", 700 )
-	String Computer = StrVarOrDefault( ndf+"Computer", "mac" )
+	Variable yPixels =  NMComputerPixelsY()
+	String Computer = NMComputerType()
 	
-	numchan = NumChanGraphs( ) // counts on/off
+	numchan = NMNumChannels()
+	
+	for ( ccnt = 0; ccnt < NMNumChannels(); ccnt+=1 )
+	
+		cdf = ChanDF( ccnt )
+		
+		if ( ( strlen( cdf ) > 0 ) && ( NumVarOrDefault( cdf+"On", 1 ) == 0 ) )
+			numchan -= 1
+		endif
+		
+	endfor
 	
 	for ( ccnt = 0; ccnt < chanNum; ccnt+=1 )
-		if ( NumVarOrDefault( ChanDF( ccnt )+"On", 1 ) == 1 )
+		
+		cdf = ChanDF( ccnt )
+		
+		if ( strlen( cdf ) == 0 )
+			continue
+		endif
+		
+		if ( NumVarOrDefault( cdf+"On", 1 ) == 1 )
 			where += 1
 		endif
+		
 	endfor
+	
+	cdf = ChanDF( chanNum )
 	
 	if ( numtype( x0 * y0 * x1 * y1 ) > 0 ) // compute graph coordinates
 	
 		strswitch( Computer )
 			case "pc":
-				x0 = 8
+				x0 = 5
 				y0 = 37
 				width = 522
 				height = yPixels / ( numchan + 2 )
@@ -775,8 +846,8 @@ Function ChanGraphSetCoordinates( chanNum ) // set channel graph placement varia
 				x0 = 10
 				y0 = 44
 				width = 690
-				height = yPixels / ( numchan + 1 )
-				yinc = height + 30
+				height = yPixels / ( numchan + 2 )
+				yinc = height + 25
 				break
 		endswitch
 		
@@ -803,30 +874,33 @@ Function ChanGraphClose( chanNum, KillFolders )
 	Variable KillFolders // to kill global variables
 
 	Variable ccnt, cbgn = chanNum, cend = chanNum
-	String gName, wName, ndf = NMDF( )
+	String gname, wname, cdf, ndf = NMDF()
 	
 	if ( NumVarOrDefault( ndf+"ChanGraphCloseBlock", 0 ) == 1 )
-		KillVariables /Z $( ndf+"ChanGraphCloseBlock" )
-		return -1
+		//KillVariables /Z $( ndf+"ChanGraphCloseBlock" )
+		return 0
 	endif
 	
 	if ( chanNum == -1 )
 		cbgn = 0
 		cend = 9
 	elseif ( chanNum == -2 )
-		cbgn = NMNumChannels( )
-		cend = cbgn + 5
+		cbgn = NMNumChannels()
+		cend = cbgn + 10
 	endif
 	
 	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
 	
-		gName = ChanGraphName( ccnt )
-		wName = ChanDisplayWave( ccnt )
+		cdf = ChanDF( ccnt )
+		gname = ChanGraphName( ccnt )
+		wname = ChanDisplayWave( ccnt )
 		
-		DoWindow /K $gName
+		if ( WinType( gname ) == 1 )
+			DoWindow /K $gname
+		endif
 		
-		if ( ( KillFolders == 1 ) && ( DataFolderExists( gName ) == 1 ) )
-			KillDataFolder $gName
+		if ( ( KillFolders == 1 ) && ( strlen( cdf ) > 0 ) && ( DataFolderExists( cdf ) == 1 ) )
+			KillDataFolder $RemoveEnding( cdf, ":" )
 		endif
 		
 	endfor
@@ -843,20 +917,21 @@ Function ChanGraphClear( chanNum )
 	Variable chanNum // ( -1 ) for all
 	
 	Variable ccnt, cbgn = chanNum, cend = chanNum
-	String wName
+	String wname
 	
 	if ( chanNum == -1 )
-		cbgn = 0; cend = 9;
+		cbgn = 0
+		cend = 9
 	endif
 	
 	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
 	
-		wName = ChanDisplayWave( ccnt )
+		wname = ChanDisplayWave( ccnt )
 		
 		ChanOverlayClear( ccnt )
 		
-		if ( WaveExists( $wName ) == 1 )
-			Wave wtemp = $wName
+		if ( WaveExists( $wname ) == 1 )
+			Wave wtemp = $wname
 			wtemp = Nan
 		endif
 		
@@ -868,48 +943,9 @@ End // ChanGraphClear
 //****************************************************************
 //****************************************************************
 
-Function NumChanGraphs( )
-	Variable ccnt, count
-
-	for ( ccnt = 0; ccnt < NMNumChannels( ); ccnt+=1 )
-		if ( NumVarOrDefault( ChanDF( ccnt )+"On", 1 ) == 1 )
-			count += 1
-		endif
-	endfor
-	
-	return count
-
-End // NumChanGraphs
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function IsChanGraph( chanNum )
-	Variable chanNum
-	
-	if ( Wintype( ChanGraphName( chanNum ) ) == 1 )
-		return 1
-	else
-		return 0
-	endif
-
-End // IsChanGraph
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-//
-//	Chan graph control functions
-//
-//
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
 Function ChanControlsDisable( chanNum, select )
 	Variable chanNum // ( -1 ) for all
-	String select // Overlay, Filter, F( t ), autoscale, PlotMenu, ToFront ( e.g. "11111" for all )
+	String select // Overlay, Filter, Transform, autoscale, PlotMenu, ToFront ( e.g. "11111" for all )
 	
 	Variable ccnt, cbgn = chanNum, cend = chanNum
 	String cc, gname
@@ -917,24 +953,25 @@ Function ChanControlsDisable( chanNum, select )
 	select += "000000"
 	
 	if ( chanNum == -1 )
-		cbgn = 0; cend = NMNumChannels( ) - 1;
+		cbgn = 0
+		cend = NMNumChannels() - 1
 	endif
 	
 	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
 		
-		if ( IsChanGraph( ccnt ) == 0 )
+		cc = num2istr( ccnt )
+		gname = ChanGraphName( ccnt )
+		
+		if ( WinType( gname ) != 1 )
 			continue
 		endif
-		
-		cc = num2str( ccnt )
-		gName = ChanGraphName( ccnt )
 	
-		SetVariable $( "Overlay"+cc ), disable=binarycheck( str2num( select[0,0] ) ), win=$gName
-		SetVariable $( "SmoothSet"+cc ), disable=binarycheck( str2num( select[1,1] ) ), win=$gName
-		CheckBox $( "FtCheck"+cc ), disable=binarycheck( str2num( select[2,2] ) ), win=$gName
-		CheckBox $( "ScaleCheck"+cc ), disable=binarycheck( str2num( select[3,3] ) ), win=$gName
-		PopupMenu $( "PlotMenu"+cc ), disable=binarycheck( str2num( select[4,4] ) ), win=$gName
-		CheckBox $( "ToFront"+cc ), disable=binarycheck( str2num( select[5,5] ) ), win=$gName
+		SetVariable $( "Overlay"+cc ), disable=binarycheck( str2num( select[0,0] ) ), win=$gname
+		SetVariable $( "SmoothSet"+cc ), disable=binarycheck( str2num( select[1,1] ) ), win=$gname
+		CheckBox $( "FtCheck"+cc ), disable=binarycheck( str2num( select[2,2] ) ), win=$gname
+		CheckBox $( "ScaleCheck"+cc ), disable=binarycheck( str2num( select[3,3] ) ), win=$gname
+		PopupMenu $( "PlotMenu"+cc ), disable=binarycheck( str2num( select[4,4] ) ), win=$gname
+		CheckBox $( "ToFront"+cc ), disable=binarycheck( str2num( select[5,5] ) ), win=$gname
 		
 	endfor
 	
@@ -965,43 +1002,7 @@ End // ChanControlPrefix
 //****************************************************************
 //****************************************************************
 
-Function /S ChanPopupList( chanNum )
-	Variable chanNum
-	
-	chanNum = ChanNumCheck( chanNum )
-
-	return StrVarOrDefault( NMDF( ) + "ChanPopupList" + num2str( chanNum ), ChanPopupListDefault( ) )
-
-End // ChanPopupList
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S ChanPopupListDefault( )
-	
-	return " ;Grid;XLabel;YLabel;FreezeX;FreezeY;Reset Position;Off;"
-
-End // ChanPopupList
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function /S ChanPopupProc( chanNum )
-	Variable chanNum
-	
-	chanNum = ChanNumCheck( chanNum )
-
-	return StrVarOrDefault( NMDF( ) + "ChanPopupProc" + num2str( chanNum ), "ChanPopup" )
-
-End // ChanPopupProc
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ChanPopup( ctrlName, popNum, popStr ) : PopupMenuControl // display graph menu
+Function NMChanPopup( ctrlName, popNum, popStr ) : PopupMenuControl // display graph menu
 	String ctrlName; Variable popNum; String popStr
 	
 	Variable chanNum
@@ -1012,52 +1013,41 @@ Function ChanPopup( ctrlName, popNum, popStr ) : PopupMenuControl // display gra
 	
 	ChanCall( popStr, chanNum, "" )
 
-End // ChanPopup
+End // NMChanPopup
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ChanPopupUpdate( chanNum )
+Function /S NMChanPopupList()
 	Variable chanNum
-	
-	chanNum = ChanNumCheck( chanNum )
-	
-	String gName = ChanGraphName( chanNum )
-	String cc = num2str( chanNum )
-	
-	ControlInfo /W=$gName $( "PlotMenu"+cc )
-	
-	if ( V_flag == 0 )
-		return 0
-	endif
-	
-	Execute "PopupMenu PlotMenu"+cc+", mode=1, value=\"" + ChanPopupList( chanNum ) + "\", win=" + gName + ", proc=" + ChanPopupProc( chanNum )
-	
-End // ChanPopupUpdate
+
+	return " ;Grid;Drag;XLabel;YLabel;FreezeX;FreezeY;Reset Position;Off;"
+
+End // NMChanPopupList
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ChanCheckbox( ctrlName, checked ) : CheckBoxControl // change differentiation flag
+Function NMChanCheckbox( ctrlName, checked ) : CheckBoxControl // change differentiation flag
 	String ctrlName; Variable checked
 	
 	Variable chanNum, rvalue
-	String numstr = num2str( checked )
+	String numstr = num2istr( checked )
 	String cname = ChanControlPrefix( ctrlName )
 	
 	sscanf ctrlName, cname + "%f", chanNum // determine chan number
 	
 	return ChanCall( cname, chanNum, numstr )
 
-End // ChanCheckbox
+End // NMChanCheckbox
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ChanSetVariable( ctrlName, varNum, varStr, varName ) : SetVariableControl
+Function NMChanSetVariable( ctrlName, varNum, varStr, varName ) : SetVariableControl
 	String ctrlName; Variable varNum; String varStr; String varName
 	
 	Variable chanNum, rvalue
@@ -1074,15 +1064,8 @@ Function ChanSetVariable( ctrlName, varNum, varStr, varName ) : SetVariableContr
 	
 	endswitch
 	
-End // ChanSetVariable
+End // NMChanSetVariable
 
-//****************************************************************
-//****************************************************************
-//****************************************************************
-//
-//	Chan global variable functions
-//
-//
 //****************************************************************
 //****************************************************************
 //****************************************************************
@@ -1113,6 +1096,9 @@ Function ChanCall( fxn, chanNum, select )
 			
 		case "Reset Position":
 			return ChanGraphResetCoordinates( chanNum )
+			
+		case "Drag":
+			return ChanDragToggle()
 
 		case "Off":
 			return ChanOnCall( chanNum, 0 )
@@ -1130,9 +1116,14 @@ Function ChanCall( fxn, chanNum, select )
 		case "ToFront":
 			return ChanToFrontCall( chanNum, snum )
 			
+		case "F(t)":
 		case "F( t )":
 		case "FtCheck":
+		case "Transform":
 			return ChanFuncCall( chanNum, -snum )
+			
+		default:
+			NMDoAlert( "ChanCall: unrecognized function call: " + fxn )
 	
 	endswitch
 	
@@ -1147,7 +1138,7 @@ Function /S ChanFuncDF( chanNum )
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	return StrVarOrDefault( NMDF( ) + "ChanFuncDF" + num2str( chanNum ), ChanDF( chanNum ) )
+	return StrVarOrDefault( NMDF() + "ChanFuncDF" + num2istr( chanNum ), ChanDF( chanNum ) )
 
 End // ChanFuncDF
 
@@ -1160,31 +1151,9 @@ Function /S ChanFuncProc( chanNum )
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	return StrVarOrDefault( NMDF( ) + "ChanFuncProc" + num2str( chanNum ), "ChanCheckbox" )
+	return StrVarOrDefault( NMDF() + "ChanFuncProc" + num2istr( chanNum ), "NMChanCheckbox" )
 
 End // ChanFuncProc
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ChanFuncAsk( chanNum ) // request chan F( t ) function
-	Variable chanNum
-	
-	chanNum = ChanNumCheck( chanNum )
-	
-	Variable ft =ChanFuncGet( chanNum )
-	
-	Prompt ft, "choose function:", popup "d/dt;dd/dt*dt;integral;norm;dF/Fo;baseline;"
-	DoPrompt "Channel Function", ft
-	
-	if ( V_flag == 1 )
-		ft = -1 // cancel
-	endif
-	
-	return ft
-
-End // ChanFuncAsk
 
 //****************************************************************
 //****************************************************************
@@ -1194,22 +1163,35 @@ Function ChanFuncCall( chanNum, ft )
 	Variable chanNum // channel number
 	Variable ft
 	
-	Variable rvalue
 	String vlist = ""
 	
 	if ( ft < 0 )
 		ft = ChanFuncAsk( chanNum )
 	endif
 	
-	vlist = NMCmdNum( chanNum, vlist )
-	vlist = NMCmdNum( ft, vlist )
-	NMCmdHistory( "ChanFunc", vlist )
+	switch( ft )
 	
-	rvalue = ChanFunc( chanNum, ft )
+		case 0:
+		case 1:
+		case 2:
+		case 3:
 	
-	NMAutoTabCall( )
+			vlist = NMCmdNum( chanNum, vlist )
+			vlist = NMCmdNum( ft, vlist )
+			NMCmdHistory( "ChanFunc", vlist )
+			
+			return ChanFunc( chanNum, ft )
+		
+		case 4:
+		case 5:
+		case 6:
+			return ft
+		
+	endswitch
 	
-	return rvalue
+	ChanGraphsUpdate()
+	
+	return -1
 
 End // ChanFuncCall
 
@@ -1217,32 +1199,75 @@ End // ChanFuncCall
 //****************************************************************
 //****************************************************************
 
-Function ChanFunc( chanNum, ft ) // set chan F( t ) function
-	Variable chanNum // channel number
-	Variable ft // ( 0 ) none ( 1 ) d/dt ( 2 ) dd/dt*dt ( 3 ) integral ( 4 ) norm ( 5 ) dF/Fo ( 6 ) baseline
+Function ChanFuncAsk( chanNum ) // request chan transform function
+	Variable chanNum
 	
 	chanNum = ChanNumCheck( chanNum )
 	
+	Variable ft = ChanFuncGet( chanNum )
+	
+	Prompt ft, "choose function:", popup ChanFuncList()
+	DoPrompt "Channel Wave Transform", ft
+	
+	if ( V_flag == 1 )
+		ft = -1 // cancel
+	endif
+	
 	switch( ft )
 		case 4:
-			if ( ChanFuncNormAsk( chanNum ) < 0 )
-				ft = 0
-			endif
+			ft = NMChanFuncNormalizeCall( chanNum )
 			break
 		case 5:
-			if ( ChanFuncDFOFAsk( chanNum ) < 0 )
-				ft = 0
-			endif
+			ft = NMChanFuncDFOFCall( chanNum )
 			break
 		case 6:
-			if ( ChanFuncDFOFAsk( chanNum ) < 0 )
-				ft = 0
-			endif
+			ft = NMChanFuncBaselineCall( chanNum )
 			break
 	endswitch
 	
-	SetNMVar( ChanFuncDF( chanNum )+"Ft", ft )
-	ChanGraphsUpdate( )
+	return ft
+
+End // ChanFuncAsk
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanFunc( chanNum, ft ) // set chan transform function
+	Variable chanNum // channel number
+	Variable ft // ( 0 ) none ( 1 ) d/dt ( 2 ) dd/dt*dt ( 3 ) integral ( 4 ) norm ( 5 ) dF/Fo ( 6 ) baseline
+	
+	String cdf, thisfxn = "ChanFunc"
+	String fxnList = ChanFuncList()
+	
+	chanNum = ChanNumCheck( chanNum )
+	
+	if ( ( numtype( ft ) > 0 ) || ( ft < 0 ) || ( ft > ItemsInList( fxnList ) ) )
+		return -1
+	endif
+	
+	switch( ft )
+		case 4:
+			NMDoAlert( "ChanFunc Error: please use " + NMQuotes( "NMChanFuncNormalize" ) + " for this channel transformation." )
+			return -1
+		case 5:
+			NMDoAlert( "ChanFunc Error: please use " + NMQuotes( "NMChanFuncDFOF" ) + " for this channel transformation." )
+			return -1
+		case 6:
+			NMDoAlert( "ChanFunc Error: please use " + NMQuotes( "NMChanFuncBaseline" ) + " for this channel transformation." )
+			return -1
+	endswitch
+	
+	cdf =  ChanFuncDF( chanNum )
+	
+	if ( strlen( cdf ) == 0 )
+		return -1
+	endif
+	
+	SetNMVar( cdf+"Ft", ft )
+	
+	ChanGraphsUpdate()
+	NMAutoTabCall()
 	
 	return 0
 
@@ -1252,133 +1277,275 @@ End // ChanFunc
 //****************************************************************
 //****************************************************************
 
-Function ChanFuncNormAsk( chanNum )
+Function NMChanFuncNormalizeCall( chanNum )
 	Variable chanNum
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	String mdf = MainDF( )
-	String cdf = ChanDF( chanNum )
+	String vlist = ""
+	String cdf = ChanFuncDF( chanNum ) 
 	
-	Variable bbgn = NumVarOrDefault( cdf+"Norm_Bgn", NumVarOrDefault( mdf+"Bsln_Bgn", 0 ) )
-	Variable bend = NumVarOrDefault( cdf+"Norm_End", NumVarOrDefault( mdf+"Bsln_End", 5 ) )
-	
-	String fxn1 = StrVarOrDefault( cdf+"Norm_Fxn1", "avg" )
-	
-	Variable tbgn1 = NumVarOrDefault( cdf+"Norm_Tbgn1", bbgn )
-	Variable tend1 = NumVarOrDefault( cdf+"Norm_Tend1", bend )
-	
-	String fxn2 = StrVarOrDefault( cdf+"Norm_Fxn2", StrVarOrDefault( mdf+"Norm_Fxn", "max" ) )
-	
-	Variable tbgn2 = NumVarOrDefault( cdf+"Bsln_Bgn2", NumVarOrDefault( mdf+"Norm_Tbgn", -inf ) )
-	Variable tend2 = NumVarOrDefault( cdf+"Bsln_End2", NumVarOrDefault( mdf+"Norm_Tbgn", inf ) )
-	
-	if ( numtype( tbgn1 ) == 2 )
-		tbgn1 = 0
+	if ( strlen( cdf ) == 0 )
+		return -1
 	endif
 	
-	if ( numtype( tend1 ) == 2 )
-		tend2 = 5
+	if ( NMNormalizeCall( cdf ) < 0 )
+		return -1 // cancel
 	endif
 	
-	if ( numtype( tbgn2 ) == 2 )
+	String fxn1 = StrVarOrDefault( cdf+"Norm_Fxn1", "Avg" )
+	
+	Variable tbgn1 = NumVarOrDefault( cdf+"Norm_Tbgn1", 0 )
+	Variable tend1 = NumVarOrDefault( cdf+"Norm_Tend1", 5 )
+	
+	String fxn2 = StrVarOrDefault( cdf+"Norm_Fxn2", "Max" )
+	
+	Variable tbgn2 = NumVarOrDefault( cdf+"Norm_Tbgn2", -inf )
+	Variable tend2 = NumVarOrDefault( cdf+"Norm_Tend2", inf )
+	
+	vList = NMCmdNum( chanNum, vList )
+	vList = NMCmdStr( fxn1, vList )
+	vList = NMCmdNum( tbgn1, vList )
+	vList = NMCmdNum( tend1, vList )
+	vList = NMCmdStr( fxn2, vList )
+	vList = NMCmdNum( tbgn2, vList )
+	vList = NMCmdNum( tend2, vList )
+	NMCmdHistory( "NMChanFuncNormalize", vList )
+	
+	return NMChanFuncNormalize( chanNum, fxn1, tbgn1, tend1, fxn2, tbgn2, tend2 )
+
+End // NMChanFuncNormalizeCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMChanFuncNormalize( chanNum, fxn1, tbgn1, tend1, fxn2, tbgn2, tend2 )
+	Variable chanNum // channel number
+	String fxn1 // function to compute min value, "avg" or "min" or "minavg"
+	Variable tbgn1, tend1 // time begin and end, use ( -inf, inf ) for all time
+	String fxn2 // function to compute max value, "avg" or "max" or "maxavg"
+	Variable tbgn2, tend2 // time begin and end, use ( -inf, inf ) for all time
+	
+	Variable win1, win2, fxnNum = 4
+	String cdf, thisfxn = "NMChanFuncNormalize"
+	
+	chanNum = ChanNumCheck( chanNum )
+	
+	cdf = ChanFuncDF( chanNum )
+	
+	win1 = GetNumFromStr( fxn1, "MinAvg" )
+	win2 = GetNumFromStr( fxn2, "MaxAvg" )
+	
+	strswitch( fxn1 )
+		case "Min":
+		case "Avg":
+			break
+		default:
+			if ( numtype( win1 ) > 0 )
+				return NMError( 20, thisfxn, "fxn1", fxn1 )
+			endif
+	endswitch
+	
+	if ( numtype( tbgn1 ) > 0 )
+		tbgn1 = -inf
+	endif
+	
+	if ( numtype( tend1 ) > 0 )
+		tend1 = inf
+	endif
+	
+	strswitch( fxn2 )
+		case "Max":
+		case "Avg":
+			break
+		default:
+			if ( numtype( win2 ) > 0 )
+				return NMError( 20, thisfxn, "fxn2", fxn2 )
+			endif
+	endswitch
+	
+	if ( numtype( tbgn2 ) > 0 )
 		tbgn2 = -inf
 	endif
 	
-	if ( numtype( tend2 ) == 2 )
-		tend2 = -inf
+	if ( numtype( tend2 ) > 0 )
+		tend2 = inf
 	endif
 	
-	Prompt fxn1, "y-min measurement - window 1:", popup "max;min;avg;"
-	Prompt tbgn1, "window 1 time begin ( ms ):"
-	Prompt tend1, "window 1 time end ( ms ):"
-	Prompt fxn2, "y-max measurement - window 2:", popup "max;min;avg;"
-	Prompt tbgn2, "window 2 time begin ( ms ):"
-	Prompt tend2, "window 2 time end ( ms ):"
-	
-	DoPrompt NMPromptStr( "Normalize" ), fxn1, fxn2, tbgn1, tbgn2, tend1, tend2
-	
-	if ( V_flag == 1 )
-		return -1 // cancel
-	endif
+	SetNMVar( cdf+"Ft", fxnNum )
 	
 	SetNMstr( cdf+"Norm_Fxn1", fxn1 )
 	SetNMvar( cdf+"Norm_Tbgn1", tbgn1 )
 	SetNMvar( cdf+"Norm_Tend1", tend1 )
+	
 	SetNMstr( cdf+"Norm_Fxn2", fxn2 )
 	SetNMvar( cdf+"Norm_Tbgn2", tbgn2 )
 	SetNMvar( cdf+"Norm_Tend2", tend2 )
 	
-	return 0
-
-End // ChanFuncNormAsk
+	ChanGraphsUpdate()
+	NMAutoTabCall()
+	
+	return fxnNum
+	
+End // NMChanFuncNormalize
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ChanFuncDFOFAsk( chanNum )
+Function NMChanFuncDFOFCall( chanNum )
 	Variable chanNum
+	
+	Variable tbgn, tend
+	String vlist = "", cdf, mdf = MainDF()
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	String mdf = MainDF( )
-	String cdf = ChanDF( chanNum )
+	cdf = ChanFuncDF( chanNum )
 	
-	Variable bbgn = NumVarOrDefault( mdf+"Bsln_Bgn", 0 )
-	Variable bend = NumVarOrDefault( mdf+"Bsln_End", 5 )
+	if ( strlen( cdf ) == 0 )
+		return -1
+	endif
 	
-	bbgn = NumVarOrDefault( cdf+"DFOF_Bbgn", bbgn )
-	bend = NumVarOrDefault( cdf+"DFOF_Bend", bend )
+	tbgn = NumVarOrDefault( mdf+"Bsln_Bgn", 0 )
+	tend = NumVarOrDefault( mdf+"Bsln_End", 5 )
 	
-	Prompt bbgn, "compute baseline from ( ms ):"
-	Prompt bend, "compute baseline to ( ms ):"
+	tbgn = NumVarOrDefault( cdf+"DFOF_Bbgn", tbgn )
+	tend = NumVarOrDefault( cdf+"DFOF_Bend", tend )
 	
-	DoPrompt NMPromptStr( "dF/Fo" ), bbgn, bend
+	Prompt tbgn, "compute baseline from (ms):"
+	Prompt tend, "compute baseline to (ms):"
+	
+	DoPrompt "dF/Fo", tbgn, tend
 	
 	if ( V_flag == 1 )
 		return -1 // cancel
 	endif
 	
-	SetNMvar( cdf+"DFOF_Bbgn", bbgn )
-	SetNMvar( cdf+"DFOF_Bend", bend )
+	SetNMvar( cdf+"DFOF_Bbgn", tbgn )
+	SetNMvar( cdf+"DFOF_Bend", tend )
 	
-	return 0
+	vList = NMCmdNum( chanNum, vList )
+	vList = NMCmdNum( tbgn, vList )
+	vList = NMCmdNum( tend, vList )
+	NMCmdHistory( "NMChanFuncDFOF", vList )
+	
+	return NMChanFuncDFOF( chanNum, tbgn, tend )
 
-End // ChanFuncDFOFAsk
+End // NMChanFuncDFOFCall
+
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function ChanFuncBslnAsk( chanNum )
-	Variable chanNum
+Function NMChanFuncDFOF( chanNum, tbgn, tend )
+	Variable chanNum // channel number
+	Variable tbgn, tend // time begin and end, use ( -inf, inf ) for all time
+	
+	Variable fxnNum = 5
+	String cdf, thisfxn = "NMChanFuncDFOF"
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	String mdf = MainDF( )
-	String cdf = ChanDF( chanNum )
+	cdf = ChanFuncDF( chanNum )
 	
-	Variable bbgn = NumVarOrDefault( mdf+"Bsln_Bgn", 0 )
-	Variable bend = NumVarOrDefault( mdf+"Bsln_End", 5 )
+	if ( numtype( tbgn ) > 0 )
+		tbgn = -inf
+	endif
 	
-	bbgn = NumVarOrDefault( cdf+"Bsln_Bbgn", bbgn )
-	bend = NumVarOrDefault( cdf+"Bsln_Bend", bend )
+	if ( numtype( tend ) > 0 )
+		tend = inf
+	endif
 	
-	Prompt bbgn, "compute baseline from ( ms ):"
-	Prompt bend, "compute baseline to ( ms ):"
+	SetNMVar( cdf+"Ft", fxnNum )
+	SetNMvar( cdf+"DFOF_Bbgn", tbgn )
+	SetNMvar( cdf+"DFOF_Bend", tend )
 	
-	DoPrompt NMPromptStr( "Baseline" ), bbgn, bend
+	ChanGraphsUpdate()
+	NMAutoTabCall()
+	
+	return fxnNum
+	
+End // NMChanFuncDFOF
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMChanFuncBaselineCall( chanNum )
+	Variable chanNum
+	
+	Variable tbgn, tend
+	String vlist = "", cdf, mdf = MainDF()
+	
+	chanNum = ChanNumCheck( chanNum )
+	cdf = ChanFuncDF( chanNum )
+	
+	if ( strlen( cdf ) == 0 )
+		return -1
+	endif
+	
+	tbgn = NumVarOrDefault( mdf+"Bsln_Bgn", 0 )
+	tend = NumVarOrDefault( mdf+"Bsln_End", 5 )
+	
+	tbgn = NumVarOrDefault( cdf+"Bsln_Bbgn", tbgn )
+	tend = NumVarOrDefault( cdf+"Bsln_Bend", tend )
+	
+	Prompt tbgn, "compute baseline from (ms):"
+	Prompt tend, "compute baseline to (ms):"
+	
+	DoPrompt "Baseline", tbgn, tend
 	
 	if ( V_flag == 1 )
 		return -1 // cancel
 	endif
 	
-	SetNMvar( cdf+"Bsln_Bbgn", bbgn )
-	SetNMvar( cdf+"Bsln_Bend", bend )
+	SetNMvar( cdf+"Bsln_Bbgn", tbgn )
+	SetNMvar( cdf+"Bsln_Bend", tend )
 	
-	return 0
+	vList = NMCmdNum( chanNum, vList )
+	vList = NMCmdNum( tbgn, vList )
+	vList = NMCmdNum( tend, vList )
+	NMCmdHistory( "NMChanFuncBaseline", vList )
+	
+	return NMChanFuncBaseline( chanNum, tbgn, tend )
 
-End // ChanFuncBslnAsk
+End // NMChanFuncBaselineCall
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function NMChanFuncBaseline( chanNum, tbgn, tend )
+	Variable chanNum // channel number
+	Variable tbgn, tend // time begin and end, use ( -inf, inf ) for all time
+	
+	Variable fxnNum = 6
+	String cdf, thisfxn = "NMChanFuncBaseline"
+	
+	chanNum = ChanNumCheck( chanNum )
+	
+	cdf = ChanFuncDF( chanNum )
+	
+	if ( numtype( tbgn ) > 0 )
+		tbgn = -inf
+	endif
+	
+	if ( numtype( tend ) > 0 )
+		tend = inf
+	endif
+	
+	SetNMVar( cdf+"Ft", fxnNum )
+	SetNMvar( cdf+"Bsln_Bbgn", tbgn )
+	SetNMvar( cdf+"Bsln_Bend", tend )
+	
+	ChanGraphsUpdate()
+	NMAutoTabCall()
+	
+	return fxnNum
+	
+End // NMChanFuncBaseline
 
 //****************************************************************
 //****************************************************************
@@ -1387,9 +1554,79 @@ End // ChanFuncBslnAsk
 Function ChanFuncGet( chanNum )
 	Variable chanNum
 	
-	return NumVarOrDefault( ChanFuncDF( chanNum )+"Ft", 0 )
+	String cdf = ChanFuncDF( chanNum )
+	
+	if ( strlen( cdf ) == 0 )
+		return 0
+	endif
+	
+	return NumVarOrDefault( cdf+"Ft", 0 )
 	
 End // ChanFuncGet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ChanFuncGetName( chanNum )
+	Variable chanNum
+
+	return ChanFuncNum2Name( ChanFuncGet( chanNum ) )
+
+End // ChanFuncGetName
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ChanFuncNum2Name( select )
+	Variable select
+
+	switch( select )
+		case 0:
+			return "Transform"
+		case 1:
+			return "d/dt"
+		case 2:
+			return "dd/dt*dt"
+		case 3:
+			return "Integral"
+		case 4:
+			return "Normalize"
+		case 5:
+			return "dF/Fo"
+		case 6:
+			return "Baseline"
+	endswitch
+	
+	return ""
+	
+End // ChanFuncNum2Name
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ChanFuncList()
+
+	Variable icnt
+	String fxn, fList = ""
+	
+	for ( icnt = 1 ; icnt < 20 ; icnt += 1 )
+	
+		fxn =  ChanFuncNum2Name( icnt )
+		
+		if ( strlen( fxn ) == 0 )
+			break
+		endif
+	
+		fList += fxn + ";"
+		
+	endfor
+	
+	return fList
+
+End // ChanFuncList
 
 //****************************************************************
 //****************************************************************
@@ -1398,63 +1635,39 @@ End // ChanFuncGet
 Function ChanFuncUpdate( chanNum )
 	Variable chanNum
 	
-	Variable v = 1
-	String t = "F( t )"
+	Variable v = 0
+	String t = "Transform"
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	String gName = ChanGraphName( chanNum )
-	String cc = num2str( chanNum )
+	String gname = ChanGraphName( chanNum )
+	String cc = num2istr( chanNum )
 	
 	Variable ft = ChanFuncGet( chanNum )
 	
-	ControlInfo /W=$gName $( "FtCheck"+cc )
+	if ( WinType( gname ) != 1 )
+		return -1
+	endif
+	
+	ControlInfo /W=$gname $( "FtCheck"+cc )
 	
 	if ( V_flag == 0 )
 		return 0
 	endif
 	
-	switch( ft )
-		case 1:
-			t = "d/dt"
-			break
-		case 2:
-			t = "dd/dt*dt"
-			break
-		case 3:
-			t = "integral"
-			break
-		case 4:
-			t = "norm"
-			break
-		case 5:
-			t = "dF/Fo"
-			break
-		case 6:
-			t = "baseline"
-			break
-		default:
-			v = 0
-			t = "F( t )"
-	endswitch
-	
-	CheckBox $( "FtCheck"+cc ), value=v, title=t, win=$gName, proc=$ChanFuncProc( chanNum )
-	
-End // ChanFuncUpdate
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ChanFilterFxnExists()
-
-	if (exists( "FilterIIR" ) == 4 ) // Igor 6.0 FilterIIR operation
-		return 1
+	if ( ft > 0 )
+		v = 1
+		t = ChanFuncNum2Name( ft )
 	endif
 	
-	return 0
+	if ( strlen( t ) == 0 )
+		v = 0
+		t = "Transform"
+	endif
 	
-End // ChanFilterFxnExists
+	CheckBox $( "FtCheck"+cc ), value=v, title=t, win=$gname, proc=$ChanFuncProc( chanNum )
+	
+End // ChanFuncUpdate
 
 //****************************************************************
 //****************************************************************
@@ -1465,7 +1678,7 @@ Function /S ChanFilterDF( chanNum )
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	return StrVarOrDefault( NMDF( ) + "ChanSmthDF" + num2str( chanNum ), ChanDF( chanNum ) )
+	return StrVarOrDefault( NMDF() + "ChanSmthDF" + num2istr( chanNum ), ChanDF( chanNum ) )
 
 End // ChanFilterDF
 
@@ -1478,7 +1691,7 @@ Function /S ChanFilterProc( chanNum )
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	return StrVarOrDefault( NMDF( ) + "ChanSmthProc" + num2str( chanNum ), "ChanSetVariable" )
+	return StrVarOrDefault( NMDF() + "ChanSmthProc" + num2istr( chanNum ), "NMChanSetVariable" )
 
 End // ChanFilterProc
 
@@ -1489,9 +1702,25 @@ End // ChanFilterProc
 Function ChanFilterNumGet( chanNum )
 	Variable chanNum
 	
-	return NumVarOrDefault( ChanFilterDF( chanNum )+"SmoothN", 0 ) // filter number saved as old smooth number
+	String cdf = ChanFilterDF( chanNum )
+	
+	if ( strlen( cdf ) == 0 )
+		return 0
+	endif
+	
+	return NumVarOrDefault( cdf+"SmoothN", 0 ) // filter number saved as old smooth number
 	
 End // ChanFilterNumGet
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ChanFilterFxnList()
+
+	return "binomial;boxcar;low-pass;high-pass;"
+
+End // ChanFilterFxnList
 
 //****************************************************************
 //****************************************************************
@@ -1533,7 +1762,7 @@ Function ChanFilterNumCall( chanNum, filterNum )
 		
 	rvalue = ChanFilter( chanNum, filterAlg, filterNum )
 	
-	NMAutoTabCall( )
+	NMAutoTabCall()
 	
 	return rvalue
 
@@ -1548,9 +1777,11 @@ Function ChanFilter( chanNum, filterAlg, filterNum ) // set channel filter funct
 	String filterAlg
 	Variable filterNum
 	
-	Variable filterExists = ChanFilterFxnExists()
+	String cdf = ChanFilterDF( chanNum )
 	
-	String df = ChanFilterDF( chanNum )
+	if ( strlen( cdf ) == 0 )
+		return -1
+	endif
 	
 	strswitch( filterAlg )
 	
@@ -1560,10 +1791,6 @@ Function ChanFilter( chanNum, filterAlg, filterNum ) // set channel filter funct
 			
 		case "low-pass": // filter FIR
 		case "high-pass": // filter FIR
-			if ( filterExists == 0 )
-				DoAlert 0, "ChanFilter error: Igor 6.0 FilterIIR operation does not appear to exist."
-				filterAlg = ""
-			endif
 			break
 			
 		default:
@@ -1575,10 +1802,10 @@ Function ChanFilter( chanNum, filterAlg, filterNum ) // set channel filter funct
 		filterAlg = ""
 	endif
 	
-	SetNMvar( df+"SmoothN", filterNum ) // save as Smooth
-	SetNMstr( df+"SmoothA", filterAlg )
+	SetNMvar( cdf+"SmoothN", filterNum ) // save as Smooth
+	SetNMstr( cdf+"SmoothA", filterAlg )
 	
-	ChanGraphsUpdate( )
+	ChanGraphsUpdate()
 	
 	return 0
 
@@ -1591,8 +1818,7 @@ End // ChanFilter
 Function /S ChanFilterAlgAsk( chanNum ) // request chan smooth or filter alrgorithm
 	Variable chanNum // ( -1 ) for current channel
 	
-	Variable filterExists = ChanFilterFxnExists()
-	String alg = ChanFilterAlgGet( chanNum )
+	String cdf, alg, gname
 	
 	String s1 = "smooth binomial"
 	String s2 = "smooth boxcar"
@@ -1601,8 +1827,12 @@ Function /S ChanFilterAlgAsk( chanNum ) // request chan smooth or filter alrgori
 	String slist = s1 + ";" + s2 + ";"
 	
 	chanNum = ChanNumCheck( chanNum )
+	cdf = ChanFilterDF( chanNum )
 	
-	if ( IsChanGraph( chanNum ) == 0 )
+	alg = ChanFilterAlgGet( chanNum )
+	gname = ChanGraphName( chanNum )
+	
+	if ( ( strlen( cdf ) == 0 ) || ( WinType( gname ) != 1 ) )
 		return ""
 	endif
 	
@@ -1623,9 +1853,7 @@ Function /S ChanFilterAlgAsk( chanNum ) // request chan smooth or filter alrgori
 			alg = s1
 	endswitch
 	
-	if ( filterExists == 1 )
-		slist = s1 + ";" + s2 + ";" + f1 + ";" + f2 + ";"
-	endif
+	slist = s1 + ";" + s2 + ";" + f1 + ";" + f2 + ";"
 	
 	Prompt alg, " ", popup slist
 	
@@ -1658,9 +1886,15 @@ End // ChanFilterAlgAsk
 Function /S ChanFilterAlgGet( chanNum ) // get chan smooth/filter alrgorithm
 	Variable chanNum // ( -1 ) for current channel
 	
-	Variable filterExists = ChanFilterFxnExists()
+	String alg
+	
+	String cdf = ChanFilterDF( chanNum )
+	
+	if ( strlen( cdf ) == 0 )
+		return ""
+	endif
 
-	String alg = StrVarOrDefault( ChanFilterDF( chanNum )+"SmoothA", "" )
+	alg = StrVarOrDefault( cdf+"SmoothA", "" )
 	
 	strswitch( alg )
 	
@@ -1670,9 +1904,6 @@ Function /S ChanFilterAlgGet( chanNum ) // get chan smooth/filter alrgorithm
 			
 		case "low-pass": // Filter IIR
 		case "high-pass": // Filter IIR
-			if ( filterExists == 0 )
-				return ""
-			endif
 			break
 			
 		default:
@@ -1693,92 +1924,42 @@ Function ChanFilterUpdate( chanNum )
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	String gName = ChanGraphName( chanNum )
-	String df = ChanFilterDF( chanNum )
-	String cc = num2str( chanNum )
+	String gname = ChanGraphName( chanNum )
+	String cc = num2istr( chanNum )
 	String titlestr = "Filter"
 	
-	Variable filterExists = ChanFilterFxnExists()
+	String cdf = ChanDF( chanNum )
+	
+	//Variable filterExists = ChanFilterFxnExists()
 	
 	String filterAlg = ChanFilterAlgGet( chanNum )
 	
-	ControlInfo /W=$gName $( "SmoothSet"+cc )
+	ControlInfo /W=$gname $( "SmoothSet"+cc )
 	
 	if ( V_flag == 0 )
 		return 0
 	endif
 	
-	if ( filterExists == 0 )
+	strswitch( filterAlg )
+		case "binomial":
+		case "boxcar":
+			titlestr = "Smooth"
+			break
+		case "low-pass":
+			titlestr = "Low"
+			break
+		case "high-pass":
+			titlestr = "High"
+			break
+		default:
+			titlestr = "Filter"
+	endswitch
 	
-		titlestr = "Smooth"
-		
-	else
+	SetVariable $( "SmoothSet"+cc ), win=$gname, title=titlestr, proc=$ChanFilterProc( chanNum ), value=$( cdf+"SmoothN" )
 	
-		strswitch( filterAlg )
-			case "binomial":
-			case "boxcar":
-				titlestr = "Smooth"
-				break
-			case "low-pass":
-				titlestr = "Low"
-				break
-			case "high-pass":
-				titlestr = "High"
-				break
-			default:
-				titlestr = "Filter"
-		endswitch
-		
-	endif
-	
-	SetVariable $( "SmoothSet"+cc ), win=$gName, title=titlestr, proc=$ChanFilterProc( chanNum )
+	return 0
 	
 End //  ChanFilterUpdate
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ChanSmthNumCall( chanNum, smthNum ) // DEPRECATED
-	Variable chanNum, smthNum
-	
-	return ChanFilterNumCall( chanNum, smthNum )
-
-End // ChanSmthNumCall
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ChanSmthNum( chanNum, smthNum ) // DEPRECATED
-	Variable chanNum, smthNum
-	
-	return ChanFilter( chanNum, ChanFilterAlgGet( chanNum ), smthNum )
-
-End // ChanSmthNum
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ChanSmth( chanNum, smthNum, smthAlg ) // DEPRECATED
-	Variable chanNum, smthNum
-	String smthAlg
-	
-	return ChanFilter( chanNum, smthAlg, smthNum )
-
-End // ChanSmth
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ChanSmthNumGet( chanNum )  // DEPRECATED
-	Variable chanNum
-	
-	return ChanFilterNumGet( chanNum )
-	
-End // ChanSmthNumGet
 
 //****************************************************************
 //****************************************************************
@@ -1790,7 +1971,7 @@ Function ChanLabelCall( chanNum, xy ) // set channel labels
 	
 	String vlist = ""
 	
-	String labelStr = ChanLabel( chanNum, xy, "" )
+	String labelStr = NMChanLabel( chanNum, xy, "" )
 	
 	Prompt labelStr, xy + " label:"
 	
@@ -1805,9 +1986,9 @@ Function ChanLabelCall( chanNum, xy ) // set channel labels
 	vlist = NMCmdStr( xy, vlist )
 	vlist = NMCmdStr( labelStr, vlist )
 	
-	NMCmdHistory( "ChanLabelSet", vlist )
+	NMCmdHistory( "NMChanLabelSet", vlist )
 		
-	ChanLabelSet( chanNum, 2, xy, labelStr )
+	NMChanLabelSet( chanNum, 2, xy, labelStr )
 	
 	return 0
 
@@ -1820,10 +2001,17 @@ End // ChanLabelCall
 Function ChanGridToggle( chanNum )
 	Variable chanNum // channel number
 	
-	String vlist = "", df = ChanDF( chanNum )
-	String gName = ChanGraphName( chanNum )
+	String vlist = ""
+	String cdf = ChanDF( chanNum )
+	String gname = ChanGraphName( chanNum )
 	
-	Variable on = !NumVarOrDefault( df+"GridFlag", 1 )
+	if ( strlen( cdf ) == 0 )
+		return -1
+	endif
+	
+	Variable on = NumVarOrDefault( cdf+"GridFlag", 1 )
+	
+	on = BinaryInvert( on )
 	
 	vlist = NMCmdNum( chanNum, vlist )
 	vlist = NMCmdNum( on, vlist )
@@ -1841,16 +2029,18 @@ Function ChanGrid( chanNum, on )
 	Variable chanNum // channel number
 	Variable on // ( 0 ) no ( 1 ) yes
 	
-	String df = ChanDF( chanNum )
-	String gName = ChanGraphName( chanNum )
+	String cdf = ChanDF( chanNum )
+	String gname = ChanGraphName( chanNum )
 	
-	SetNMvar( df+"GridFlag", on )
-	
-	if ( WinType( gName ) == 1 )
-		ModifyGraph /W=$gName grid=on
+	if ( ( strlen( cdf ) == 0 ) || ( WinType( gname ) != 1 ) )
+		return -1
 	endif
 	
-	ChanGraphsUpdate( )
+	SetNMvar( cdf+"GridFlag", on )
+	
+	ModifyGraph /W=$gname grid=on
+	
+	ChanGraphsUpdate()
 	
 End // ChanGrid
 
@@ -1858,10 +2048,63 @@ End // ChanGrid
 //****************************************************************
 //****************************************************************
 
-Function ChanOnAllCall( )
+Function ChanDragToggle()
+	
+	Variable on = NeuroMaticVar( "DragOn" )
+	
+	on = BinaryInvert( on )
+	
+	NMCmdHistory( "ChanDragOn", NMCmdNum( on, "" ) )
+	
+	return ChanDragOn( on )
+	
+End // ChanDragToggle
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanDragOn( on )
+	Variable on // ( 0 ) off ( 1 ) on
+	
+	on = NMDragOn( on )
+	
+	if ( on == 1 )
+		Execute /Z  CurrentNMTabName() + "Tab( 1 )" // should append drag waves for specific tab
+	else
+		ChanDragUtility( "remove" )
+	endif
+	
+	return on
+	
+End // ChanDragOn
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanDragUtility( select )
+	String select // "clear" or "remove" or "update"
+
+	Variable ccnt, numChannels = NMNumChannels()
+	String gname
+	
+	for ( ccnt = 0; ccnt < numChannels; ccnt+=1 )
+		gname = ChanGraphName( ccnt )
+		NMDragGraphUtility( gName, select )
+	endfor
+
+End // ChanDragRemoveAll
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function ChanOnAllCall()
 
 	NMCmdHistory( "ChanOnAll","" )
-	return ChanOnAll( )
+	
+	return ChanOnAll()
 
 End // ChanOnAllCall
 
@@ -1869,10 +2112,10 @@ End // ChanOnAllCall
 //****************************************************************
 //****************************************************************
 
-Function ChanOnAll( )
+Function ChanOnAll()
 
 	ChanOn( -1, 1 )
-	ChanGraphsToFront( )
+	ChanGraphsToFront()
 
 	return 0
 
@@ -1905,16 +2148,24 @@ Function ChanOn( chanNum, on )
 	Variable on // ( 0 ) no ( 1 ) yes
 	
 	Variable ccnt, cbgn = chanNum, cend = chanNum
+	String cdf
 	
 	if ( chanNum == -1 )
-		cbgn = 0; cend = NMNumChannels( ) - 1;
+		cbgn = 0
+		cend = NMNumChannels() - 1
 	endif
 	
 	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
-		SetNMvar( ChanDF( ccnt )+"On", on )
+	
+		cdf = ChanDF( ccnt )
+		
+		if ( strlen( cdf ) > 0 )
+			SetNMvar( cdf+"On", on )
+		endif
+		
 	endfor
 	
-	ChanGraphsUpdate( )
+	ChanGraphsUpdate()
 	
 	return 0
 	
@@ -1946,20 +2197,24 @@ Function ChanAutoScale( chanNum, on )
 	Variable chanNum // channel number
 	Variable on // ( 0 ) on ( 1 ) yes
 	
-	String gName = ChanGraphName( chanNum )
-	String df = ChanDF( chanNum )
+	String gname = ChanGraphName( chanNum )
+	String cdf = ChanDF( chanNum )
 	
-	if ( ( on == 1 ) && ( WinType( gName ) == 1 ) )
-		SetAxis /A/W=$gName
+	if ( strlen( cdf ) == 0 )
+		return -1
+	endif
+	
+	if ( ( on == 1 ) && ( WinType( gname ) == 1 ) )
+		SetAxis /A/W=$gname
 	else
 		ChanScaleSave( chanNum )
 	endif
 	
-	SetNMVar( df+"AutoScale", on )
-	SetNMVar( df+"AutoScaleX", 0 )
-	SetNMVar( df+"AutoScaleY", 0 )
+	SetNMVar( cdf+"AutoScale", on )
+	SetNMVar( cdf+"AutoScaleX", 0 )
+	SetNMVar( cdf+"AutoScaleY", 0 )
 	
-	ChanGraphsUpdate( )
+	ChanGraphsUpdate()
 	
 	return 0
 
@@ -1973,16 +2228,20 @@ Function ChanAutoScaleX( chanNum, on )
 	Variable chanNum // channel number
 	Variable on // ( 0 ) on ( 1 ) yes
 	
-	String df = ChanDF( chanNum )
+	String cdf = ChanDF( chanNum )
 	
-	SetNMVar( df+"AutoScaleX", on )
-	
-	if ( on == 1 )
-		SetNMVar( df+"AutoScale", 0 )
-		SetNMVar( df+"AutoScaleY", 0 )
+	if ( strlen( cdf ) == 0 )
+		return -1
 	endif
 	
-	ChanGraphsUpdate( )
+	SetNMVar( cdf+"AutoScaleX", on )
+	
+	if ( on == 1 )
+		SetNMVar( cdf+"AutoScale", 0 )
+		SetNMVar( cdf+"AutoScaleY", 0 )
+	endif
+	
+	ChanGraphsUpdate()
 	
 	return 0
 
@@ -1996,16 +2255,20 @@ Function ChanAutoScaleY( chanNum, on )
 	Variable chanNum // channel number
 	Variable on // ( 0 ) on ( 1 ) yes
 	
-	String df = ChanDF( chanNum )
+	String cdf = ChanDF( chanNum )
 	
-	SetNMVar( df+"AutoScaleY", on )
-	
-	if ( on == 1 )
-		SetNMVar( df+"AutoScale", 0 )
-		SetNMVar( df+"AutoScaleX", 0 )
+	if ( strlen( cdf ) == 0 )
+		return -1
 	endif
 	
-	ChanGraphsUpdate( )
+	SetNMVar( cdf+"AutoScaleY", on )
+	
+	if ( on == 1 )
+		SetNMVar( cdf+"AutoScale", 0 )
+		SetNMVar( cdf+"AutoScaleX", 0 )
+	endif
+	
+	ChanGraphsUpdate()
 	
 	return 0
 
@@ -2019,44 +2282,41 @@ Function ChanScaleSave( chanNum ) // save chan min, max scale values
 	Variable chanNum // ( -1 ) for all
 	
 	Variable ccnt, cbgn = chanNum, cend = chanNum
-	String gName, df, ndf = NMDF( )
+	String gname, cdf
 	
 	if ( chanNum == -1 )
-		cbgn = 0; cend = NMNumChannels( ) - 1;
+		cbgn = 0
+		cend = NMNumChannels() - 1
 	endif
 	
 	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
-
-		if ( IsChanGraph( ccnt ) == 0 )
+		
+		cdf = ChanDF( ccnt )
+		gname = ChanGraphName( ccnt )
+		
+		if ( ( strlen( cdf ) == 0 ) || ( WinType( gname ) != 1 ) )
 			continue
 		endif
 		
-		df = ChanDF( ccnt )
-		gName = ChanGraphName( ccnt )
+		GetAxis /Q/W=$gname bottom
+	
+		SetNMvar( cdf+"Xmin", V_min )
+		SetNMvar( cdf+"Xmax", V_max )
 		
-		if ( WinType( gName ) == 1 )
+		GetAxis /Q/W=$gname left
 		
-			GetAxis /Q/W=$gName bottom
+		SetNMvar( cdf+"Ymin", V_min )
+		SetNMvar( cdf+"Ymax", V_max )
 		
-			SetNMvar( df+"Xmin", V_min )
-			SetNMvar( df+"Xmax", V_max )
-			
-			GetAxis /Q/W=$gName left
-			
-			SetNMvar( df+"Ymin", V_min )
-			SetNMvar( df+"Ymax", V_max )
-			
-			// save graph position
-			
-			GetWindow $gName wsize
-			
-			if ( ( V_right > V_left ) && ( V_top < V_bottom ) )
-				SetNMvar( df+"GX0", V_left )
-				SetNMvar( df+"GY0", V_top )
-				SetNMvar( df+"GX1", V_right )
-				SetNMvar( df+"GY1", V_bottom )
-			endif
-			
+		// save graph position
+		
+		GetWindow $gname wsize
+		
+		if ( ( V_right > V_left ) && ( V_top < V_bottom ) )
+			SetNMvar( cdf+"GX0", V_left )
+			SetNMvar( cdf+"GY0", V_top )
+			SetNMvar( cdf+"GX1", V_right )
+			SetNMvar( cdf+"GY1", V_bottom )
 		endif
 	
 	endfor
@@ -2074,30 +2334,31 @@ Function ChanXYSet( chanNum, left, right, bottom, top )
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	if ( IsChanGraph( chanNum ) == 0 )
+	String cdf = ChanDF( chanNum )
+	String gname = ChanGraphName( chanNum )
+	
+	if ( ( strlen( cdf ) == 0 ) || ( WinType( gname ) != 1 ) )
 		return -1
 	endif
 	
-	String gName = ChanGraphName( chanNum )
-	
 	if ( numtype( left*right ) == 0 )
-		SetAxis /W=$gName bottom left, right
-		SetNMVar( ChanDF( chanNum )+"AutoScaleX", 0 )
+		SetAxis /W=$gname bottom left, right
+		SetNMVar( cdf+"AutoScaleX", 0 )
 	else
-		SetNMVar( ChanDF( chanNum )+"AutoScaleX", 1 )
+		SetNMVar( cdf+"AutoScaleX", 1 )
 	endif
 	
 	if ( numtype( top*bottom ) == 0 )
-		SetAxis /W=$gName left bottom, top
-		SetNMVar( ChanDF( chanNum )+"AutoScaleY", 0 )
+		SetAxis /W=$gname left bottom, top
+		SetNMVar( cdf+"AutoScaleY", 0 )
 	else
-		SetNMVar( ChanDF( chanNum )+"AutoScaleY", 1 )
+		SetNMVar( cdf+"AutoScaleY", 1 )
 	endif
 	
-	SetNMVar( ChanDF( chanNum )+"AutoScale", 0 )
+	SetNMVar( cdf+"AutoScale", 0 )
 	
 	ChanScaleSave( chanNum )
-	ChanGraphsUpdate( )
+	ChanGraphsUpdate()
 	
 	return 0
 
@@ -2115,7 +2376,7 @@ Function ChanAllX( xmin, xmax )
 		return -1
 	endif
 	
-	for ( ccnt = 0; ccnt < NMNumChannels( ); ccnt += 1 )
+	for ( ccnt = 0; ccnt < NMNumChannels(); ccnt += 1 )
 		ChanXYSet( ccnt, xmin, xmax, Nan, NaN )
 	endfor
 	
@@ -2135,7 +2396,7 @@ Function ChanAllY( ymin, ymax )
 		return -1
 	endif
 	
-	for ( ccnt = 0; ccnt < NMNumChannels( ); ccnt += 1 )
+	for ( ccnt = 0; ccnt < NMNumChannels(); ccnt += 1 )
 		ChanXYSet( ccnt, Nan, Nan, ymin, ymax )
 	endfor
 	
@@ -2167,7 +2428,11 @@ End // ChanOverlayCall
 Function ChanOverlay( chanNum, overlayNum )
 	Variable chanNum, overlayNum
 	
-	String df = ChanDF( chanNum )
+	String cdf = ChanDF( chanNum )
+	
+	if ( strlen( cdf ) == 0 )
+		return -1
+	endif
 	
 	if ( ( numtype( overlayNum ) > 0 ) || ( overlayNum < 0 ) )
 		overlayNum = 0
@@ -2175,8 +2440,8 @@ Function ChanOverlay( chanNum, overlayNum )
 	
 	ChanOverlayClear( chanNum )
 	
-	SetNMvar( df+"Overlay", overlayNum )
-	SetNMvar( df+"OverlayCount", 1 )
+	SetNMvar( cdf+"Overlay", overlayNum )
+	SetNMvar( cdf+"OverlayCount", 1 )
 	
 	ChanOverlayKill( chanNum )
 	
@@ -2193,12 +2458,14 @@ Function ChanOverlayUpdate( chanNum )
 	
 	chanNum = ChanNumCheck( chanNum )
 	
-	if ( IsChanGraph( chanNum ) == 0 )
-		return -1
-	endif
-	String xWave = NMXWave( )
+	String xWave = NMXWave()
 	
 	String cdf = ChanDF( chanNum )
+	String gname = ChanGraphName( chanNum )
+	
+	if ( ( strlen( cdf ) == 0 ) || ( WinType( gname ) != 1 ) )
+		return -1
+	endif
 	
 	Variable overlay = NumVarOrDefault( cdf+"Overlay", 0 )
 	Variable ocnt = NumVarOrDefault( cdf+"OverlayCount", 0 )
@@ -2215,44 +2482,43 @@ Function ChanOverlayUpdate( chanNum )
 		return 0
 	endif
 	
-	String gName = ChanGraphName( chanNum )
-	String dName = ChanDisplayWave( chanNum )
+	String dname = ChanDisplayWave( chanNum )
 	
 	String oName = ChanDisplayWaveName( 0, chanNum, ocnt )
-	String odName = ChanDisplayWaveName( 1, chanNum, ocnt )
+	String odname = ChanDisplayWaveName( 1, chanNum, ocnt )
 	
-	String wList = TraceNameList( gName,";",1 )
+	String wList = TraceNameList( gname,";",1 )
 	
-	if ( StringMatch( dName, odName ) == 1 )
+	if ( StringMatch( dname, odname ) == 1 )
 		return -1
 	endif
 	
-	Duplicate /O $dName $odName
+	Duplicate /O $dname $odname
 	
-	RemoveWaveUnits( odName )
+	RemoveWaveUnits( odname )
 	
-	if ( WhichListItemLax( oName, wList, ";" ) < 0 )
+	if ( WhichListItem( oName, wList, ";", 0, 0 ) < 0 )
 	
 		if ( WaveExists( $xWave ) == 1 )
-			AppendToGraph /W=$gName $odName vs $xWave
+			AppendToGraph /W=$gname $odname vs $xWave
 		else
-			AppendToGraph /W=$gName $odName
+			AppendToGraph /W=$gname $odname
 		endif
 	
-		Execute /Z "ModifyGraph /W=" + gName + " rgb( " + oName + " )=( " + ocolor + " )"
+		Execute /Z "ModifyGraph /W=" + gname + " rgb(" + oName + ")=(" + ocolor + ")"
 		
 		oName = ChanDisplayWaveName( 0, chanNum, 0 )
-		odName = ChanDisplayWaveName( 1, chanNum, 0 )
+		odname = ChanDisplayWaveName( 1, chanNum, 0 )
 		
-		RemoveFromGraph /W=$gName/Z $oName
+		RemoveFromGraph /W=$gname/Z $oName
 		
 		if ( WaveExists( $xWave ) == 1 )
-			AppendToGraph /W=$gName $odName vs $xWave
+			AppendToGraph /W=$gname $odname vs $xWave
 		else
-			AppendToGraph /W=$gName $odName
+			AppendToGraph /W=$gname $odname
 		endif
 		
-		Execute /Z "ModifyGraph /W=" + gName + " rgb( " + oName + " )=( " + tcolor + " )"
+		Execute /Z "ModifyGraph /W=" + gname + " rgb(" + oName + ")=(" + tcolor + ")"
 		
 	endif
 
@@ -2276,26 +2542,34 @@ Function ChanOverlayClear( chanNum )
 	Variable chanNum // ( -1 ) for all
 	
 	Variable wcnt, ccnt, cbgn = chanNum, cend = chanNum
-	String gName, wName, xName, wList
+	String gname, wname, xName, wList, cdf
 	
 	if ( chanNum == -1 )
-		cbgn = 0; cend = NMNumChannels( ) - 1;
+		cbgn = 0
+		cend = NMNumChannels() - 1
 	endif
 	
 	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
 	
-		wName = ChanDisplayWave( ccnt )
+		wname = ChanDisplayWave( ccnt )
 		xName = ChanDisplayWaveName( 0, ccnt, 0 )
-		gName = ChanGraphName( ccnt )
+		gname = ChanGraphName( ccnt )
+		cdf = ChanDF( ccnt )
 		
-		wList = TraceNameList( gName,";",1 )
-		wList = RemoveFromList( xName, wList )
+		if ( WinType( gname ) == 1 )
+			
+			wList = TraceNameList( gname,";",1 )
+			wList = RemoveFromList( xName, wList )
+			
+			for ( wcnt = 0; wcnt < ItemsInList( wList ); wcnt += 1 )
+				RemoveFromGraph /W=$gname/Z $StringFromList( wcnt, wList )
+			endfor
 		
-		for ( wcnt = 0; wcnt < ItemsInList( wList ); wcnt += 1 )
-			RemoveFromGraph /W=$gName/Z $StringFromList( wcnt, wList )
-		endfor
+		endif
 		
-		SetNMvar( ChanDF( ccnt )+"OverlayCount", 0 )
+		if ( strlen( cdf ) > 0 )
+			SetNMvar( cdf+"OverlayCount", 0 )
+		endif
 		
 	endfor
 
@@ -2311,26 +2585,33 @@ Function ChanOverlayKill( chanNum )
 	Variable cbgn = chanNum, cend = chanNum
 	
 	Variable wcnt, ccnt, overlay
-	String wName, wList
+	String wname, wList, cdf
 	
 	if ( chanNum == -1 )
-		cbgn = 0; cend = NMNumChannels( ) - 1;
+		cbgn = 0
+		cend = NMNumChannels() - 1
 	endif
 
 	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
 	
-		wList = WaveListFolder( ChanDF( ccnt ), "Display" + ChanNum2Char( ccnt ) + "*", ";", "" )
+		cdf = ChanDF( ccnt )
+		
+		if ( strlen( cdf ) == 0 )
+			continue
+		endif
 	
-		overlay = NumVarOrDefault( ChanDF( ccnt )+"Overlay", 0 )
+		wList = NMFolderWaveList( cdf, "Display" + ChanNum2Char( ccnt ) + "*", ";", "", 0 )
+	
+		overlay = NumVarOrDefault( cdf+"Overlay", 0 )
 	
 		for ( wcnt = 0; wcnt <= overlay; wcnt += 1 )
-			wName = ChanDisplayWaveName( 0, ccnt, wcnt )
-			wList = RemoveFromList( wName, wList )
+			wname = ChanDisplayWaveName( 0, ccnt, wcnt )
+			wList = RemoveFromList( wname, wList )
 		endfor
 		
 		for ( wcnt = 0; wcnt < ItemsInList( wList ); wcnt += 1 )
-			wName = ChanDF( ccnt ) + StringFromList( wcnt, wList )
-			KillWaves /Z $wName
+			wname = cdf + StringFromList( wcnt, wList )
+			KillWaves /Z $wname
 		endfor
 		
 	endfor
@@ -2362,13 +2643,17 @@ Function ChanToFront( chanNum, toFront )
 	Variable chanNum
 	Variable toFront // ( 0 ) no ( 1 ) yes
 	
-	String df = ChanDF( chanNum )
+	String cdf = ChanDF( chanNum )
+	
+	if ( strlen( cdf ) == 0 )
+		return -1
+	endif
 	
 	if ( toFront != 0 )
 		toFront = 1
 	endif
 	
-	SetNMvar( df+"ToFront", toFront )
+	SetNMvar( cdf+"ToFront", toFront )
 	
 	return toFront
 	
@@ -2391,10 +2676,11 @@ Function ChanWaveMake( chanNum, srcName, dstName ) // create channel waves, base
 	
 	Variable ccnt, cbgn = chanNum, cend = chanNum
 	Variable ft, filterNum, tbgn1, tend1, tbgn2, tend2, sfreq, fratio
-	String df, filterAlg, fxn1, fxn2
 	
-	Variable bbgn = NumVarOrDefault( MainDF( )+"Bsln_Bgn", 0 )
-	Variable bend = NumVarOrDefault( MainDF( )+"Bsln_End", 2 )
+	String filterAlg, fxn1, fxn2, cdf, mdf = MainDF()
+	
+	Variable bbgn = NumVarOrDefault( mdf+"Bsln_Bgn", 0 )
+	Variable bend = NumVarOrDefault( mdf+"Bsln_End", 2 )
 	
 	if ( StringMatch( srcName, dstName ) == 1 )
 		return -1 // not to over-write source wave
@@ -2414,15 +2700,20 @@ Function ChanWaveMake( chanNum, srcName, dstName ) // create channel waves, base
 	endif
 	
 	if ( chanNum < -1 )
-		cbgn = 0; cend = NMNumChannels( ) - 1;
+		cbgn = 0
+		cend = NMNumChannels() - 1
 	endif
 	
 	sfreq = 1/deltax( $srcName ) // kHz
 	
 	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
 	
-		df = ChanFuncDF( ccnt )
+		cdf = ChanFuncDF( ccnt )
 		ft = ChanFuncGet( ccnt )
+		
+		if ( strlen( cdf ) == 0 )
+			continue
+		endif
 		
 		filterNum = ChanFilterNumGet( ccnt )
 		filterAlg = ChanFilterAlgGet( ccnt )
@@ -2465,22 +2756,22 @@ Function ChanWaveMake( chanNum, srcName, dstName ) // create channel waves, base
 				DiffWaves( dstName, ft )
 				break
 			case 4:
-				fxn1 = StrVarOrDefault( df+"Norm_Fxn1", "avg" )
-				tbgn1 = NumVarOrDefault( df+"Norm_Tbgn1", -inf )
-				tend1 = NumVarOrDefault( df+"Norm_Tend1", inf )
-				fxn2 = StrVarOrDefault( df+"Norm_Fxn2", "max" )
-				tbgn2 = NumVarOrDefault( df+"Norm_Tbgn2", bbgn )
-				tend2 = NumVarOrDefault( df+"Norm_Tend2", bend )
+				fxn1 = StrVarOrDefault( cdf+"Norm_Fxn1", "Avg" )
+				tbgn1 = NumVarOrDefault( cdf+"Norm_Tbgn1", bbgn )
+				tend1 = NumVarOrDefault( cdf+"Norm_Tend1", bend )
+				fxn2 = StrVarOrDefault( cdf+"Norm_Fxn2", "Max" )
+				tbgn2 = NumVarOrDefault( cdf+"Norm_Tbgn2", -inf )
+				tend2 = NumVarOrDefault( cdf+"Norm_Tend2", inf )
 				NormalizeWaves( fxn1, tbgn1, tend1, fxn2, tbgn2, tend2, dstName )
 				break
 			case 5:
-				bbgn = NumVarOrDefault( df+"DFOF_Bbgn", bbgn )
-				bend = NumVarOrDefault( df+"DFOF_Bend", bend )
+				bbgn = NumVarOrDefault( cdf+"DFOF_Bbgn", bbgn )
+				bend = NumVarOrDefault( cdf+"DFOF_Bend", bend )
 				DFOFWaves( bbgn, bend, dstName )
 				break
 			case 6:
-				bbgn = NumVarOrDefault( df+"Bsln_Bbgn", bbgn )
-				bend = NumVarOrDefault( df+"Bsln_Bend", bend )
+				bbgn = NumVarOrDefault( cdf+"Bsln_Bbgn", bbgn )
+				bend = NumVarOrDefault( cdf+"Bsln_Bend", bend )
 				BaselineWaves( 1, bbgn, bend, dstName )
 				break
 		endswitch
@@ -2498,163 +2789,37 @@ Function ChanWavesClear( chanNum )
 	
 	Variable cbgn = chanNum, cend = chanNum
 	Variable wcnt, ccnt, overlay
-	String wName, df
+	String wname, cdf
 	
 	if ( chanNum == -1 )
-		cbgn = 0; cend = NMNumChannels( ) - 1;
+		cbgn = 0
+		cend = NMNumChannels() - 1
 	endif
 
 	for ( ccnt = cbgn; ccnt <= cend; ccnt += 1 )
 	
-		df = ChanDF( ccnt )
-		overlay = NumVarOrDefault( df+"Overlay", 0 )
+		cdf = ChanDF( ccnt )
+		
+		if ( strlen( cdf ) == 0 )
+			continue
+		endif
+		
+		overlay = NumVarOrDefault( cdf+"Overlay", 0 )
 		
 		for ( wcnt = 0; wcnt <= overlay; wcnt += 1 ) // Nan display waves
-			wName = ChanDisplayWaveName( 1, ccnt, wcnt )
-			if ( WaveExists( $wName ) == 1 )
-				Wave wtemp = $wName
+		
+			wname = ChanDisplayWaveName( 1, ccnt, wcnt )
+			
+			if ( WaveExists( $wname ) == 1 )
+				Wave wtemp = $wname
 				wtemp = Nan
 			endif
+			
 		endfor
 	
 	endfor
 
 End // ChanWavesClear
-
-//****************************************************************
-//
-//	AvgChanWaves( )
-//	compute avg and stdv of waves based on channel smooth/filter and F( t ) parameters
-//	results stored in U_Avg and U_Sdv
-//
-//****************************************************************
-
-Function /S AvgChanWaves( chanNum, wList )
-	Variable chanNum
-	String wList // wave list ( seperator ";" )
-	
-	Variable wcnt, icnt, items
-	String xl, yl, txt, wName, dName, outList = "", badList = wList
-	String df = ChanDF( chanNum )
-	
-	if ( ( chanNum < 0 ) || ( chanNum >= NumVarOrDefault( "NumChannels", 0 ) ) )
-		return "" // out of range
-	endif
-	
-	if ( ItemsInList( wList ) == 0 )
-		return ""
-	endif
-	
-	Variable dx = GetXStats( "deltax", wList )
-	Variable lftx = GetXStats( "maxleftx", wList )
-	Variable rghtx = GetXStats( "minrightx", wList )
-	
-	if ( numtype( dx ) != 0 )
-		NMDoAlert( "AvgWaves Abort : waves do not have the same deltax values." )
-		return ""
-	endif
-	
-	Variable ft = ChanFuncGet( chanNum )
-	Variable filterNum = ChanFilterNumGet( chanNum )
-	String filterAlg = ChanFilterAlgGet( chanNum )
-	
-	items = ItemsInList( wList )
-	
-	NMProgressStr( "Averaging Channel Waves..." )
-	
-	for ( wcnt = 0; wcnt < items; wcnt += 1 )
-		
-		if ( CallProgress( wcnt/( items-1 ) ) == 1 )
-			wcnt = -1
-			break
-		endif
-	
-		wName = StringFromList( wcnt, wList )
-		
-		if ( NMUtilityWaveTest( wName ) < 0 )
-			continue
-		endif
-		
-		dName = "U_waveCopy"
-		ChanWaveMake( chanNum, wname, dName ) 
-		
-		if ( WaveExists( $dname ) == 0 )
-			continue
-		endif
-		
-		if ( icnt == 0 ) // first wave
-			Duplicate /O/R=( lftx,rghtx ) $dName U_Avg, U_Sdv
-			U_Sdv *= U_Sdv
-		else
-			Duplicate /O/R=( lftx,rghtx ) $dName U_waveCopy2
-			U_Avg += U_waveCopy2
-			U_Sdv += U_waveCopy2^2
-		endif
-		
-		icnt += 1
-		
-		outList = AddListItem( wName, outList, ";", inf )
-		badList = RemoveFromList( wName, badList )
-		
-	endfor
-	
-	if ( wcnt > 1 )
-		U_Sdv = sqrt( ( U_Sdv - ( ( U_Avg^2 ) / icnt ) ) / ( icnt - 1 ) )
-		U_Avg = U_Avg / icnt
-		Setscale /P x lftx, dx, U_Avg, U_Sdv
-	endif
-	
-	xl = NMNoteLabel( "x", wList, "" )
-	yl = NMNoteLabel( "y", wList, "" )
-	
-	NMNoteType( "U_Avg", "NMAvg", xl, yl, "Func:AvgChanWaves" )
-	NMNoteType( "U_Sdv", "NMSdv", xl, yl, "Func:AvgChanWaves" )
-	
-	switch( ft )
-		case 1:
-			Note U_Avg, "F( t ):d/dt;"
-			Note U_Sdv, "F( t ):d/dt;"
-			break
-		case 2:
-			Note U_Avg, "F( t ):dd/dt*dt;"
-			Note U_Sdv, "F( t ):dd/dt*dt;"
-			break
-		case 3:
-			Note U_Avg, "F( t ):integrate;"
-			Note U_Sdv, "F( t ):integrate;"
-			break
-		case 4:
-			Note U_Avg, "F( t ):norm;"
-			Note U_Sdv, "F( t ):norm;"
-			break
-		case 5:
-			Note U_Avg, "F( t ):dF/Fo;"
-			Note U_Sdv, "F( t ):dF/Fo;"
-			break
-		case 5:
-			Note U_Avg, "F( t ):baseline;"
-			Note U_Sdv, "F( t ):baseline;"
-			break
-	endswitch
-	
-	if ( filterNum > 0 )
-		txt = "Filter Alg:" + filterAlg + ";Filter Num:" + num2str( filterNum ) + ";"
-		Note U_Avg, txt
-		Note U_Sdv, txt
-	endif
-	
-	txt = "Wave List:" + ChangeListSep( wList, "," )
-	
-	Note U_Avg, txt
-	Note U_Sdv, txt
-	
-	KillWaves /Z U_waveCopy, U_waveCopy2
-	
-	NMUtilityAlert( "AvgChanWaves", badList )
-	
-	return outList
-
-End // AvgChanWaves
 
 //****************************************************************
 //****************************************************************
@@ -2666,18 +2831,18 @@ End // AvgChanWaves
 //****************************************************************
 //****************************************************************
 
-Function FreezeChanXY( ) : GraphMarquee // freeze chan graph xy scales
+Function FreezeChanXY() : GraphMarquee // freeze chan graph xy scales
 	String vlist = ""
 
 	GetMarquee left, bottom
 	
-	String gName = WinName( 0,1 )
+	String gname = WinName( 0,1 )
 	
-	if ( ( V_Flag == 0 ) || ( StringMatch( gName[0,3], "Chan" ) == 0 ) )
+	if ( ( V_Flag == 0 ) || ( IsChanGraph( gname ) == 1 ) )
 		return -1
 	endif
 	
-	Variable chanNum = ChanChar2Num( gName[4,4] )
+	Variable chanNum = ChanChar2Num( gname[4,4] )
 	
 	vlist = NMCmdNum( V_left, vlist )
 	vlist = NMCmdNum( V_right, vlist )
@@ -2697,18 +2862,18 @@ End // FreezeChanXY
 //****************************************************************
 //****************************************************************
 
-Function FreezeChanX( ) : GraphMarquee // freeze chan graph x scale
+Function FreezeChanX() : GraphMarquee // freeze chan graph x scale
 	String vlist = ""
 
 	GetMarquee left, bottom
 	
-	String gName = WinName( 0,1 )
+	String gname = WinName( 0,1 )
 	
-	if ( ( V_Flag == 0 ) || ( StringMatch( gName[0,3], "Chan" ) == 0 ) )
+	if ( ( V_Flag == 0 ) || ( IsChanGraph( gname ) == 1 ) )
 		return -1
 	endif
 	
-	Variable chanNum = ChanChar2Num( gName[4,4] )
+	Variable chanNum = ChanChar2Num( gname[4,4] )
 	
 	V_bottom = Nan
 	V_top = Nan
@@ -2731,18 +2896,18 @@ End // FreezeChanX
 //****************************************************************
 //****************************************************************
 
-Function FreezeChanY( ) : GraphMarquee // freeze chan graph x scale
+Function FreezeChanY() : GraphMarquee // freeze chan graph x scale
 	String vlist = ""
 
 	GetMarquee left, bottom
 	
-	String gName = WinName( 0,1 )
+	String gname = WinName( 0,1 )
 	
-	if ( ( V_Flag == 0 ) || ( StringMatch( gName[0,3], "Chan" ) == 0 ) )
+	if ( ( V_Flag == 0 ) || ( IsChanGraph( gname ) == 1 ) )
 		return -1
 	endif
 	
-	Variable chanNum = ChanChar2Num( gName[4,4] )
+	Variable chanNum = ChanChar2Num( gname[4,4] )
 	
 	V_left = Nan
 	V_right = Nan
@@ -2765,14 +2930,14 @@ End // FreezeChanY
 //****************************************************************
 //****************************************************************
 
-Function FreezeAllChanX( ) : GraphMarquee
+Function FreezeAllChanX() : GraphMarquee
 	String vlist = ""
 
 	GetMarquee left, bottom
 	
-	String gName = WinName( 0,1 )
+	String gname = WinName( 0,1 )
 	
-	if ( ( V_Flag == 0 ) || ( StringMatch( gName[0,3], "Chan" ) == 0 ) )
+	if ( ( V_Flag == 0 ) || ( IsChanGraph( gname ) == 1 ) )
 		return -1
 	endif
 	

@@ -157,7 +157,7 @@ Function ITCacquire( mode, savewhen, WaveLength, NumStimWaves, InterStimTime, Nu
 			ITCAcqLong( mode, savewhen )
 			break
 		default:
-			ITCError( "ITC Acquisition Error", "acquisition mode not recognized: " + num2str( acqMode ) )
+			ITCError( "ITC Acquisition Error", "acquisition mode not recognized: " + num2istr( acqMode ) )
 			return -1
 	endswitch 
 	
@@ -182,8 +182,6 @@ Function ITCAcqPrecise( mode, savewhen )
 	String item, chanstr, seqstr, ITCoutList, ITCinList, instr, modeStr
 	
 	String cdf = ClampDF(), sdf = StimDF(), bdf = StimBoardDF( sdf )
-	
-	NVAR CurrentWave
 	
 	String aboard = StrVarOrDefault( cdf+"AcqBoard", "" )
 	
@@ -295,7 +293,7 @@ Function ITCAcqPrecise( mode, savewhen )
 				if ( tgainv == -1 )
 					tGainConfig = 0 // bad value
 				else
-					SetNMvar( "CT_Tgain"+num2str( tgainChan )+"_avg", tgainv ) // save in data folder
+					SetNMvar( "CT_Tgain"+num2istr( tgainChan )+"_avg", tgainv ) // save in data folder
 					instr = ClampTelegraphInstrument( modeStr )
 					tscale = MyTelegraphGain( tgainv, scale, instr )
 				endif
@@ -384,7 +382,7 @@ Function ITCAcqPrecise( mode, savewhen )
 				stimcnt = 0
 			endif
 			
-			outName = sdf + "ITCoutWave" + num2str( stimcnt )
+			outName = sdf + "ITCoutWave" + num2istr( stimcnt )
 			
 			outpnts = numpnts( $outName )
 			
@@ -420,7 +418,7 @@ Function ITCAcqPrecise( mode, savewhen )
 				stimcnt = 0
 			endif
 			
-			outName = sdf + "ITCoutWave" + num2str( stimcnt )
+			outName = sdf + "ITCoutWave" + num2istr( stimcnt )
 			outpnts = numpnts( $outName )
 			
 		endif
@@ -444,7 +442,7 @@ Function ITCAcqPrecise( mode, savewhen )
 			endif
 			
 			if ( ( flip == 0 ) || ( flipread == 1 ) )
-				inName = sdf + "ITCinWave"+ num2str( sampcnt )
+				inName = sdf + "ITCinWave"+ num2istr( sampcnt )
 				flipread = 0
 			else
 				inName = sdf + "ITCinWave" 
@@ -479,23 +477,15 @@ Function ITCAcqPrecise( mode, savewhen )
 				modeStr = ADCmode[ config ]
 		
 				if ( mode == 1 )
-					wname = GetWaveName( "default", ccnt, CurrentWave )
+					wname = GetWaveName( "default", ccnt, CurrentNMWave() )
 				else
 					wname = GetWaveName( "default", ccnt, 0 )
 				endif
 				
 				if ( NMMultiClampTelegraphMode( modeStr ) == 1 )
-					
-					if ( NMMultiClampTelegraphWhile() == 1 )
-						scale = NMMultiClampScale2( modeStr )
-					else
-						scale = NMMultiClampADCNum( sdf, config, "scale" )
-					endif
-					
+					scale = NMMultiClampADCNum( sdf, config, "scale" )
 				else
-				
-					scale = ADCscale[ config ]
-					
+					scale = ADCscale[config]
 				endif
 				
 				if ( ( tGainConfig == 1 ) && ( tgainv > 0 ) && ( numtype( ADCtgain[config] ) == 0 ) )
@@ -541,7 +531,7 @@ Function ITCAcqPrecise( mode, savewhen )
 			endif
 			
 			if ( ( flip == 0 ) || ( flipsave == 1 ) )
-				saveName = sdf + "ITCinWave" + num2str( savecnt )
+				saveName = sdf + "ITCinWave" + num2istr( savecnt )
 				flipsave = 0
 			else
 				saveName = sdf + "ITCinWave"
@@ -599,8 +589,8 @@ Function ITCAcqPrecise( mode, savewhen )
 	endif
 	
 	for ( wcnt = 0 ; wcnt < NumStimWaves ; wcnt += 1 )
-		KillWaves /Z $sdf+"ITCoutWave"+num2str( wcnt )
-		KillWaves /Z $sdf+"ITCinWave"+num2str( wcnt )
+		KillWaves /Z $sdf+"ITCoutWave"+num2istr( wcnt )
+		KillWaves /Z $sdf+"ITCinWave"+num2istr( wcnt )
 	endfor
 	
 	KillWaves /Z $( sdf+"ITCinWave" ), $( sdf+"ITCmix" ), $( sdf+"ITCTTLOUT" )
@@ -628,8 +618,6 @@ Function ITCAcqLong( mode, savewhen )
 	String item, chanstr, seqstr, ITCoutList, ITCinList
 	
 	String cdf = ClampDF(), sdf = StimDF(), bdf = StimBoardDF( sdf )
-	
-	NVAR CurrentWave
 	
 	String aboard = StrVarOrDefault( cdf+"AcqBoard", "" )
 	
@@ -720,7 +708,9 @@ Function ITCAcqLong( mode, savewhen )
 		
 		for ( config = 0 ; config < numpnts( ADCtgain ) ; config += 1 )
 		
-			if ( ( numtype( ADCchan[config] ) > 0 ) || ( numtype( ADCtgain[config] ) > 0 ) )
+			if ( numtype( ADCtgain[config] ) == 0 )
+			
+				if ( ( numtype( ADCchan[config] ) > 0 ) || ( numtype( ADCtgain[config] ) > 0 ) )
 					continue
 				endif
 				
@@ -732,10 +722,12 @@ Function ITCAcqLong( mode, savewhen )
 				if ( tgainv == -1 )
 					tGainConfig = 0 // bad value
 				else
-					SetNMvar( "CT_Tgain"+num2str( tgainChan )+"_avg", tgainv ) // save in data folder
+					SetNMvar( "CT_Tgain"+num2istr( tgainChan )+"_avg", tgainv ) // save in data folder
 					instr = ClampTelegraphInstrument( modeStr )
 					tscale = MyTelegraphGain( tgainv, scale, instr )
 				endif
+				
+			endif
 			
 		endfor
 		
@@ -786,8 +778,8 @@ Function ITCAcqLong( mode, savewhen )
 			// THIS BLOCK OF CODE MOVED INSIDE LOOP BY Jason Rothman, 2 Oct 2008
 			//
 			
-			outName = sdf + "ITCoutWave" + num2str( wcnt )
-			inName = sdf + "ITCinWave"+ num2str( wcnt )
+			outName = sdf + "ITCoutWave" + num2istr( wcnt )
+			inName = sdf + "ITCinWave"+ num2istr( wcnt )
 			alist = ADClist[wcnt]
 			
 			Wave wtemp = $inName
@@ -847,23 +839,15 @@ Function ITCAcqLong( mode, savewhen )
 						modeStr = ADCmode[ config ]
 				
 						if ( mode == 1 )
-							wname = GetWaveName( "default", ccnt, CurrentWave )
+							wname = GetWaveName( "default", ccnt, CurrentNMWave() )
 						else
 							wname = GetWaveName( "default", ccnt, 0 )
 						endif
 						
 						if ( NMMultiClampTelegraphMode( modeStr ) == 1 )
-					
-							if ( NMMultiClampTelegraphWhile() == 1 )
-								scale = NMMultiClampScale2( modeStr )
-							else
-								scale = NMMultiClampADCNum( sdf, config, "scale" )
-							endif
-							
+							scale = NMMultiClampADCNum( sdf, config, "scale" )
 						else
-						
-							scale = ADCscale[ config ]
-							
+							scale = ADCscale[config]
 						endif
 						
 						if ( ( tGainConfig == 1 ) && ( tgainv > 0 ) && ( numtype( ADCtgain[config] ) == 0 ) )	
@@ -897,7 +881,7 @@ Function ITCAcqLong( mode, savewhen )
 			
 			while ( firstsave == 1 )
 			
-			if ( ClampAcquireCancel() == 1 )
+			if ( NMProgressCancel() == 1 )
 				break
 			endif
 			
@@ -913,7 +897,7 @@ Function ITCAcqLong( mode, savewhen )
 			ClampWait( InterRepTime ) // inter-rep time
 		endif
 		
-		if ( ClampAcquireCancel() == 1 )
+		if ( NMProgressCancel() == 1 )
 			break
 		endif
 		
@@ -924,8 +908,8 @@ Function ITCAcqLong( mode, savewhen )
 	//Execute /Z aboard + "Reset" // reset board
 	
 	for ( wcnt = 0 ; wcnt < NumStimWaves ; wcnt += 1 )
-		KillWaves /Z $sdf+"ITCoutWave"+num2str( wcnt )
-		KillWaves /Z $sdf+"ITCinWave"+num2str( wcnt )
+		KillWaves /Z $sdf+"ITCoutWave"+num2istr( wcnt )
+		KillWaves /Z $sdf+"ITCinWave"+num2istr( wcnt )
 	endfor
 	
 	KillWaves /Z $( sdf+"ITCinWave" ), $( sdf+"ITCmix" ), $( sdf+"ITCTTLOUT" )
@@ -1038,7 +1022,7 @@ Function ITCread( chan, gain, npnts )
 	
 	Variable gscale
 	
-	String chanstr = num2str( chan )
+	String chanstr = num2istr( chan )
 	
 	String cdf = ClampDF()
 	
@@ -1083,7 +1067,7 @@ Function ITCread( chan, gain, npnts )
 	gscale = ITCrange( gain )
 	
 	if ( gscale > 0 )
-		CT_ITCread /= 32768 / gscale // convert to volts
+		CT_ITCread /= 32768 / gscale  // convert to volts
 	endif
 	
 	CT_ITCread[0,garbage-1] = Nan
@@ -1201,12 +1185,12 @@ Function ITCupdateLists( NumStimWaves ) // check input/output configurations and
 				chan = WaveValOrDefault( bdf+"DACchan", config, 0 )
 				
 				if ( ( chan < 0 ) || ( chan > 3 ) ) // 0123
-					ITCError( "ITC Config Error", "DAC chan out of range : " + num2str( chan ) )
+					ITCError( "ITC Config Error", "DAC chan out of range : " + num2istr( chan ) )
 					return -1
 				endif
 				
 				wname = sdf + StimWaveName( "DAC", config, wcnt )
-				item = wname + "," + num2str( chan )
+				item = wname + "," + num2istr( chan )
 				dlist = AddListItem( item, dlist, ";", inf )
 				
 			endif
@@ -1222,12 +1206,12 @@ Function ITCupdateLists( NumStimWaves ) // check input/output configurations and
 				chan = WaveValOrDefault( bdf+"TTLchan", config, 0 )
 				
 				if ( ( chan < 0 ) || ( chan > 15 ) )
-					ITCError( "ITC Config Error", "TTL chan out of range : " + num2str( chan ) )
+					ITCError( "ITC Config Error", "TTL chan out of range : " + num2istr( chan ) )
 					return -1
 				endif
 				
 				wname = sdf + StimWaveName( "TTL", config, wcnt )
-				item = wname + "," + num2str( chan )
+				item = wname + "," + num2istr( chan )
 				tlist = AddListItem( item, tlist, ";", inf )
 				
 			endif
@@ -1252,21 +1236,21 @@ Function ITCupdateLists( NumStimWaves ) // check input/output configurations and
 				endif
 				
 				if ( ( chan < 0 ) || ( chan > 7 ) )
-					ITCError( "ITC Config Error", "ADC chan out of range : " + num2str( chan ) )
+					ITCError( "ITC Config Error", "ADC chan out of range : " + num2istr( chan ) )
 					return -1
 				endif
 				
 				if ( StimADCmodeNormal( modestr ) == 1 ) // normal input
 				
 					wname = ChanDisplayWave( ins )
-					item = wname + "," + num2str( chan ) + "," + num2str( gain ) + "," + num2str( config )
+					item = wname + "," + num2istr( chan ) + "," + num2str( gain ) + "," + num2istr( config )
 					alist = AddListItem( item, alist, ";", inf )
 					ins += 1
 					
 					//if ( ( strlen( tGainList ) > 0 ) && ( numtype( ADCtgain[config] ) == 0 ) )
 					//	gain = 1 // full scale
-					//	wname = "CT_Tgain" + num2str( config )
-					//	item = wname + "," + num2str( ADCtgain[config] ) + "," + num2str( gain )+ "," + num2str( 50 ) + "," + num2str( -1 )
+					//	wname = "CT_Tgain" + num2istr( config )
+					//	item = wname + "," + num2str( ADCtgain[config] ) + "," + num2str( gain )+ "," + num2istr( 50 ) + "," + num2istr( -1 )
 					//	alist2 = AddListItem( item, alist2, ";", inf ) // save as pre-stim input
 					//endif
 				
@@ -1274,7 +1258,7 @@ Function ITCupdateLists( NumStimWaves ) // check input/output configurations and
 				
 					wname = "CT_" + WaveStrOrDefault( bdf+"ADCname", config, "" )
 					mode = str2num( modestr[8, inf] )
-					item = wname + "," + num2str( chan ) + "," + num2str( gain ) + "," + num2str( mode ) + "," + num2str( config )
+					item = wname + "," + num2istr( chan ) + "," + num2str( gain ) + "," + num2str( mode ) + "," + num2istr( config )
 					alist2 = AddListItem( item, alist2, ";", inf )
 					
 				elseif ( strsearch( modestr, "TGain=", 0, 2 ) >= 0 ) // telegraph gain
@@ -1282,14 +1266,14 @@ Function ITCupdateLists( NumStimWaves ) // check input/output configurations and
 					tgain = 1
 					gain = 1 // full scale
 					//mode = ( -1 * mode - 100 )
-					wname = "CT_TGain" + num2str( ClampTGainChan( modestr ) )
-					item = wname + "," + num2str( chan ) + "," + num2str( gain )+ "," + num2str( tpnts ) + "," + num2str( -1 )
+					wname = "CT_TGain" + num2istr( ClampTGainChan( modestr ) )
+					item = wname + "," + num2istr( chan ) + "," + num2str( gain )+ "," + num2istr( tpnts ) + "," + num2istr( -1 )
 					alist2 = AddListItem( item, alist2, ";", inf ) // save as pre-stim input
 					
 				elseif ( StringMatch( modestr[0,0], "T" ) == 1 )
 				
 					wname = "CT_" + WaveStrOrDefault( bdf+"ADCname", config, "" )
-					item = wname + "," + num2str( chan ) + "," + num2str( gain )+ "," + num2str( tpnts ) + "," + num2str( config )
+					item = wname + "," + num2istr( chan ) + "," + num2str( gain )+ "," + num2istr( tpnts ) + "," + num2istr( config )
 					alist2 = AddListItem( item, alist2, ";", inf ) // save as pre-stim input
 					
 				endif
@@ -1499,7 +1483,7 @@ Function ITCmakeWaves( NumOuts, NumStimWaves, InterStimTime, NumStimReps, InterR
 			insertN += repN
 		endif
 		
-		wname = sdf + "ITCoutWave" + num2str( wcnt )
+		wname = sdf + "ITCoutWave" + num2istr( wcnt )
 		
 		if ( WaveExists( $wname ) == 0 )
 		
@@ -1542,7 +1526,7 @@ Function ITCmakeWaves( NumOuts, NumStimWaves, InterStimTime, NumStimReps, InterR
 		
 		// make input waves
 		
-		wname = sdf + "ITCinWave" + num2str( wcnt )
+		wname = sdf + "ITCinWave" + num2istr( wcnt )
 		Make /O/N=( npnts ) $wname = Nan
 		
 		for ( icnt = 0 ; icnt < ItemsInList( ADClist[wcnt] ) ; icnt += 1 )
@@ -1571,7 +1555,7 @@ Function ITCkillWaves() // Kill ITC waves that may exist
 	
 	Variable icnt
 	String sdf = StimDF()
-	String wname, wlist = WaveListFolder( sdf, "ITC*", ";", "" )
+	String wname, wlist = NMFolderWaveList( sdf, "ITC*", ";", "", 0 )
 		
 	for ( icnt = 0 ; icnt < ItemsInList( wlist ) ; icnt += 1 )
 		wname = StringFromList( icnt, wlist )
@@ -1747,7 +1731,7 @@ Function ITCmixWaves( mixwname, nmix, wlist, tlist, npnts, ipnts, mixflag, piped
 				kcnt += 1
 			endfor
 			
-			gscale =  ITCrange( gain )
+			gscale = ITCrange( gain )
 			
 			if ( gscale > 0 )
 				tempWave /= 32768 / gscale // convert to volts
@@ -1819,7 +1803,7 @@ Function ITCSetDAC( chan, volts )
 	
 	String aboard = StrVarOrDefault( cdf+"AcqBoard", "" )
 	
-	Execute aboard + "SetDAC " + num2str( chan ) + "," + num2str( volts )
+	Execute aboard + "SetDAC " + num2istr( chan ) + "," + num2str( volts )
 	
 End // ITCSetDAC
 

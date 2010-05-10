@@ -1,5 +1,4 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
 #pragma version = 2
 
 //****************************************************************
@@ -25,7 +24,8 @@
 //****************************************************************
 //****************************************************************
 
-Function /S StimSpikeDF()
+Function /S NMStimSpikeDF()
+
 	String sdf = StimDF()
 	
 	if (strlen(sdf) > 0)
@@ -34,7 +34,7 @@ Function /S StimSpikeDF()
 		return ""
 	endif
 
-End // StimSpikeDF
+End // NMStimSpikeDF
 
 //****************************************************************
 //****************************************************************
@@ -57,36 +57,38 @@ End // ClampSpike
 //****************************************************************
 //****************************************************************
 
-Function StimSpikeOn()
+Function NMStimSpikeOn()
 	
-	return BinaryCheck(NumVarOrDefault(StimSpikeDF()+"SpikeOn", 0))
+	return BinaryCheck(NumVarOrDefault(NMStimSpikeDF()+"SpikeOn", 0))
 	
-End // StimSpikeOn
+End // NMStimSpikeOn
 
 //****************************************************************
 //****************************************************************
 //****************************************************************
 
-Function StimSpikeOnSet(on)
+Function NMStimSpikeOnSet(on)
 	Variable on // (0) no (1) yes
 	
-	String ssdf = StimSpikeDF()
+	String ssdf = NMStimSpikeDF()
 	
 	on = BinaryCheck(on)
 	
 	if ((on == 1) && (DataFolderExists(ssdf) == 0))
-		NewDataFolder $LastPathColon(ssdf, 0)
+		NewDataFolder $RemoveEnding( ssdf, ":" )
 		SetNMvar(ssdf+"SpikeOn", 1)
 		ClampSpikeSaveToStim()
 	endif
 	
-	SetNMvar(ssdf+"SpikeOn", on)
+	if ( DataFolderExists( ssdf ) == 1 )
+		SetNMvar(ssdf+"SpikeOn", on)
+	endif
 	
 	ClampSpike(on)
 	
 	return on
 
-End // StimSpikeOnSet
+End // NMStimSpikeOnSet
 
 //****************************************************************
 //****************************************************************
@@ -95,16 +97,18 @@ End // StimSpikeOnSet
 Function ClampSpikeSaveToStim() // save Spike variables to stim folder
 	
 	String spdf = SpikeDF()
-	String ssdf = StimSpikeDF()
+	String ssdf = NMStimSpikeDF()
 	
-	if (DataFolderExists(ssdf) == 0)
-		NewDataFolder $LastPathColon(ssdf, 0)
+	if ( DataFolderExists(ssdf) == 0 )
+		NewDataFolder $RemoveEnding( ssdf, ":" )
 	endif
 	
-	SetNMvar(ssdf+"Thresh", NumVarOrDefault(spdf+"Thresh", 20))
-	SetNMvar(ssdf+"WinB", NumVarOrDefault(spdf+"WinB", -inf))
-	SetNMvar(ssdf+"WinE", NumVarOrDefault(spdf+"WinE", inf))
-	SetNMvar(ssdf+"ChanSelect", NumVarOrDefault(spdf+"ChanSelect", 0))
+	if ( DataFolderExists(ssdf) == 1 )
+		SetNMvar(ssdf+"Thresh", NumVarOrDefault(spdf+"Thresh", 20))
+		SetNMvar(ssdf+"WinB", NumVarOrDefault(spdf+"WinB", -inf))
+		SetNMvar(ssdf+"WinE", NumVarOrDefault(spdf+"WinE", inf))
+		SetNMvar(ssdf+"ChanSelect", NumVarOrDefault(spdf+"ChanSelect", 0))
+	endif
 	
 	return 0
 
@@ -117,16 +121,18 @@ End // ClampSpikeSaveToStim
 Function ClampSpikeRetrieveFromStim() // retrieve Spike variables from stim folder
 	
 	String spdf = SpikeDF()
-	String ssdf = StimSpikeDF()
+	String ssdf = NMStimSpikeDF()
 	
-	if (StimSpikeOn() == 0)
-		return -1
+	if ( NMStimSpikeOn() == 0 )
+		return 0
 	endif
 	
-	SetNMvar(spdf+"Thresh", NumVarOrDefault(ssdf+"Thresh", 20))
-	SetNMvar(spdf+"WinB", NumVarOrDefault(ssdf+"WinB", -inf))
-	SetNMvar(spdf+"WinE", NumVarOrDefault(ssdf+"WinE", inf))
-	SetNMvar(spdf+"ChanSelect", NumVarOrDefault(ssdf+"ChanSelect", 0))
+	if ( DataFolderExists( spdf ) == 1 )
+		SetNMvar(spdf+"Thresh", NumVarOrDefault(ssdf+"Thresh", 20))
+		SetNMvar(spdf+"WinB", NumVarOrDefault(ssdf+"WinB", -inf))
+		SetNMvar(spdf+"WinE", NumVarOrDefault(ssdf+"WinE", inf))
+		SetNMvar(spdf+"ChanSelect", NumVarOrDefault(ssdf+"ChanSelect", 0))
+	endif
 		
 	return 0
 
@@ -138,12 +144,12 @@ End // ClampSpikeRetrieveFromStim
 
 Function ClampSpikeInit()
 
-	if (StimSpikeOn() == 1)
+	if (NMStimSpikeOn() == 1)
 		ClampSpikeSaveAsk()
 		ClampSpikeRetrieveFromStim() // get Spike from new stim
 		SpikeDisplayClear()
 		ClampSpikeDisplaySavePosition()
-		CurrentChanSet(SpikeChanSelect())
+		NMChanSelect( num2istr( NMSpikeVar( "ChanSelect" ) ) )
 	else
 		ClampSpikeRemoveWaves(1)
 	endif
@@ -161,7 +167,7 @@ Function ClampSpikeStart()
 	ClampSpikeDisplay(0) // clear display
 	ClampSpikeRemoveWaves(1) // kill waves
 	
-	if (StimSpikeOn() == 1)
+	if (NMStimSpikeOn() == 1)
 		ClampSpikeRasterMake()
 		ClampSpikeDisplay(1)
 	endif
@@ -182,25 +188,27 @@ Function ClampSpikeCompute(mode, currentWave, nwaves)
 	Variable winE = NumVarOrDefault(df+"WinE", inf)
 	Variable thresh = NumVarOrDefault(df+"Thresh", 0)
 	
-	if (StimSpikeOn() == 1)
-		SpikeRaster(NMCurrentChan(), 0, Thresh, winB, winE, xname, yname, 1, 0)
+	Variable currentChan = CurrentNMChannel()
+	
+	String chanWaveName = ChanDisplayWave( currentChan )
+	
+	if (NMStimSpikeOn() == 1)
+	
+		Make /O/N=0 SP_xtimes=Nan
+		
+		//SpikeRaster(CurrentNMChannel(), 0, Thresh, winB, winE, xname, yname, 1, 0)
+		
+		Findlevels /Q/R=( winB, winE )/D=SP_xtimes/Edge=1 $chanWaveName, thresh
+		
 		ClampSpikeRasterUpdate(currentWave)
+		
+		KillWaves /Z SP_xtimes
+		
 		ClampSpikeDisplayUpdate(currentWave, nwaves)
+		
 	endif
 
 End // ClampSpikeCompute()
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
-Function ClampSpikeFinish()
-	
-	if (StimSpikeOn() == 1)
-		KillWaves /Z SP_RasterX, SP_RasterY
-	endif
-
-End // ClampSpikeFinish
 
 //****************************************************************
 //****************************************************************
@@ -211,7 +219,7 @@ Function ClampSpikeSaveAsk()
 	Variable change
 	
 	String spdf = SpikeDF()
-	String df = StimSpikeDF()
+	String df = NMStimSpikeDF()
 	
 	if (NumVarOrDefault(spdf+"Thresh", 20) != NumVarOrDefault(df+"Thresh", 20))
 		change = 1
@@ -256,8 +264,9 @@ End // ClampSpikeRaster
 //****************************************************************
 
 Function ClampSpikeRasterMake()
-	String df = StimSpikeDF()
-	Variable chan = SpikeChanSelect()
+
+	String df = NMStimSpikeDF()
+	Variable chan = NMSpikeVar( "ChanSelect" )
 
 	String xName = NextWaveName2("", "SP_RX_RAll_", chan, 1)
 	String yName = NextWaveName2("", "SP_RY_RAll_", chan, 1)
@@ -281,16 +290,16 @@ Function ClampSpikeRasterUpdate(currentWave)
 	Variable currentWave
 	
 	Variable nspikes, nraster, icnt, jcnt
-	String df = StimSpikeDF()
+	String df = NMStimSpikeDF()
 	String spdf = SpikeDF()
 
 	String xRaster = StrVarOrDefault(df+"RasterWaveX", "")
 	String yRaster = StrVarOrDefault(df+"RasterWaveY", "")
 	
-	String spikeX = spdf+"SP_SpikeX"
-	String spikeY = spdf+"SP_SpikeY"
+	String spikeX = "SP_xtimes" //spdf+"SP_SpikeX"
+	//String spikeY = "SP_RasterY" //spdf+"SP_SpikeY"
 	
-	if ((WaveExists($spikeX) == 0) || (WaveExists($spikeY) == 0))
+	if (WaveExists($spikeX) == 0)
 		return 0
 	endif
 	
@@ -299,7 +308,7 @@ Function ClampSpikeRasterUpdate(currentWave)
 	endif
 	
 	Wave spkX = $spikeX
-	Wave spkY = $spikeY
+	//Wave spkY = $spikeY
 	
 	Wave rasterX = $xRaster
 	Wave rasterY = $yRaster
@@ -346,7 +355,7 @@ Function ClampSpikeDisplay(enable)
 	Variable enable
 	
 	String wlist, wname
-	String df = StimSpikeDF()
+	String df = NMStimSpikeDF()
 	Variable wcnt, winE = StimWaveLength("", 0)
 	Variable nwaves = StimNumWavesTotal("")
 	
@@ -357,9 +366,12 @@ Function ClampSpikeDisplay(enable)
 	
 	Variable gexists = WinType(gName)
 	
+	//String folder = CurrentNMSpikeSubfolder()
+	
 	if (gexists == 1) // remove waves
 	
-		wlist = WaveList("*", ";", "WIN:"+gName)
+		//wlist = NMFolderWaveList( folder, "*", ";", "WIN:"+gName, 0)
+		wlist = WaveList( "*", ";", "WIN:"+gName )
 		
 		for (wcnt = 0; wcnt < ItemsInList(wlist); wcnt += 1)
 			wname = StringFromList(wcnt, wlist)
@@ -368,7 +380,7 @@ Function ClampSpikeDisplay(enable)
 		
 	endif
 	
-	if ((StimSpikeOn() == 0) || (enable == 0))
+	if ((NMStimSpikeOn() == 0) || (enable == 0))
 		return 0
 	endif
 	
@@ -424,16 +436,19 @@ End // ClampSpikeDisplayUpdate
 Function ClampSpikeDisplaySavePosition()
 	
 	String raster = ClampSpikeRaster()
-	String sdf = StimSpikeDF()
+	String sdf = NMStimSpikeDF()
 	
-	if (WinType(raster) == 1)
+	if ( ( WinType(raster) == 1 ) && ( DataFolderExists( sdf ) == 1 ) )
+	
 		GetWindow $raster wsize
+		
 		if ((V_right > V_left) && (V_top < V_bottom))
 			SetNMvar(sdf+"CSR_X0", V_left)
 			SetNMvar(sdf+"CSR_Y0", V_top)
 			SetNMvar(sdf+"CSR_X1", V_right)
 			SetNMvar(sdf+"CSR_Y1", V_bottom)
 		endif
+		
 	endif
 
 End // ClampSpikeDisplaySavePosition
@@ -443,35 +458,37 @@ End // ClampSpikeDisplaySavePosition
 //****************************************************************
 
 Function ClampSpikeDisplaySetPosition()
+
 	Variable x0, y0, x1, y1
-	String ndf = NMDF()
 	
-	Variable xPixels = NumVarOrDefault(ndf+"xPixels", 1000)
-	Variable yPixels = NumVarOrDefault(ndf+"yPixels", 700)
+	Variable xPixels = NMComputerPixelsX()
+	Variable yPixels = NMComputerPixelsY()
 
 	String raster = ClampSpikeRaster()
-	String df = StimSpikeDF()
+	String df = NMStimSpikeDF()
 	
-	Variable spikeOn = StimSpikeOn()
+	Variable spikeOn = NMStimSpikeOn()
 	
-	if (WinType(raster) == 1)
+	if ( WinType(raster) == 0 )
+		return 0
+	endif
 	
-		if (spikeOn == 1)
-			x0 = NumVarOrDefault(df+"CSR_X0", xPixels * 0.2)
-			y0 = NumVarOrDefault(df+"CSR_Y0", yPixels * 0.5)
-			x1 = NumVarOrDefault(df+"CSR_X1", x0 + 260)
-			y1 = NumVarOrDefault(df+"CSR_Y1", y0 + 170)
-		else
-			x0 = 0
-			y0 = 0
-			x1 = 0
-			y1 = 0
-		endif
+	if (spikeOn == 1)
+	
+		x0 = NumVarOrDefault(df+"CSR_X0", xPixels * 0.2)
+		y0 = NumVarOrDefault(df+"CSR_Y0", yPixels * 0.5)
+		x1 = NumVarOrDefault(df+"CSR_X1", x0 + 260)
+		y1 = NumVarOrDefault(df+"CSR_Y1", y0 + 170)
 		
 		if (numtype(x0 * y0 * x1 * y1) == 0)
 			MoveWindow /W=$raster x0, y0, x1, y1
+			DoWindow /hide=0 $raster
 		endif
 		
+	else
+	
+	DoWindow /hide=1 $raster
+	
 	endif
 			
 End // ClampSpikeDisplaySetPosition
@@ -484,23 +501,25 @@ Function ClampSpikeRemoveWaves(kill)
 	Variable kill // (0) dont kill waves (1) kill waves
 	
 	Variable icnt
-	String wname
+	String wname, wlist
 	
 	String raster = ClampSpikeRaster()
+	//String folder = CurrentNMSpikeSubfolder()
 	
-	if (WinType(raster) == 1)
+	if ( WinType(raster) == 1 )
 	
-		String wlist = WaveList("*", ";", "WIN:"+raster)
+		//wlist = NMFolderWaveList( folder, "*", ";", "WIN:"+raster, 0 )
+		wlist = WaveList( "*", ";", "WIN:"+raster )
 		
-		for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
+		for ( icnt = 0; icnt < ItemsInList(wlist); icnt += 1 )
 			wname = StringFromList(icnt, wlist)
 			RemoveFromGraph /Z/W=$raster $wname
 		endfor
 		
 	endif
 	
-	if (kill == 1)
-		KillGlobals("", "SP_*", "001") // kill Spike waves in current folder
+	if ( kill == 1 )
+		KillGlobals( "", "SP_*", "001" ) // kill Spike waves in current folder
 	endif
 
 End // ClampSpikeRemoveWaves

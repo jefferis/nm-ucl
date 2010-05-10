@@ -1,5 +1,4 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
 #pragma version = 2
 
 //****************************************************************
@@ -185,7 +184,7 @@ Function ClampBoardWavesCheckValues(io)
 		endif
 		
 		if (strlen(name[icnt]) == 0)
-			name[icnt] = io + num2str(icnt)
+			name[icnt] = io + num2istr(icnt)
 		endif
 		
 		if (strlen(units[icnt]) == 0)
@@ -276,7 +275,7 @@ Function ClampBoardWavesReset(io, config)
 	
 	for (icnt = ibgn; icnt <= iend; icnt += 1)
 	
-		name[icnt] = io + num2str(icnt)
+		name[icnt] = io + num2istr(icnt)
 		units[icnt] = "V"
 		board[icnt] = 0
 		chan[icnt] = icnt
@@ -319,8 +318,8 @@ Function /S ClampBoardWavesSave()
 		KillDataFolder $tdf // kill temp folder if already exists
 	endif
 	
-	NewDataFolder $LastPathColon(tdf, 0)
-	NewDataFolder $LastPathColon(sdf, 0)
+	NewDataFolder $RemoveEnding( tdf, ":" )
+	NewDataFolder $RemoveEnding( sdf, ":" )
 	
 	SetNMstr(tdf+"FileType", "NMConfig")
 	SetNMstr(sdf+"FileType", "NMConfig")
@@ -342,6 +341,8 @@ Function /S ClampBoardWavesSave()
 	CheckNMPath()
 	
 	ext = FileBinSave(1, 1, tdf, "NMPath", file, 1, -1) // new file
+	
+	KillNMPath()
 	
 	if (DataFolderExists(tdf) == 1)
 		KillDataFolder $tdf // kill temp folder
@@ -414,11 +415,11 @@ Function ClampBoardNamesCheck(io)
 			
 			if ((StringMatch(cname, name[jcnt]) == 1) && (WhichListItem(cname, clist) < 0))
 			
-				name[jcnt] = cname + "_" + num2str(jcnt)
+				name[jcnt] = cname + "_" + num2istr(jcnt)
 				clist = AddListItem(cname, clist, ";", inf)
 				
-				Print "Warning: found matching board config names. Changed " + io + " config #" + num2str(jcnt) + " \"" + cname +"\" to \"" + cname + "_" + num2str(jcnt) + "\"."
-				//DoAlert 0, "Warning: found matching " + io + " config name \"" + cname +"\". Please enter unique names for " + io + " configs #" + num2str(icnt) + " and " + num2str(jcnt) + "."
+				Print "Warning: found matching board config names. Changed " + io + " config #" + num2istr(jcnt) + " " + NMQuotes( cname ) +" to " + NMQuotes( cname + "_" + num2istr(jcnt) ) + "."
+				//DoAlert 0, "Warning: found matching " + io + " config name " + NMQuotes( cname ) +". Please enter unique names for " + io + " configs #" + num2istr(icnt) + " and " + num2istr(jcnt) + "."
 			
 			endif
 			
@@ -439,7 +440,7 @@ Function /S ClampBoardNextDefaultName(io, startNum)
 	Variable icnt
 	String clist = "", cdf = ClampDF()
 	
-	String cname = io + num2str( startNum )
+	String cname = io + num2istr( startNum )
 	
 	if (strlen(ClampIOcheck(io)) == 0)
 		return cname
@@ -457,7 +458,7 @@ Function /S ClampBoardNextDefaultName(io, startNum)
 	
 	for ( icnt = startNum ; icnt < 99 ; icnt += 1 )
 	
-		cname = io + num2str( icnt )
+		cname = io + num2istr( icnt )
 		
 		if ( WhichListItem( cname, clist ) < 0 )
 			return cname
@@ -515,7 +516,7 @@ Function /S ClampBoardNameSet(io, config, nameStr)
 			return nameStr
 		endif
 	else
-		ClampError( 1, io + " board config name \"" + nameStr + "\" is already in use.")
+		ClampError( 1, io + " board config name " + NMQuotes( nameStr ) + " is already in use.")
 	endif
 	
 	return ""
@@ -894,13 +895,13 @@ Function /S ClampBoardConfigsFromStimsList(io, slist, boardNum, chanNum)
 		
 			if ((board[ccnt] == boardNum) && (chan[ccnt] == chanNum))
 			
-				dc = io + num2str(chanNum) + ",V," + num2str(1) + "," + num2str(0) + "," + num2str(chanNum) + ","  // default config
+				dc = io + num2istr(chanNum) + ",V," + num2istr(1) + "," + num2istr(0) + "," + num2istr(chanNum) + ","  // default config
 				
 				if (StringMatch(io, "ADC") == 1)
-					dc += num2str(0) + "," + num2str(1) + ","
+					dc += num2istr(0) + "," + num2istr(1) + ","
 				endif
 				
-				cc = name[ccnt] + "," + units[ccnt] + "," + num2str(scale[ccnt]) + "," + num2str(boardNum) + "," + num2str(chanNum) + "," // user config
+				cc = name[ccnt] + "," + units[ccnt] + "," + num2str(scale[ccnt]) + "," + num2istr(boardNum) + "," + num2istr(chanNum) + "," // user config
 				
 				if (StringMatch(io, "ADC") == 1)
 					cc += num2str(mode[ccnt]) + "," + num2str(gain[ccnt]) + ","
@@ -918,7 +919,7 @@ Function /S ClampBoardConfigsFromStimsList(io, slist, boardNum, chanNum)
 	
 	for (ccnt = 0; ccnt < ItemsInList(clist); ccnt += 1)
 		cc = StringFromList(ccnt, clist)
-		if (WhichListItemLax(cc, clist2, ";") < 0)
+		if (WhichListItem(cc, clist2, ";", 0, 0) < 0)
 			clist2 = AddListItem(cc, clist2, ";", inf) // only unique configs
 		endif
 	endfor
@@ -978,7 +979,7 @@ Function ClampBoardTable(io, wlist, hook)
 	DoWindow /K $tName
 	Edit /N=$tName/W=(0,0,0,0)/K=1 as title[0,30]
 	SetCascadeXY(tName)
-	Execute "ModifyTable title(Point)= \"Config\""
+	Execute "ModifyTable title(Point)= " + NMQuotes( "Config" )
 	
 	if (hook == 1)
 		SetWindow $tName hook=ClampBoardTableHook

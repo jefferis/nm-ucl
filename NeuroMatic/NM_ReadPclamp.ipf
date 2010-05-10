@@ -21,6 +21,16 @@
 //****************************************************************
 //****************************************************************
 
+Function ReadPclampDebug()
+
+	return 0
+
+End // ReadPclampDebug
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function ReadPclampScaleWaves()
 
 	return 1 // ( 0 ) no ( 1 ) yes, scale waves by scale factor read from header file
@@ -34,7 +44,7 @@ End // ReadPclampScaleWaves
 Function ReadPclampXOPExists(file)
 	String file
 
-	Execute /Z "ReadPclamp \"" + ReadPClampFileC(file) + "\"" // check for ABF XOP
+	Execute /Z "ReadPclamp " + NMQuotes( ReadPClampFileC(file) ) // check for ABF XOP
 	
 	if (NumVarOrDefault("ABF_Version", 0) > 0)
 		return 1
@@ -52,10 +62,12 @@ Function ReadPClampHeader(file, df) // read pClamp file header
 	String file // file to read
 	String df // data folder where everything is saved
 
-	Variable ccnt, amode, ActualEpisodes, tempvar, XOPexists, importDebug = 0
+	Variable ccnt, amode, ActualEpisodes, tempvar, XOPexists, importDebug
 	Variable ADCResolution, ADCRange, DataPointer, DataFormat, AcqLength
 	Variable FileFormat, NumChannels, TotalNumWaves, SamplesPerWave, SampleInterval, SplitClock
 	String yl, dumstr, AcqMode, fileC
+	
+	importDebug = ReadPclampDebug()
 	
 	XOPexists = ReadPclampXOPExists(file)
 	
@@ -70,31 +82,38 @@ Function ReadPClampHeader(file, df) // read pClamp file header
 	endif
 	
 	strswitch(dumstr)
+	
 		case "ABF ":
+		
 			if (XOPexists == 1)
 				return ReadPClampHeaderXOP(file, df)
 			endif
+			
 			break
+			
 		case "ABF2":
+		
 			if (XOPexists == 1)
 				return ReadPClampHeaderXOP(file, df)
 			else
-				NMDoAlert("Encounted ABF file format 2: Please contact Jason@ThinkRandom.com for the new ReadPclamp XOP.")
+				NMDoAlert("Encountered ABF file format 2: please contact Jason@ThinkRandom.com for the new ReadPclamp XOP. This XOP works only on PCs.")
 				return -1
 			endif
+			
 		default:
 			Print "Import File Aborted: file not of Pclamp format: " + dumstr
 			return -1
+			
 	endswitch
 	
 	CheckNMwave(df+"FileScaleFactors", 16, 1)  // increase size
 	CheckNMtwave(df+"yLabel", 16, "")
 	
 	Wave FileScaleFactors = $(df+"FileScaleFactors")
-	Wave /T yLabel = $(df+"yLabel")
+	Wave /T ytemp = $(df+"yLabel")
 	
 	FileScaleFactors = 1
-	yLabel = ""
+	ytemp = ""
 	
 	FileFormat = ReadPclampVar(file, "short", 36)
 	//SetNMvar(df+"FileFormat", FileFormat)
@@ -106,21 +125,21 @@ Function ReadPClampHeader(file, df) // read pClamp file header
 	amode = ReadPclampVar(file, "short", 8) // acquisition/operation mode
 	
 	switch(amode)
-	case 1:
-		AcqMode = "1 (Event-Driven)"
-		break
-	case 2:
-		AcqMode = "2 (Oscilloscope, loss free)"
-		break
-	case 3:
-		AcqMode = "3 (Gap-Free)"
-		break
-	case 4:
-		AcqMode = "4 (Oscilloscope, high-speed)"
-		break
-	case 5:
-		AcqMode = "5 (Episodic)"
-		break
+		case 1:
+			AcqMode = "1 (Event-Driven)"
+			break
+		case 2:
+			AcqMode = "2 (Oscilloscope, loss free)"
+			break
+		case 3:
+			AcqMode = "3 (Gap-Free)"
+			break
+		case 4:
+			AcqMode = "4 (Oscilloscope, high-speed)"
+			break
+		case 5:
+			AcqMode = "5 (Episodic)"
+			break
 	endswitch
 	
 	SetNMstr(df+"AcqMode", AcqMode)
@@ -159,8 +178,14 @@ Function ReadPClampHeader(file, df) // read pClamp file header
 		NMDoAlert("Warning: data contains split-clock recording, which is not supported by this version of NeuroMatic.")
 	endif
 	
-	SamplesPerWave = ReadPclampVar(file, "long", 138) / NumChannels // sample points per wave
+	if ( ( amode != 1 ) && ( amode != 3 ) )
+		SamplesPerWave = ReadPclampVar(file, "long", 138) / NumChannels // sample points per wave
+	else
+		SamplesPerWave = AcqLength / NumChannels
+	endif
+	
 	SetNMvar(df+"SamplesPerWave", SamplesPerWave)
+	
 	//Variable /G PreTriggerSamples = ReadPclampVar(file, "long", 142)
 	//Variable /G EpisodesPerRun = ReadPclampVar(file, "long", 146)
 	//Variable /G RunsPerTrial = ReadPclampVar(file, "long", 150)
@@ -187,18 +212,18 @@ Function ReadPClampHeader(file, df) // read pClamp file header
 
 	for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
 		yl = ReadPclampString(file, 442 + ccnt * 10, 10)
-		yLabel[ccnt] = RemoveEndSpaces(yl)
+		ytemp[ccnt] = RemoveEndSpaces(yl)
 	endfor
 	
 	for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
 		yl = ReadPclampString(file, 602 + ccnt * 8, 8)
-		yLabel[ccnt] += " (" + RemoveEndSpaces(yl) + ")"
+		ytemp[ccnt] += " (" + RemoveEndSpaces(yl) + ")"
 	endfor
 	
 	for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
 		tempvar = ReadPclampVar(file, "float", 922 + ccnt * 4)
 		FileScaleFactors[ccnt] = ADCRange / (ADCResolution * tempvar)
-		//print "chan" + num2str(ccnt) + " gain:", tempvar
+		//print "chan" + num2istr(ccnt) + " gain:", tempvar
 	endfor
 	
 	//
@@ -212,7 +237,7 @@ Function ReadPClampHeader(file, df) // read pClamp file header
 		tempvar = ReadPclampVar(file, "float", 4576 + ccnt * 4)
 		if ((numtype(tempvar) == 0) && (tempvar > 0))
 			FileScaleFactors[ccnt] /= tempvar
-			//print "chan" + num2str(ccnt) + " telegraph gain:", DumWave0[ccnt]
+			//print "chan" + num2istr(ccnt) + " telegraph gain:", DumWave0[ccnt]
 		endif
 	endfor
 	
@@ -271,9 +296,9 @@ Function ReadPClampHeaderXOP(file, df)
 	
 	folder = CheckFolderNameChar(folder)
 	
-	NewDataFolder /O /S $LastPathColon(folder, 0) // create subfolder in current directory
+	NewDataFolder /O /S $RemoveEnding( folder, ":" ) // create subfolder in current directory
 	
-	Execute /Z "ReadPclamp /H \"" + ReadPClampFileC(file) + "\"" // import header
+	Execute /Z "ReadPclamp /H " + NMQuotes( ReadPClampFileC(file) ) // import header
 	
 	if (WaveExists(ABF_nADCSamplingSeq) == 0) // something went wrong
 		SetDataFolder $saveDF // back to original folder
@@ -284,10 +309,10 @@ Function ReadPClampHeaderXOP(file, df)
 	CheckNMtwave(df+"yLabel", 20, "")
 	
 	Wave FileScaleFactors = $(df+"FileScaleFactors")
-	Wave /T yLabel = $(df+"yLabel")
+	Wave /T ytemp = $(df+"yLabel")
 	
 	FileScaleFactors = 1
-	yLabel = ""
+	ytemp = ""
 	
 	FileFormat = NumVarOrDefault("ABF_nFileType", -1)
 	
@@ -377,7 +402,7 @@ Function ReadPClampHeaderXOP(file, df)
 		if ((chan >= 0) && (chan < numpnts(ABF_sADCChannelName)))
 			yl = RemoveEndSpaces(ABF_sADCChannelName[chan])
 			yu = RemoveEndSpaces(ABF_sADCUnits[chan])
-			yLabel[ccnt] =  yl + " (" + yu + ")"
+			ytemp[ccnt] =  yl + " (" + yu + ")"
 		endif
 		
 	endfor
@@ -420,7 +445,7 @@ Function ReadPClampHeaderXOP(file, df)
 			
 			if ((numtype(tempvar) == 0) && (tempvar > 0))
 				FileScaleFactors[ccnt] /= tempvar
-				//print "chan" + num2str(ccnt) + " telegraph gain:", DumWave0[ccnt]
+				//print "chan" + num2istr(ccnt) + " telegraph gain:", DumWave0[ccnt]
 			endif
 			
 		endfor
@@ -476,10 +501,10 @@ Function ReadPClampDataXOP(file, df) // read pClamp file (need to read header be
 		return 0 // options not allowed
 	endif
 	
-	NMProgressStr("Reading Pclamp File...")
+	SetNeuroMaticStr( "ProgressStr", "Reading Pclamp File...")
 	CallProgress(-1) // bring up progress window
 	
-	Execute /Z "ReadPclamp /D /N=(" + num2str(WaveBgn) + "," + num2str(WaveEnd) + ") /P=\"" + wavePrefix + "\" /S=" + num2str(strtnum) + " \"" + ReadPClampFileC(file) + "\""
+	Execute /Z "ReadPclamp /D /N=(" + num2istr(WaveBgn) + "," + num2istr(WaveEnd) + ") /P=" + NMQuotes( wavePrefix ) + " /S=" + num2istr(strtnum) + "  " + NMQuotes( ReadPClampFileC(file)  )
 	
 	SetDataFolder $saveDF // back to original folder
 	
@@ -523,9 +548,18 @@ Function ReadPClampData(file, df) // read pClamp file
 	String wavePrefix = StrVarOrDefault(df+"WavePrefix", "Record")
 	
 	Wave FileScaleFactors = $(df+"FileScaleFactors")
-	Wave /T yLabel  = $(df+"yLabel")
+	Wave /T ytemp  = $(df+"yLabel")
 	
 	Variable DataFormat = NumVarOrDefault(df+"DataFormat", 0)
+	
+	switch( DataFormat )
+		case 0:
+		case 1:
+			break
+		default:
+			DoAlert 0, "Abort Pclamp Import: unrecognized DataFormat: " + num2istr( DataFormat )
+			return 0 // option not allowed
+	endswitch
 	
 	SetDataFolder $df
 	
@@ -554,13 +588,13 @@ Function ReadPClampData(file, df) // read pClamp file
 	
 	if (amode == 3)
 		for (ccnt = 0; ccnt < NumChannels; ccnt += 1)
-			Variable /G $("xbeg" + num2str(ccnt))
-			Variable /G $("xend" + num2str(ccnt)) 
+			Variable /G $("xbeg" + num2istr(ccnt))
+			Variable /G $("xend" + num2istr(ccnt)) 
 			Make /O/N=(AcqLength/NumChannels) $GetWaveName(wavePrefix, ccnt, strtnum) = NAN
 		endfor
 	endif
 	
-	NMProgressStr("Reading Pclamp File...")
+	SetNeuroMaticStr( "ProgressStr", "Reading Pclamp File...")
 	CallProgress(0) // bring up progress window
 	
 	for (wcnt = WaveBgn; wcnt <= WaveEnd; wcnt += 1) // loop thru waves
@@ -577,7 +611,7 @@ Function ReadPClampData(file, df) // read pClamp file
 			
 		//if (V_Flag != 0)
 		//	DumWave0 = NAN
-		//	NMDoAlert("WARNING: Unsuccessfull read on Wave #" + num2str(wcnt))
+		//	NMDoAlert("WARNING: Unsuccessfull read on Wave #" + num2istr(wcnt))
 		//endif
 		
 		for (ccnt = 0; ccnt < NumChannels; ccnt += 1) // loop thru channels and extract channel waves
@@ -595,7 +629,7 @@ Function ReadPClampData(file, df) // read pClamp file
 			scale = FileScaleFactors[ccnt]
 			
 			if ( ReadPclampScaleWaves() == 1 )
-				if ( ( numtype( scale ) == 0 ) && ( scale > 0 ) )
+				if ( ( numtype(scale) == 0 ) && ( scale > 0 ) )
 					DumWave1 *= scale
 				endif
 			endif
@@ -604,8 +638,8 @@ Function ReadPClampData(file, df) // read pClamp file
 			
 				Wave DumWave = $GetWaveName(wavePrefix, ccnt, strtnum)
 				
-				NVAR xbeg = $("xbeg" + num2str(ccnt))
-				NVAR xend = $("xend" + num2str(ccnt))
+				NVAR xbeg = $("xbeg" + num2istr(ccnt))
+				NVAR xend = $("xend" + num2istr(ccnt))
 			
 				xend = xbeg + numpnts(DumWave1) - 1
 				DumWave[xbeg,xend] = DumWave1[x-xbeg]
@@ -622,10 +656,10 @@ Function ReadPClampData(file, df) // read pClamp file
 				wNote = "Folder:" + GetDataFolder(0)
 				wNote += "\rFile:" + NMNoteCheck(file)
 				wNote += "\rChan:" + ChanNum2Char(ccnt)
-				wNote += "\rWave:" + num2str(wcnt)
+				wNote += "\rWave:" + num2istr(wcnt)
 				wNote += "\rScale:" + num2str(scale)
 
-				NMNoteType(wName, "Pclamp", xLabel, yLabel[ccnt], wNote)
+				NMNoteType(wName, "Pclamp", xLabel, ytemp[ccnt], wNote)
 				
 			endif
 			
@@ -652,7 +686,7 @@ Function ReadPClampData(file, df) // read pClamp file
 		
 			wName = GetWaveName("default", ccnt, strtnum)
 			
-			NVAR xend = $("xend" + num2str(ccnt))
+			NVAR xend = $("xend" + num2istr(ccnt))
 			
 			Redimension /N=(xend+1) $wName
 			Setscale /P x 0, SampleInterval, $wName
@@ -662,7 +696,7 @@ Function ReadPClampData(file, df) // read pClamp file
 			wNote += "\rScale:" + num2str(scale)
 			wNote += "\rFile:" + NMNoteCheck(file)
 
-			NMNoteType(wName, "Pclamp", xLabel, yLabel[ccnt], wNote)
+			NMNoteType(wName, "Pclamp", xLabel, ytemp[ccnt], wNote)
 			
 		endfor
 		

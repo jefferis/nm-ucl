@@ -1,5 +1,4 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 4
 #pragma version = 2
 
 //****************************************************************
@@ -80,8 +79,8 @@ Function OnlineAvg(mode)
 	String wname, avgname, gname, sdf = StimDF()
 	
 	Variable chan = NumVarOrDefault(sdf+"OnlineAvgChan", -1)
-	Variable currentWave = NumVarOrDefault("CurrentWave", 0)
-	Variable nchans = NumVarOrDefault("NumChannels", 0)
+	Variable currentWave = CurrentNMWave()
+	Variable nchans = NMNumChannels()
 	
 	switch(mode)
 	
@@ -143,7 +142,7 @@ Function OnlineAvgConfig()
 	String sdf = StimDF()
 
 	Variable numchan = StimBoardOnCount("", "ADC")
-	String chanList = ChanCharList(numchan, ";")
+	String chanList = NMChanList( "CHAR" )
 	
 	if (numchan == 1)
 		return 0
@@ -288,8 +287,8 @@ Function TempRead(mode)
 	Variable slope = NumVarOrDefault(cdf+"TempSlope", Nan)
 	Variable offset = NumVarOrDefault(cdf+"TempOffset", Nan)
 	
-	Variable nwaves = NumVarOrDefault("NumWaves", 0)
-	Variable currentWave = NumVarOrDefault("CurrentWave", 0)
+	Variable nwaves = NMNumWaves()
+	Variable currentWave = CurrentNMWave()
 	
 	if ((chan < 0) || (numtype(chan*slope*offset) > 0))
 		return -1
@@ -375,11 +374,11 @@ Function Rstep(mode)
 	
 	String ADClist = StimBoardOnList("", "ADC")
 	
-	Variable grp = NumVarOrDefault("CurrentGrp", 0)
+	Variable grp = NeuroMaticVar( "CurrentGrp" )
 	
-	outName = sdf + "DAC_" + num2str(DACconfig) + "_" + num2str(grp)
+	outName = sdf + "DAC_" + num2istr(DACconfig) + "_" + num2istr(grp)
 	
-	chan = WhichListItem(num2str(ADCconfig), ADClist, ";")
+	chan = WhichListItem(num2istr(ADCconfig), ADClist, ";")
 	
 	inName = GetWaveName("default", chan, 0)
 	
@@ -465,14 +464,14 @@ Function RstepConfig(userInput)
 	
 	if (userInput == 1)
 	
-		ADCstr = num2str(ADCconfig)
-		DACstr = num2str(DACconfig)
+		ADCstr = num2istr(ADCconfig)
+		DACstr = num2istr(DACconfig)
 
 		Prompt ADCstr, "ADC input configuration to measure:", popup ADClist
 		Prompt DACstr, "DAC output configuration to measure:", popup DAClist
 		Prompt tbgn, "measure time begin:"
 		Prompt tend, "measure time end:"
-		DoPrompt "Compute Rstepance", ADCstr, DACstr, tbgn, tend
+		DoPrompt "Compute Resistance", ADCstr, DACstr, tbgn, tend
 		
 		if (V_flag == 1)
 			return 0 // cancel
@@ -534,6 +533,8 @@ Function StatsRatio(mode)
 	
 	String wname1, wname2, sdf = StimDF()
 	
+	String folder = CurrentNMStatsSubfolder()
+	
 	switch(mode)
 	
 		case 0:
@@ -553,15 +554,15 @@ Function StatsRatio(mode)
 			
 	endswitch
 	
-	if ( StimStatsOn() == 0 )
+	if ( NMStimStatsOn() == 0 )
 		return -1 // Stats not on
 	endif
 	
 	Variable n = NumVarOrDefault(sdf+"StatsRatioNumer", 0)
 	Variable d = NumVarOrDefault(sdf+"StatsRatioDenom", 1)
 	
-	wname1 = StatsWaveName(n, "AmpY", 0, 1)
-	wname2 = StatsWaveName(d, "AmpY", 0, 1)
+	wname1 = StatsWaveName( folder, n, "AmpY", 0, 1, 1 )
+	wname2 = StatsWaveName( folder, d, "AmpY", 0, 1, 1 )
 	
 	if ( ( WaveExists( $wname1 ) == 0 ) || ( WaveExists( $wname2 ) == 0 ) )
 		return -1
@@ -678,9 +679,9 @@ Function RCstep(mode)
 			
 	endswitch
 	
-	Variable currentWave = NumVarOrDefault("CurrentWave", 0)
-	Variable nwaves = NumVarOrDefault("NumWaves", 0)
-	Variable grp = NumVarOrDefault("CurrentGrp", 0)
+	Variable nwaves = NMNumWaves()
+	Variable currentWave = CurrentNMWave()
+	Variable grp = NMGroupsNum( currentWave )
 	
 	Variable ADCconfig = NumVarOrDefault(sdf+"RCstepADC", Nan)
 	Variable DACconfig = NumVarOrDefault(sdf+"RCstepDAC", Nan)
@@ -712,9 +713,9 @@ Function RCstep(mode)
 		Wave CT_Cm, CT_Rm, CT_Rp
 	endif
 	
-	outName = sdf + "DAC_" + num2str(DACconfig) + "_" + num2str(grp)
+	outName = sdf + "DAC_" + num2istr(DACconfig) + "_" + num2istr(grp)
 	
-	chan = WhichListItem(num2str(ADCconfig), ADClist, ";")
+	chan = WhichListItem(num2istr(ADCconfig), ADClist, ";")
 	
 	inName = ChanDisplayWave(chan)
 	
@@ -819,8 +820,8 @@ End // RCstep
 Function RCstepDisplay()
 	
 	Variable num, inc = 10
-	Variable currentWave = NumVarOrDefault("CurrentWave", 0)
-	Variable numWaves = NumVarOrDefault("NumWaves", 0)
+	Variable currentWave = CurrentNMWave()
+	Variable numWaves = NMNumWaves()
 	
 	String gName = "ClampRC"
 	
@@ -928,8 +929,8 @@ Function RCstepConfig(userInput)
 	
 	if (userInput == 1)
 	
-		ADCstr = num2str(ADCconfig)
-		DACstr = num2str(DACconfig)
+		ADCstr = num2istr(ADCconfig)
+		DACstr = num2istr(DACconfig)
 	
 		Prompt ADCstr, "ADC input configuration to measure:", popup ADClist
 		Prompt DACstr, "DAC output configuration to measure:", popup DAClist
@@ -1016,7 +1017,7 @@ Function ClampWaitTicks(t) // wait t msec (only accurate to 17 msec)
 	t *= 60 / 1000
 
 	do
-	while ((ClampAcquireCancel() == 0) && (ticks - t0 < t ))
+	while ((NMProgressCancel() == 0) && (ticks - t0 < t ))
 	
 	return 0
 	
@@ -1037,7 +1038,7 @@ Function ClampWaitMSTimer(t) // wait t msec (this is more accurate)
 	
 	do
 		dt = (stopMSTimer(-2) - t0) / 1000 // msec
-	while ((ClampAcquireCancel() == 0) && (dt < t ))
+	while ((NMProgressCancel() == 0) && (dt < t ))
 	
 	return 0
 	

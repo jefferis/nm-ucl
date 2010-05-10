@@ -167,7 +167,7 @@ End // MakeMyTab
 Function MyTabButton(ctrlName) : ButtonControl
 	String ctrlName
 	
-	String fxn = NMCtrlName(MyTabPrefix(""), ctrlName)
+	String fxn = ReplaceString(MyTabPrefix(""), ctrlName, "")
 	
 	MyTabCall(fxn, "")
 	
@@ -180,7 +180,7 @@ End // MyTabButton
 Function MyTabSetVariable(ctrlName, varNum, varStr, varName) : SetVariableControl
 	String ctrlName; Variable varNum; String varStr; String varName
 	
-	String fxn = NMCtrlName(MyTabPrefix(""), ctrlName)
+	String fxn = ReplaceString(MyTabPrefix(""), ctrlName, "")
 	
 	MyTabCall(fxn, varStr)
 	
@@ -226,8 +226,8 @@ Function MyFunction0()
 
 	String df = MyTabDF()
 	
-	NVAR MyVar = $(df+"MyVar")
-	SVAR MyStr = $(df+"MyStr")
+	Variable myVar = NumVarOrDefault(df+"MyVar", 0)
+	String myStr = StrVarOrDefault(df+"MyStr", "")
 	
 	Wave MyWave = $(df+"MyWave")
 	Wave /T MyTxtWave = $(df+"MyTxtWave")

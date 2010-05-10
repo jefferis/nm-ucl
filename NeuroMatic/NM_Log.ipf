@@ -1,5 +1,4 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
 #pragma version = 2
 
 //****************************************************************
@@ -282,12 +281,12 @@ Function LogTable(ldf) // create a log table from a log data folder
 	String ftype = StrVarOrDefault(ldf+"FileType", "")
 	
 	if (DataFolderExists(ldf) == 0)
-		NMDoAlert("Error: data folder \"" + ldf + "\" does not appear to exist.")
+		NMDoAlert("Error: data folder " + NMQuotes( ldf ) + " does not appear to exist.")
 		return -1
 	endif
 	
 	if (StringMatch(ftype, "NMLog") == 0)
-		NMDoAlert("Error: data folder \"" + ldf + "\" does not appear to be a NeuroMatic Log folder.")
+		NMDoAlert("Error: data folder " + NMQuotes( ldf ) + " does not appear to be a NeuroMatic Log folder.")
 		return -1
 	endif
 	
@@ -296,17 +295,17 @@ Function LogTable(ldf) // create a log table from a log data folder
 	if (WinType(tName) == 0) // make table
 		Edit /K=1/N=$tName/W=(0,0,0,0) as "Clamp Log : " + GetPathName(ldf,0)
 		SetCascadeXY(tName)
-		Execute "ModifyTable title(Point)= \"Entry\""
+		Execute "ModifyTable title(Point)= " + NMQuotes( "Entry" )
 	endif
 	
 	DoWindow /F $tName
 	
 	wlist = LogWaveList(ldf, "F")
 	
-	nlist = GetListItems("*note*", wlist, ";")
+	nlist = ListMatch(wlist, "*note*", ";")
 	nlist = SortList(nlist, ";", 16)
 	
-	wlist = RemoveListFromList(nlist, wlist, ";") + nlist // place Note waves after others
+	wlist = RemoveFromList(nlist, wlist, ";") + nlist // place Note waves after others
 	wlist += LogWaveList(ldf, "H") // place Header waves last
 	
 	for (ocnt = 0; ocnt < ItemsInList(wlist); ocnt += 1)
@@ -400,11 +399,11 @@ Function LogNotebookFileVars(ndf, nbName)
 	
 	String nlist = LogVarList(ndf, "F_", "numeric")
 	String slist = LogVarList(ndf, "F_", "string")
-	String notelist = GetListItems("*note*", slist, ";") // note variables
+	String notelist = ListMatch(slist, "*note*", ";") // note variables
 	
 	notelist = SortList(notelist, ";", 16)
 	
-	slist = RemoveListFromList(notelist, slist, ";")
+	slist = RemoveFromList(notelist, slist, ";")
 	
 	Notebook $nbName selection={endOfFile, endOfFile}
 	Notebook $nbName text=("\r")

@@ -1,5 +1,4 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
 #pragma version = 2
 
 //****************************************************************
@@ -26,7 +25,7 @@
 //****************************************************************
 
 Function ClampAcquireCall( mode )
-	Variable mode // ( 0 ) preview ( 1 ) record
+	Variable mode // ( 0 ) preview ( 1 ) record 
 	
 	String cdf = ClampDF()
 	Variable error
@@ -56,11 +55,12 @@ Function ClampAcquire( board, mode )
 	Variable mode // ( 0 ) preview ( 1 ) record
 	
 	Variable error
+	String prefixFolder
 	String cdf = ClampDF(), sdf = StimDF(), ldf = LogDF()
 	
 	Variable saveWhen = NumVarOrDefault( cdf+"SaveWhen", 0 )
 	Variable AcqMode = NumVarOrDefault( sdf+"AcqMode", 0 )
-	String path = StrVarOrDefault( cdf+ "ClampPath", "" )
+	String path = StrVarOrDefault( cdf+"ClampPath", "" )
 	
 	Variable continuous = ( acqMode == 1 ) || ( acqMode == 4 )
 
@@ -70,15 +70,12 @@ Function ClampAcquire( board, mode )
 	
 	if ( strlen( path ) == 0 )
 		if ( strlen( ClampPathSet( "" ) ) == 0 )
-			ClampError( 1, "Please specify \"save to\" path on Clamp File tab." )
+			ClampError( 1, "Please specify " + NMQuotes( "save to" ) + " path on Clamp File tab." )
 			return -1
 		endif
 	endif
 	
 	ClampAcquireCleanup() // kill previously made Clamp waves/variables in existing data folder
-	
-	ClampStatsInit()
-	ClampSpikeInit()
 	
 	if ( WinType( NotesTableName() ) == 2 )
 		NotesTable( 1 ) // update notes if table is open
@@ -107,29 +104,46 @@ Function ClampAcquire( board, mode )
 	endif
 	
 	if ( ( mode == 1 ) && ( ClampSaveTest( GetDataFolder( 0 ) ) == -1 ) )
-		ClampError( 1, "Folder name conflicts with previously saved data." )
+		ClampError( 1, "Folder name conflicts with previously saved data: " + GetDataFolder( 0 ) )
 		return -1
 	endif
 	
 	StimBoardConfigsUpdateAll( "" )
 	
 	// no longer test timers
-	
 	//if ( NumVarOrDefault( cdf+"TestTimers", 1 ) == 1 )
 	//if ( ClampAcquireManager( AcqBoard, -1, 0 ) == -1 ) // test timers
 	//	return -1 
 	//endif
 	//endif
 	
-	SetNMvar( "NumWaves", 0 )
-	SetNMvar( "NumActiveWaves", 0 )
-	SetNMvar( "CurrentWave", 0 )
-	SetNMvar( "CurrentGrp", NMGroupFirstDefault() )
+	prefixFolder = CurrentNMPrefixFolder()
+	
+	if ( strlen( prefixFolder ) > 0 )
+		SetNMvar( prefixFolder+"CurrentChan", 0 )
+		SetNMvar( prefixFolder+"CurrentWave", 0 )
+		SetNMvar( prefixFolder+"CurrentGrp", 0 )
+		SetNMvar( prefixFolder+"NumWaves", 0 )
+		SetNMstr( prefixFolder+"WaveSelect", "All" )
+	endif
+	
+	SetNeuroMaticVar( "NumActiveWaves", 0 )
+	SetNeuroMaticVar( "CurrentWave", 0 )
+	SetNeuroMaticVar( "CurrentGrp", 0 )
+	
+	ClampStatsInit()
+	ClampSpikeInit()
 
 	if ( ( mode == 1 ) && ( ClampSaveBegin() == -1 ) )
-		SetNMvar( "NumWaves", 0 )
+	
+		if ( strlen( prefixFolder ) > 0 )
+			SetNMvar( prefixFolder+"NumWaves", 0 )
+		endif
+
 		ClampError( 1, "ClampSaveBegin" )
+		
 		return -1
+		
 	endif
 	
 	if ( NMMultiClampTelegraphsConfig( sdf ) != 0 )
@@ -141,9 +155,15 @@ Function ClampAcquire( board, mode )
 	error = ClampAcquireManager( board, mode, saveWhen )
 	
 	if ( ( error == -1 ) || ( NumVarOrDefault( cdf+"ClampError", -1 ) == -1 ) )
-		SetNMvar( "NumWaves", 0 )
+		
+		if ( strlen( prefixFolder ) > 0 )
+			SetNMvar( prefixFolder+"NumWaves", 0 )
+		endif
+		
 		//ClampError( 1, "ClampAcquireManager" )
+		
 		return -1
+		
 	endif
 	
 	DoWindow /F NMPanel
@@ -157,7 +177,8 @@ End // ClampAcquire
 //****************************************************************
 
 Function ClampAcquireStart( mode, nwaves ) // update folders and graphs, start timers
-	Variable mode, nwaves
+	Variable mode // ( 0 ) preview ( 1 ) record
+	Variable nwaves
 	
 	String cdf = ClampDF()
 	String gtitle = "Clamp Acquire"
@@ -205,24 +226,37 @@ End // ClampAcquireStart
 //****************************************************************
 
 Function ClampAcquireNext( mode, nwaves ) // increment counters, online analyses
-	Variable mode, nwaves
+	Variable mode // ( 0 ) preview ( 1 ) record
+	Variable nwaves
 	
 	Variable tstamp, tintvl, cancel, ccnt, chan
 	
-	String cdf = ClampDF()
+	String cdf = ClampDF(), sdf = StimDF()
 	
-	NVAR CurrentChan, CurrentWave, CurrentGrp, NumGrps, NumChannels
+	String prefixFolder = CurrentNMPrefixFolder()
+	
+	if ( strlen( prefixFolder ) == 0 )
+		return -1
+	endif
+	
+	Variable numChannels = NumVarOrDefault( prefixFolder+"NumChannels", 0 )
+	Variable currentWave = NumVarOrDefault( prefixFolder+"CurrentWave", 0 )
+	Variable currentGrp = NumVarOrDefault( prefixFolder+"CurrentGrp", 0 )
+	
+	Variable numGrps = NumVarOrDefault( sdf+"NumStimWaves", 1 )
 	
 	Wave CT_TimeStamp, CT_TimeIntvl
 	
-	Variable firstGrp = NMGroupFirstDefault()
 	Variable tref = NumVarOrDefault( cdf+"TimerRef", 0 )
 	
 	String gtitle = StrVarOrDefault( cdf+"ChanTitle", "Clamp Acquire" )
+	String gName = ChanGraphName( 0 )
 	
-	if ( WinType( "ChanA" ) == 1 )
-		gtitle = NMFolderListName( "" ) + " : Ch A : " + num2str( CurrentWave )
-		DoWindow /T ChanA, gtitle
+	cancel = CallProgress( ( currentWave + 1 ) / nwaves )
+	
+	if ( WinType( gName ) == 1 )
+		gtitle = NMFolderListName( "" ) + " : Ch A : " + num2istr( currentWave )
+		DoWindow /T $gName, gtitle
 	endif
 	
 	for ( ccnt = 0; ccnt < NumChannels; ccnt += 1 )
@@ -231,8 +265,8 @@ Function ClampAcquireNext( mode, nwaves ) // increment counters, online analyses
 		endif
 	endfor
 	
-	ClampStatsCompute( mode, CurrentWave, nwaves )
-	ClampSpikeCompute( mode, CurrentWave, nwaves )
+	ClampStatsCompute( mode, currentWave, nwaves )
+	ClampSpikeCompute( mode, currentWave, nwaves )
 	
 	if ( mode >= 0 )
 		ClampFxnExecute( "inter", 0 )
@@ -244,23 +278,27 @@ Function ClampAcquireNext( mode, nwaves ) // increment counters, online analyses
 	
 	SetNMvar( cdf+"TimerRef", tref )
 	
-	if ( CurrentWave == 0 )
+	if ( currentWave == 0 )
 		tintvl = Nan
 	else
-		tstamp += CT_TimeStamp[CurrentWave-1]
+		tstamp += CT_TimeStamp[currentWave-1]
 	endif
 	
-	CT_TimeStamp[CurrentWave] = tstamp
-	CT_TimeIntvl[CurrentWave] = tintvl
+	CT_TimeStamp[currentWave] = tstamp
+	CT_TimeIntvl[currentWave] = tintvl
 	
-	CurrentWave += 1
-	CurrentGrp += 1
+	currentWave += 1
+	currentGrp += 1
 	
-	if ( CurrentGrp - firstGrp == NumGrps )
-		CurrentGrp = firstGrp
+	if ( currentGrp >= numGrps )
+		currentGrp = 0
 	endif
 	
-	cancel = CallProgress( CurrentWave/nwaves )
+	SetNMvar( prefixFolder+"CurrentWave", currentWave )
+	SetNMvar( prefixFolder+"CurrentGrp", currentGrp )
+	
+	SetNeuroMaticVar( "CurrentWave", currentWave )
+	SetNeuroMaticVar( "CurrentGrp", currentGrp )
 	
 	DoUpdate
 	
@@ -277,43 +315,43 @@ Function ClampAcquireFinish( mode, savewhen, background )
 	Variable savewhen // ( 0 ) never ( 1 ) after ( 2 ) while
 	Variable background // start background save function ( 0 ) no ( 1 ) yes
 	
-	Variable nwaves, nawaves
+	Variable nwaves
 	String file, cdf = ClampDF(), sdf = StimDF()
 	
-	Variable cWave = NumVarOrDefault( "CurrentWave", 0 )
-	Variable nchans = NumVarOrDefault( "NumChannels", 0 )
+	String prefixFolder = CurrentNMPrefixFolder()
+	
+	Variable currentWave = CurrentNMWave()
+	Variable nchans = NMNumChannels()
+	
+	Variable numGrps = NumVarOrDefault( sdf+"NumStimWaves", 0 )
 	
 	SetNMstr( "FileFinish", time() )
 	
 	CallProgress( 1 ) // close progress window
 	
-	ClampStatsFinish( cWave )
-	ClampSpikeFinish()
+	ClampStatsFinish( currentWave )
 	
-	nwaves = cWave
-	nawaves = cWave
+	nwaves = currentWave
 	
 	if ( mode < 0 ) // test, error
-	
 		nwaves = 0
-		nawaves = 0
-	
 	elseif ( mode == 0 ) // preview
-	
 		nwaves = 1
-		nawaves = 1
-		
 	endif
 	
-	SetNMvar( "CurrentWave", 0 )
-	SetNMvar( "NumWaves", nwaves )
-	SetNMvar( "TotalNumWaves", nwaves )
-	SetNMvar( "NumActiveWaves", nchans * nwaves )
+	SetNMvar( prefixFolder+"NumWaves", nwaves )
+	
+	SetNMvar( prefixFolder+"CurrentChan", 0 )
+	SetNMvar( prefixFolder+"CurrentWave", 0 )
+	setNMvar( prefixFolder+"CurrentGrp", 0 )
+	
+	SetNeuroMaticVar( "CurrentWave", 0 )
+	SetNeuroMaticVar( "CurrentGrp", 0 )
+	SetNeuroMaticVar( "NumActiveWaves", nchans * nwaves )
 	
 	ClampGraphsFinish()
-	CheckNMDataFolder()
-	ChanWaveListSet( -1, 1 ) // set channel wave names
-	NMGroupSeqDefault()
+	CheckNMDataFolder( "" )
+	NMChanWaveListSet( 1 ) // set channel wave names
 	UpdateNMPanel( 0 )
 	ClampTgainConvert()
 	
@@ -336,6 +374,13 @@ Function ClampAcquireFinish( mode, savewhen, background )
 		NotesBasicUpdate()
 		NotesCopyVars( LogDF(),"H_" ) // update header Notes
 		NotesCopyFolder( GetDataFolder( 1 )+"Notes" ) // copy Notes to data folder
+		
+		NMGroupsSequenceBasic( numGrps )
+		NMPrefixSelectSilent( StrVarOrDefault( "WavePrefix", "Record" ) )
+		
+		NMChanSelect( "A" )
+		NMWaveSelect( "All" )
+		
 		ClampSaveFinish( "" ) // save data folder
 		NotesBasicUpdate() // do again, this includes new external file name
 		NotesCopyFolder( LogDF()+StrVarOrDefault( cdf+"CurrentFolder","nofolder" ) ) // save log notes
@@ -358,7 +403,7 @@ Function ClampAcquireFinish( mode, savewhen, background )
 		ClampAutoBackupNM_Start()
 	endif
 	
-	//if ( ( mode == 1 ) && ( NumVarOrDefault( NMDF()+"AutoPlot", 0 ) == 1 ) )
+	//if ( ( mode == 1 ) && ( NMvar( "AutoPlot" ) == 1 ) )
 	//	ResetCascade()
 	//	NMPlot( "" )
 	//endif
@@ -371,19 +416,9 @@ End // ClampAcquireFinish
 //****************************************************************
 //****************************************************************
 
-Function ClampAcquireCancel()
-	
-	return ( NumVarOrDefault( "V_Progress", 0 ) == 1 )
-
-End // ClampAcquireCancel
-
-//****************************************************************
-//****************************************************************
-//****************************************************************
-
 Function ClampAcquireChain( board, mode )
 	String board
-	Variable mode // ( 0 ) preview ( 1 ) record ( -1 ) test timers
+	Variable mode //  // ( 0 ) preview ( 1 ) record
 	
 	Variable scnt, npnts
 	String sname, cdf = ClampDF(), sdf = StimDF()
@@ -414,7 +449,7 @@ Function ClampAcquireChain( board, mode )
 		endif
 		
 		if ( IsStimFolder( StimParent(), sname ) == 0 )
-			DoAlert 0, "Alert: stimulus protocol \"" + sname + "\" does not appear to exist."
+			DoAlert 0, "Alert: stimulus protocol " + NMQuotes( sname ) + " does not appear to exist."
 			continue
 		endif
 		
@@ -424,7 +459,7 @@ Function ClampAcquireChain( board, mode )
 			ClampWait( Stim_Wait[scnt] ) // delay in acquisition
 		endif
 		
-		if ( ClampAcquireCancel() == 1 )
+		if (NMProgressCancel() == 1 )
 			break
 		endif
 		
@@ -442,19 +477,19 @@ End // ClampAcquireChain
 Function ClampAcquireNotes()
 
 	Variable ccnt, wcnt, config, scale
-	String wName, wNote, yl, type = "NMData"
-	String unitsName, signalName
-	String modestr, onList = StimBoardOnList( "", "ADC" )
-	String cdf = ClampDF(), sdf = StimDF(), bdf = StimBoardDF( sdf )
+	String wName, wNote, yl, modeStr, type = "NMData"
+	String sdf = StimDF(), bdf = StimBoardDF( sdf ), onList = StimBoardOnList( sdf, "ADC" )
 	
 	String stim = StimCurrent()
 	String folder = GetDataFolder( 0 )
 	String fdate = StrVarOrDefault( "FileDate", "" )
 	String ftime = StrVarOrDefault( "FileTime", "" )
-	String xl = StrVarOrDefault( "xLabel", "" )
+	String xl = StrVarOrDefault( "xLabel", "msec" )
 	
-	Variable nchans = NumVarOrDefault( "NumChannels", 0 )
-	Variable nwaves = NumVarOrDefault( "NumWaves", 0 )
+	String prefixFolder = CurrentNMPrefixFolder()
+	
+	Variable nchans = NumVarOrDefault( prefixFolder+"NumChannels", 0 )
+	Variable nwaves = NumVarOrDefault( prefixFolder+"NumWaves", 0 )
 	
 	wName = bdf + "ADCname"
 	
@@ -477,7 +512,7 @@ Function ClampAcquireNotes()
 	Wave CT_TimeStamp
 	Wave /T yLabel
 	
-	for ( ccnt = 0; ccnt < nchans; ccnt += 1 )
+	for ( ccnt = 0; ccnt < nchans ; ccnt += 1 )
 	
 		yl = yLabel[ccnt]
 		
@@ -511,12 +546,12 @@ Function ClampAcquireNotes()
 			
 			if ( config >= 0 )
 			
-				modestr = ADCmode[ config ]
+				modeStr = ADCmode[ config ]
 				
 				if ( strlen( modeStr ) == 0 )
 					modestr = "Normal"
 				else
-					Note $wName, "ADCmode:" + modestr
+					Note $wName, "ADCmode:" + modeStr
 				endif
 				
 				if ( NMMultiClampTelegraphMode( modeStr ) == 1 )
@@ -527,8 +562,9 @@ Function ClampAcquireNotes()
 			
 					Note $wName, "ADCname:" + ADCname[ config ]
 					Note $wName, "ADCunits:" + ADCunits[ config ]
-					Note $wName, "ADCboard:" + num2str( ADCboard[ config ] )
-					Note $wName, "ADCchan:" + num2str( ADCchan[ config ] )
+					Note $wName, "ADCunitsX:msec" + ADCunits[ config ]
+					Note $wName, "ADCboard:" + num2istr( ADCboard[ config ] )
+					Note $wName, "ADCchan:" + num2istr( ADCchan[ config ] )
 					Note $wName, "ADCgain:" + num2str( ADCgain[ config ] )
 					
 				endif
@@ -546,15 +582,14 @@ End // ClampAcquireNotes
 //****************************************************************
 
 Function ClampAcquireDemo( mode, savewhen, WaveLength, NumStimWaves, InterStimTime, NumStimReps, InterRepTime )
-	Variable mode // ( 0 ) preview ( 1 ) record ( -1 ) test timers
+	Variable mode // ( 0 ) preview ( 1 ) record
 	Variable savewhen // ( 0 ) never ( 1 ) after ( 2 ) while
 	Variable WaveLength, NumStimWaves, InterStimTime, NumStimReps, InterRepTime // msec
 	
 	Variable nwaves, rcnt, wcnt, config, chan, chanCount, scale
-	String wname, modeStr
-	String gdf, cdf = ClampDF(), sdf = StimDF(), bdf = StimBoardDF( sdf )
+	String wname, modeStr, gdf, cdf = ClampDF(), sdf = StimDF(), bdf = StimBoardDF( sdf )
 	
-	Variable cWave = NumVarOrDefault( "CurrentWave", 0 )
+	Variable currentWave = CurrentNMWave()
 	
 	Variable acqMode = NumVarOrDefault( sdf+"AcqMode", 0 )
 	
@@ -586,139 +621,137 @@ Function ClampAcquireDemo( mode, savewhen, WaveLength, NumStimWaves, InterStimTi
 	
 	nwaves = NumStimWaves * NumStimReps // total number of waves
 
-	if ( ClampAcquireStart( mode, nwaves ) )
+	if ( ClampAcquireStart( mode, nwaves ) == -1 )
 		return -1
 	endif
 	
 	for ( rcnt = 0; rcnt < NumStimReps; rcnt += 1 ) // loop thru reps
 	
-	ClampWait( InterRepTime ) // inter-rep time
-
-	for ( wcnt = 0; wcnt < NumStimWaves; wcnt += 1 ) // loop thru stims
-	
-		if ( wcnt > 0 )
-			ClampWait( InterStimTime ) // inter-wave time
+		if ( NMProgressCancel() == 1 )
+			break
 		endif
+	
+		for ( wcnt = 0; wcnt < NumStimWaves; wcnt += 1 ) // loop thru stims
 		
-		CT_OutTemp = 0
-		
-		for ( config = 0; config < numpnts( DACname ); config += 1 )
-		
-			if ( strlen( DACname[config] ) > 0 )
-			
-				chan = DACchan[config]
-			
-				//if ( pulseOff == 0 )
-					wname = sdf + StimWaveName( "DAC", config, wcnt )
-				//else
-				//	wname = sdf + StimWaveName( "MyDAC", config, wcnt )
-				//endif
-				
-				if ( WaveExists( $wname ) == 1 )
-					Wave wtemp = $wname
-					if ( numpnts( CT_OutTemp ) != numpnts( wtemp ) )
-						Redimension /N=( numpnts( wtemp ) ) CT_OutTemp
-					endif
-					CT_OutTemp += wtemp
-				endif
-				
+			if ( NMProgressCancel() == 1 )
+				break
 			endif
 			
-		endfor
-		
-		for ( config = 0; config < numpnts( TTLname ); config += 1 )
-		
-			if ( strlen( TTLname[config] ) > 0 )
+			CT_OutTemp = 0
 			
-				chan = TTLchan[config]
-				
-				//if ( pulseOff == 0 )
-					wname = sdf + StimWaveName( "TTL", config, wcnt )
-				//else
-				//	wname = sdf + StimWaveName( "MyTTL", config, wcnt )
-				//endif
-				
-				if ( WaveExists( $wname ) == 1 )
-					Wave wtemp = $wname
-					if ( numpnts( CT_OutTemp ) != numpnts( wtemp ) )
-						Redimension /N=( numpnts( wtemp ) ) CT_OutTemp
-					endif
-					CT_OutTemp += wtemp
-				endif
-				
-			endif
+			for ( config = 0; config < numpnts( DACname ); config += 1 )
 			
-		endfor
-		
-		ClampWait( WaveLength ) // simulates delay in acquisition
-		
-		chanCount = 0
-
-		for ( config = 0; config < numpnts( ADCname ); config += 1 )
-		
-			modeStr = ADCmode[config]
-		
-			if ( ( strlen( ADCname[config] ) > 0 ) && ( StimADCmodeNormal( modeStr ) == 1 ) ) // stim/samp
-			
-				gdf = ChanDF( chanCount )
+				if ( strlen( DACname[config] ) > 0 )
 				
-				if ( NumVarOrDefault( gdf+"overlay", 0 ) > 0 )
-					ChanOverlayUpdate( chanCount )
-				endif
+					chan = DACchan[config]
 				
-				if ( mode == 1 ) // record
-					wname = GetWaveName( "default", chanCount, wcnt )
-				else // preview
-					wname = GetWaveName( "default", chanCount, 0 )
-				endif
-				
-				if ( NMMultiClampTelegraphMode( modeStr ) == 1 )
+					//if ( pulseOff == 0 )
+						wname = sdf + StimWaveName( "DAC", config, wcnt )
+					//else
+					//	wname = sdf + StimWaveName( "MyDAC", config, wcnt )
+					//endif
 					
-					if ( NMMultiClampTelegraphWhile() == 1 )
-						scale = NMMultiClampScale2( modeStr )
+					if ( WaveExists( $wname ) == 1 )
+						Wave wtemp = $wname
+						if ( numpnts( CT_OutTemp ) != numpnts( wtemp ) )
+							Redimension /N=( numpnts( wtemp ) ) CT_OutTemp
+						endif
+						CT_OutTemp += wtemp
+					endif
+					
+				endif
+				
+			endfor
+			
+			for ( config = 0; config < numpnts( TTLname ); config += 1 )
+			
+				if ( strlen( TTLname[config] ) > 0 )
+				
+					chan = TTLchan[config]
+					
+					//if ( pulseOff == 0 )
+						wname = sdf + StimWaveName( "TTL", config, wcnt )
+					//else
+					//	wname = sdf + StimWaveName( "MyTTL", config, wcnt )
+					//endif
+					
+					if ( WaveExists( $wname ) == 1 )
+						Wave wtemp = $wname
+						if ( numpnts( CT_OutTemp ) != numpnts( wtemp ) )
+							Redimension /N=( numpnts( wtemp ) ) CT_OutTemp
+						endif
+						CT_OutTemp += wtemp
+					endif
+					
+				endif
+				
+			endfor
+			
+			ClampWaitMSTimer( WaveLength ) // simulates delay in acquisition
+			
+			chanCount = 0
+	
+			for ( config = 0; config < numpnts( ADCname ); config += 1 )
+			
+				modeStr = ADCmode[ config ]
+			
+				if ( ( strlen( ADCname[config] ) > 0 ) && ( StimADCmodeNormal( modeStr ) == 1 ) ) // stim/samp
+				
+					gdf = ChanDF( chanCount )
+					
+					if ( NumVarOrDefault( gdf+"overlay", 0 ) > 0 )
+						ChanOverlayUpdate( chanCount )
+					endif
+					
+					if ( mode == 1 ) // record
+						wname = GetWaveName( "default", chanCount, wcnt )
+					else // preview
+						wname = GetWaveName( "default", chanCount, 0 )
+					endif
+					
+					if ( NMMultiClampTelegraphMode( modeStr ) == 1 )
+					
+						if ( NMMultiClampTelegraphWhile() == 1 )
+							scale = NMMultiClampScaleCall( modeStr )
+						else
+							scale = NMMultiClampADCNum( sdf, config, "scale" )
+						endif
+						
 					else
-						scale = NMMultiClampADCNum( sdf, config, "scale" )
+					
+						scale = ADCscale[ config ]
+						
 					endif
 					
-				else
-				
-					scale = ADCscale[ config ]
+					if ( ( numtype( scale ) > 0 ) || ( scale <= 0 ) )
+						scale = 1
+					endif
+					
+					CT_OutTemp /= scale
+					
+					Duplicate /O CT_OutTemp $wname
+					
+					Note $wname, "Scale Factor:" + num2str( scale )
+	
+					ChanWaveMake( chanCount, wName, ChanDisplayWave( chanCount ) ) // make display wave
+			
+					if ( ( mode == 1 ) && ( saveWhen == 2 ) )
+						ClampNMbinAppend( wname ) // update waves in saved folder
+					endif
+					
+					chanCount += 1
 					
 				endif
 				
-				if ( ( numtype( scale ) > 0 ) || ( scale <= 0 ) )
-					scale = 1
-				endif
-				
-				CT_OutTemp /= scale
-				
-				Duplicate /O CT_OutTemp $wname
-				
-				Note $wname, "Scale Factor:" + num2str( scale )
-
-				ChanWaveMake( chanCount, wName, ChanDisplayWave( chanCount ) ) // make display wave
-		
-				if ( ( mode == 1 ) && ( saveWhen == 2 ) )
-					ClampNMbinAppend( wname ) // update waves in saved folder
-				endif
-				
-				chanCount += 1
-				
-			endif
+			endfor
 			
+			ClampAcquireNext( mode, nwaves )
+			
+			ClampWaitMSTimer( InterStimTime ) // inter-wave time
+	
 		endfor
 		
-		ClampAcquireNext( mode, nwaves )
-		
-		if ( ClampAcquireCancel() == 1 )
-			break
-		endif
-
-	endfor
-	
-		if ( ClampAcquireCancel() == 1 )
-			break
-		endif
+		ClampWaitMSTimer( InterRepTime ) // inter-rep time
 		
 	endfor
 	
@@ -817,13 +850,13 @@ Function ClampAcquireManager( atype, callmode, savewhen ) // call appropriate aq
 	
 	switch( callmode )
 		case 0: // preview
-			NMProgressStr( "Preview : " + currentStim )
+			SetNeuroMaticStr( "ProgressStr", "Preview : " + currentStim )
 			break
 		case 1: // record
-			NMProgressStr( "Record : " + currentStim )
+			SetNeuroMaticStr( "ProgressStr", "Record : " + currentStim )
 			break
 		default:
-			NMProgressStr( "" )
+			SetNeuroMaticStr( "ProgressStr", "" )
 			break
 	endswitch
 
@@ -843,7 +876,7 @@ Function ClampAcquireManager( atype, callmode, savewhen ) // call appropriate aq
 					break
 					
 				default:
-					ClampError( 1, "demo acquire mode " + num2str( callmode ) + " not supported." )
+					ClampError( 1, "demo acquire mode " + num2istr( callmode ) + " not supported." )
 					return -1
 					
 			endswitch
@@ -873,7 +906,7 @@ Function ClampAcquireManager( atype, callmode, savewhen ) // call appropriate aq
 					break
 					
 				default:
-					ClampError( 1, "NIDAQ acquire mode " + num2str( callmode ) + " not supported." )
+					ClampError( 1, "NIDAQ acquire mode " + num2istr( callmode ) + " not supported." )
 					return -1
 					
 			endswitch
@@ -885,7 +918,7 @@ Function ClampAcquireManager( atype, callmode, savewhen ) // call appropriate aq
 		
 			switch( callmode )
 				case -2: // config
-					Execute /Z "ITCconfig( \"" + atype + "\" )"
+					Execute /Z "ITCconfig( " + NMQuotes( atype ) + " )"
 					if ( V_flag != 0 )
 						ClampError( 1, "cannot locate function in NM_ClampITC.ipf" )
 						return -1
@@ -902,7 +935,7 @@ Function ClampAcquireManager( atype, callmode, savewhen ) // call appropriate aq
 					break
 					
 				default:
-					ClampError( 1, "ITC acquire mode " + num2str( callmode ) + " not supported" )
+					ClampError( 1, "ITC acquire mode " + num2istr( callmode ) + " not supported" )
 					return -1
 					
 			endswitch
@@ -946,10 +979,10 @@ Function ClampReadManager( atype, board, ADCchan, gain, npnts ) // call appropri
 		
 		case "NIDAQ":
 		
-			vlist = AddListItem( num2str( board ), vlist, ",", inf )
-			vlist = AddListItem( num2str( ADCchan ), vlist, ",", inf )
+			vlist = AddListItem( num2istr( board ), vlist, ",", inf )
+			vlist = AddListItem( num2istr( ADCchan ), vlist, ",", inf )
 			vlist = AddListItem( num2str( gain ), vlist, ",", inf )
-			vlist += num2str( npnts ) 
+			vlist += num2istr( npnts ) 
 			
 			Execute /Z "NIDAQread( " + vlist + " )"
 			
@@ -963,9 +996,9 @@ Function ClampReadManager( atype, board, ADCchan, gain, npnts ) // call appropri
 		case "ITC16":
 		case "ITC18":
 		
-			vlist = AddListItem( num2str( ADCchan ), vlist, ",", inf )
+			vlist = AddListItem( num2istr( ADCchan ), vlist, ",", inf )
 			vlist = AddListItem( num2str( gain ), vlist, ",", inf )
-			vlist += num2str( npnts ) 
+			vlist += num2istr( npnts ) 
 			
 			Execute /Z "ITCread( " + vlist + " )"
 			
@@ -993,7 +1026,7 @@ End // ClampReadManager
 Function /S ClampParameterList( callmode, savewhen, WaveLength, NumStimWaves, interStimTime, NumStimReps, interRepTime )
 	Variable callmode, savewhen, WaveLength, NumStimWaves, interStimTime, NumStimReps, interRepTime
 
-	String paramstr = "("+num2str( callmode )+","+num2str( savewhen )+","+num2str( WaveLength )+","+num2str( NumStimWaves )+","
+	String paramstr = "("+num2istr( callmode )+","+num2str( savewhen )+","+num2str( WaveLength )+","+num2istr( NumStimWaves )+","
 	paramstr += num2str( interStimTime )+","+num2str( NumStimReps )+","+num2str( interRepTime )+")"
 	
 	return paramstr
@@ -1006,7 +1039,7 @@ End // ClampParameterList
 
 Function ClampFxnExecute( select, mode )
 	String select
-	Variable mode
+	Variable mode // ( 0 ) preview ( 1 ) record 
 	
 	Variable icnt
 	String flist, fxn
@@ -1018,7 +1051,7 @@ Function ClampFxnExecute( select, mode )
 		fxn = StringFromList( icnt, flist )
 		
 		if ( StringMatch( fxn[strlen( fxn )-3,strlen( fxn )-1],"(0)" ) == 0 )
-			fxn += "(" + num2str( mode ) + ")" // run function
+			fxn += "(" + num2istr( mode ) + ")" // run function
 		endif
 		
 		Execute /Z fxn

@@ -1,5 +1,5 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
+#pragma IgorVersion = 6.1
 #pragma version = 2
 
 //****************************************************************
@@ -46,16 +46,32 @@ Menu "NeuroMatic", dynamic
 
 	"-"
 
-	Submenu "Clamp Hot Keys"
-		"Preview/4", ClampButton( "CT0_StartPreview" )
-		"Record/5", ClampButton( "CT0_StartRecord" )
-		"Add Note/6", ClampButton( "CT0_Note" )
-		"Auto Scale/7", ClampAutoScale( )
+	Submenu ClampOnStr() + "Clamp Hot Keys"
+		ClampOnStr() + "Preview/4", ClampButton( "CT0_StartPreview" )
+		ClampOnStr() + "Record/5", ClampButton( "CT0_StartRecord" )
+		ClampOnStr() + "Add Note/6", ClampButton( "CT0_Note" )
+		ClampOnStr() + "Auto Scale/7", ClampAutoScale()
 	End
 	
-	"Clamp Configs Tab", ConfigsTabMake( )
+	ClampOnStr() + "Clamp Configs Tab", ConfigsTabMake()
 
-End // Neuromatic menu
+End // NeuroMatic menu
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function /S ClampOnStr()
+
+	String cdf = ClampDF()
+
+	if ( ( NeuroMaticVar( "NMOn" ) == 1 ) && ( DataFolderExists( cdf ) == 1 ) )
+		return ""
+	else
+		return "("
+	endif
+
+End // ClampOnStr
 
 //****************************************************************
 //****************************************************************
@@ -72,7 +88,7 @@ End // ClampPrefix
 //****************************************************************
 //****************************************************************
 
-Function /S ClampDF( ) // package full-path folder name
+Function /S ClampDF() // package full-path folder name
 
 	return PackDF( "Clamp" )
 	
@@ -92,17 +108,17 @@ Function ClampTab( enable )
 		CheckPackage( "Clamp", 0 ) // create clamp global variables
 		CheckPackage( "Notes", 0 ) // create Notes folder
 		
-		//LogParentCheck( )
-		StimParentCheckDF( )
+		//LogParentCheck()
+		StimParentCheckDF()
 		
-		ClampConfigsUpdate( ) // set data paths, open stim files, test board config
+		ClampConfigsUpdate() // set data paths, open stim files, test board config
 		
 		ChanControlsDisable( -1, "000000" )
 		
-		ClampStats( StimStatsOn( ) )
-		ClampSpike( StimSpikeOn( ) )
+		ClampStats( NMStimStatsOn() )
+		ClampSpike( NMStimSpikeOn() )
 
-		ClampAutoBackupNM_Start( )
+		ClampAutoBackupNM_Start()
 		
 	else
 	
@@ -113,7 +129,7 @@ Function ClampTab( enable )
 	
 	ClampTabEnable( enable ) // NM_ClampTab.ipf
 	
-	StimCurrentChanSet( "", NMCurrentChan( ) ) // update current channel
+	StimCurrentChanSet( "", CurrentNMChannel() ) // update current channel
 
 End // ClampTab
 
@@ -123,7 +139,7 @@ End // ClampTab
 
 Function KillClamp( what )
 	String what // to kill
-	String cdf = ClampDF( )
+	String cdf = ClampDF()
 
 	strswitch( what )
 		case "waves":
@@ -141,7 +157,7 @@ End // KillClamp
 //****************************************************************
 //****************************************************************
 
-Function ClampExitHook( )
+Function ClampExitHook()
 
 	// nothing to do
 
@@ -151,17 +167,17 @@ End // ClampExitHook
 //****************************************************************
 //****************************************************************
 
-Function CheckClamp( )
+Function CheckClamp()
 	
 	Variable saveformat = 1 // NM binary
 	
-	String cdf = ClampDF( )
+	String cdf = ClampDF()
 
 	if ( DataFolderExists( cdf ) == 0 )
 		return -1
 	endif
 	
-	if ( FileBinType( ) == 1 )
+	if ( FileBinType() == 1 )
 		saveformat = 2 // Igor binary
 	endif
 	
@@ -180,7 +196,7 @@ Function CheckClamp( )
 	
 	CheckNMstr( cdf+"CurrentFolder", "" )				// current data file
 	
-	SetNMstr( cdf+"FolderPrefix", ClampDateName( ) )	// data file prefix name
+	SetNMstr( cdf+"FolderPrefix", ClampDateName() )	// data file prefix name
 	
 	CheckNMstr( cdf+"ClampPath", "" )					// external save data path
 	CheckNMstr( cdf+"DataPrefix", "Record"	 )		// default data prefix name
@@ -204,7 +220,7 @@ Function CheckClamp( )
 	CheckNMstr( cdf+"OpenStimList", "" )				// external stim files to open
 	CheckNMstr( cdf+"CurrentStim", "" ) 				// current stimulus protocol
 	
-	ClampBoardWavesCheckAll( )						// board configuration waves
+	ClampBoardWavesCheckAll()						// board configuration waves
 	
 	return 0
 	
@@ -214,7 +230,7 @@ End // CheckClamp
 //****************************************************************
 //****************************************************************
 
-Function ClampConfigs( )
+Function ClampConfigs()
 	String fname = "Clamp"
 
 	//NMConfigVar( fname, "TestTimers", 1, "Test acquisition timers ( 0 ) no ( 1 ) yes" )
@@ -256,7 +272,7 @@ Function ClampConfigs( )
 	NMConfigVar( fname, "TempSlope", 1, "Temp slope factor ( 100 degreesC/Volts )" )
 	NMConfigVar( fname, "TempOffset", 0, "Temp offset ( degreesC )" )
 	
-	ClampBoardConfigs( )
+	ClampBoardConfigs()
 
 End // ClampConfigs
 
@@ -264,10 +280,10 @@ End // ClampConfigs
 //****************************************************************
 //****************************************************************
 
-Function ClampConfigsUpdate( )
+Function ClampConfigsUpdate()
 
 	Variable test
-	String cdf = ClampDF( )
+	String cdf = ClampDF()
 	
 	if ( NumVarOrDefault( cdf+"ClampSetPreferences", 0 ) == 1 )
 		return 0 // already set
@@ -277,13 +293,13 @@ Function ClampConfigsUpdate( )
 	String StimPathStr = StrVarOrDefault( cdf+"StimPath", "" )
 	String sList = StrVarOrDefault( cdf+"OpenStimList", "" )
 	
-	ClampPathsCheck( )
+	ClampPathsCheck()
 	
 	if ( ( strlen( StimPathStr ) > 0 ) && ( strlen( sList ) > 0 ) )
 		StimOpenList( StimPathStr, sList )
 	endif
 	
-	ClampConfigBoard( )
+	ClampConfigBoard()
 	
 	test = ClampAcquireManager( StrVarOrDefault( cdf+"AcqBoard","Demo" ), -2, 0 ) // test configuration
 	
@@ -291,7 +307,7 @@ Function ClampConfigsUpdate( )
 		SetNMstr( cdf+"AcqBoard","Demo" )
 	endif
 	
-	ClampProgressInit( ) // make sure progress display is OK
+	ClampProgressInit() // make sure progress display is OK
 	
 	SetNMvar( cdf+"ClampSetPreferences", 1 )
 	
@@ -305,18 +321,18 @@ End // ClampConfigsUpdate
 //****************************************************************
 //****************************************************************
 
-Function /S ClampConfigBoard( )
+Function /S ClampConfigBoard()
 
-	String blist = "", board = "Demo", cdf = ClampDF( )
+	String blist = "", board = "Demo", cdf = ClampDF()
 	
 	Variable driver = NumVarOrDefault( cdf+"BoardDriver", 0 )
 	
-	Execute /Z "NidaqBoardList( )"
+	Execute /Z "NidaqBoardList()"
 	
 	if ( V_flag == 0 )
 		blist = StrVarOrDefault( cdf+"BoardList", "" )
 		board = "NIDAQ"
-		driver = ClampBoardDriverPrompt( )
+		driver = ClampBoardDriverPrompt()
 		Print "NeuroMatic configured for NIDAQ acquisition"
 	endif
 	
@@ -363,9 +379,9 @@ End // ClampConfigBoard
 //****************************************************************
 //****************************************************************
 
-Function ClampPathsCheck( )
+Function ClampPathsCheck()
 
-	String cdf = ClampDF( )
+	String cdf = ClampDF()
 	String ClampPathStr = StrVarOrDefault( cdf+"ClampPath", "" )
 	String StimPathStr = StrVarOrDefault( cdf+"StimPath", "" )
 	
@@ -376,7 +392,7 @@ Function ClampPathsCheck( )
 		NewPath /Z/O/Q ClampSaveDataPath ClampPathStr
 		
 		if ( V_flag != 0 )
-			DoAlert 0, "Failed to create external path to: " + ClampPathStr
+			NMDoAlert( "Failed to create external path to: " + ClampPathStr )
 			SetNMstr( cdf+"ClampPath", "" )
 		endif
 		
@@ -389,7 +405,7 @@ Function ClampPathsCheck( )
 		NewPath /Z/O/Q ClampStimPath StimPathStr
 		
 		if ( V_flag != 0 )
-			DoAlert 0, "Failed to create external path to: " + StimPathStr
+			NMDoAlert( "Failed to create external path to: " + StimPathStr )
 			SetNMstr( cdf+"StimPath", "" )
 		endif
 		
@@ -415,7 +431,7 @@ Function /S ClampPathSet( pathStr )
 	if ( V_flag == 0 )
 		PathInfo ClampSaveDataPath
 		pathStr = S_path
-		SetNMstr( ClampDF( )+"ClampPath", S_path )
+		SetNMstr( ClampDF()+"ClampPath", S_path )
 	else
 		//ClampError( 1, "Failed to create external path to: " + pathStr )
 		pathStr = ""
@@ -429,9 +445,9 @@ End // ClampPathSet
 //****************************************************************
 //****************************************************************
 
-Function /S ClampFolderPrefix( )
+Function /S ClampFolderPrefix()
 
-	return StrVarOrDefault( ClampDF( )+"FolderPrefix", ClampDateName( ) )
+	return StrVarOrDefault( ClampDF()+"FolderPrefix", ClampDateName() )
 
 End // ClampFolderPrefix
 
@@ -439,8 +455,8 @@ End // ClampFolderPrefix
 //****************************************************************
 //****************************************************************
 
-Function /S ClampDateName( )
-	String name = "", d = Date( )
+Function /S ClampDateName()
+	String name = "", d = Date()
 	
 	Variable icnt
 	
@@ -457,7 +473,7 @@ Function /S ClampDateName( )
 	endif
 
 	if ( numtype( str2num( name[0,0] ) ) == 0 )
-		name = StrVarOrDefault( NMDF( )+"FolderPrefix", "nm" ) + name
+		name = NeuroMaticStr( "FolderPrefix" ) + name
 	endif
 	
 	return name
@@ -472,10 +488,10 @@ Function /S ClampFileNamePrefixSet( prefix )
 	String prefix
 	
 	if ( strlen( prefix ) == 0 )
-		prefix = ClampDateName( )
+		prefix = ClampDateName()
 	endif
 	
-	SetNMStr( ClampDF( )+"FolderPrefix", prefix )
+	SetNMStr( ClampDF()+"FolderPrefix", prefix )
 	
 	return prefix
 	
@@ -488,7 +504,7 @@ End // ClampFileNamePrefixSet
 Function ClampErrorCheck( mssg )
 	String mssg
 	
-	String rte = GetRTErrMessage( )
+	String rte = GetRTErrMessage()
 
 	if ( GetRTError( 1 ) == 0 )
 		return 0
@@ -515,12 +531,15 @@ Function ClampError( alert, errorStr )
 	Variable alert // ( 0 ) no ( 1 ) yes
 	String errorStr
 	
-	String cdf = ClampDF( )
+	String cdf = ClampDF()
 	
 	if ( strlen( errorStr ) == 0 )
+	
 		SetNMstr( cdf+"ClampErrorStr", "" )
 		SetNMvar( cdf+"ClampError", 0 )
+		
 	else
+	
 		SetNMstr( cdf+"ClampErrorStr", errorStr )
 		SetNMvar( cdf+"ClampError", -1 )
 		
@@ -540,15 +559,14 @@ End // ClampError
 //****************************************************************
 //****************************************************************
 
-Function ClampProgressInit( ) // use ProgWin XOP display to allow cancel of acquisition
-	String ndf = NMDF( )
+Function ClampProgressInit() // use ProgWin XOP display to allow cancel of acquisition
 
-	Variable pflag = NumVarOrDefault( ndf+"ProgFlag", 0 )
-	Variable xPixels = NumVarOrDefault( ndf+"xPixels", 1000 )
-	Variable yPixels = NumVarOrDefault( ndf+"yPixels", 700 )
+	Variable pflag = NeuroMaticVar( "ProgFlag" )
+	Variable xPixels = NMComputerPixelsX()
+	Variable yPixels = NMComputerPixelsY()
 	
-	Variable xProgress = NumVarOrDefault( ndf+"xProgress", -1 )
-	Variable yProgress = NumVarOrDefault( ndf+"yProgress", -1 )
+	Variable xProgress = NMProgressX()
+	Variable yProgress = NMProgressY()
 	
 	String txt = "Alert: Clamp Tab requires ProgWin XOP to cancel acquisition."
 	txt += "Download from ftp site www.wavemetrics.com/Support/ftpinfo.html ( IgorPro/User_Contributions/ )."
@@ -558,16 +576,16 @@ Function ClampProgressInit( ) // use ProgWin XOP display to allow cancel of acqu
 		Execute /Z "ProgressWindow kill" // try to use ProgWin function
 	
 		if ( V_flag == 0 )
-			SetNMVar( ndf+"ProgFlag", 1 )
+			SetNeuroMaticVar( "ProgFlag", 1 )
 		else
-			DoAlert 0, txt
+			NMDoAlert( txt )
 		endif
 	
 	endif
 	
 	if ( ( pflag == 1 ) && ( ( xProgress < 0 ) || ( yProgress < 0 ) ) )
-		SetNMVar( ndf+"xProgress", xPixels - 500 )
-		SetNMVar( ndf+"yProgress", yPixels/2 )
+		SetNeuroMaticVar( "xProgress", xPixels - 500 )
+		SetNeuroMaticVar( "yProgress", yPixels/2 )
 	endif
 
 End // ClampProgress
@@ -579,7 +597,7 @@ End // ClampProgress
 Function ClampFolderAutoCloseSet( on )
 	Variable on // ( 0 ) off ( 1 ) on
 	
-	SetNMVar( ClampDF( )+"AutoCloseFolder", on )
+	SetNMVar( ClampDF()+"AutoCloseFolder", on )
 	
 End // ClampFolderAutoCloseSet
 
@@ -590,7 +608,7 @@ End // ClampFolderAutoCloseSet
 Function ClampLogAutoSaveSet( on )
 	Variable on // ( 0 ) off ( 1 ) on
 	
-	SetNMvar( ClampDF( )+"LogAutoSave", on )
+	SetNMvar( ClampDF()+"LogAutoSave", on )
 
 End // ClampLogAutoSaveSet
 
@@ -603,7 +621,7 @@ Function ClampLogDisplaySet( selectStr )
 	
 	Variable nb, table, select
 	
-	String cdf = ClampDF( ), ldf = LogDF( )
+	String cdf = ClampDF(), ldf = LogDF()
 	
 	String nbName = LogNoteBookName( ldf )
 	String tName = LogTableName( ldf )
@@ -660,9 +678,9 @@ End // ClampLogDisplaySet
 //****************************************************************
 //****************************************************************
 
-Function ClampStimPathAsk( )
+Function ClampStimPathAsk()
 
-	String cdf = ClampDF( )
+	String cdf = ClampDF()
 	
 	NewPath /Q/O/M="Stim File Directory" ClampStimPath
 	
@@ -672,7 +690,7 @@ Function ClampStimPathAsk( )
 		
 		if ( strlen( S_path ) > 0 )
 			SetNMstr( cdf+"StimPath", S_path )
-			DoAlert 0, "Don't forget to save changes by saving your Configurations ( NeuroMatic > Configs > Save )."
+			NMDoAlert( "Don't forget to save changes by saving your Configurations ( NeuroMatic > Configs > Save )." )
 		endif
 		
 	endif
@@ -683,13 +701,13 @@ End // ClampStimPathSet
 //****************************************************************
 //****************************************************************
 
-Function ClampStimListAsk( )
+Function ClampStimListAsk()
 
-	String cdf = ClampDF( )
+	String cdf = ClampDF()
 	String openList = StrVarOrDefault( cdf+"OpenStimList", "" )
 	
 	//if ( strlen( openList ) == 0 )
-		openList = StimList( )
+		openList = StimList()
 	//endif
 	
 	Prompt openList, "list of stim files to open when starting NM Clamp tab:"
@@ -701,7 +719,7 @@ Function ClampStimListAsk( )
 	
 	SetNMstr( cdf+"OpenStimList", openList )
 	
-	DoAlert 0, "Don't forget to save changes by saving your Configurations ( NeuroMatic > Configs > Save )."
+	NMDoAlert( "Don't forget to save changes by saving your Configurations ( NeuroMatic > Configs > Save )." )
 
 End // ClampStimListSet
 
@@ -709,14 +727,15 @@ End // ClampStimListSet
 //****************************************************************
 //****************************************************************
 
-Function ClampSaveAsk( )
-	String cdf = ClampDF( )
+Function ClampSaveAsk()
+
+	String cdf = ClampDF()
 	
 	Variable saveWhen = NumVarOrDefault( cdf+"SaveWhen", 1 ) + 1
 	Variable savePrompt = NumVarOrDefault( cdf+"SaveWithDialogue", 1 ) + 1
 	Variable saveFormat = NumVarOrDefault( cdf+"SaveFormat", 1 )
 	
-	Variable bintype = FileBinType( )
+	Variable bintype = FileBinType()
 	
 	Prompt saveWhen, "save data when?", popup "never;after recording;while recording;"
 	Prompt savePrompt, "save with dialogue prompt?", popup "no;yes;"
@@ -741,7 +760,7 @@ Function ClampSaveAsk( )
 	endif
 
 	if ( saveWhen == 3 )
-		DoAlert 0, "Warning: depending on the speed of your computer, Save While Recording option may slow acquisition. Please use with caution."
+		NMDoAlert( "Warning: depending on the speed of your computer, Save While Recording option may slow acquisition. Please use with caution." )
 	endif
 	
 	SetNMVar( cdf+"SaveWhen", saveWhen - 1 )
@@ -754,26 +773,26 @@ End // ClampSaveAsk
 //****************************************************************
 //****************************************************************
 
-Function ClampAutoBackupNM_Start( )
+Function ClampAutoBackupNM_Start()
 
-	String cdf = ClampDF( )
+	String cdf = ClampDF()
 	Variable backup = NumVarOrDefault( cdf+"BackUp", 20 ) // minutes
 	
-	if ( ( backup <= 0 ) || ( numtype( backup ) > 0 ) )
+	if ( ( DataFolderExists( cdf ) == 0 ) || ( backup <= 0 ) || ( numtype( backup ) > 0 ) )
 		return -1
 	endif
 	
 	BackgroundInfo
 	
 	if ( V_flag > 0 )
-		if ( StringMatch( S_value, "ClampAutoBackupNM( )" ) == 1 )
+		if ( StringMatch( S_value, "ClampAutoBackupNM()" ) == 1 )
 			return 0 // already started
 		else
 			KillBackground
 		endif
 	endif
 
-	SetBackground ClampAutoBackupNM( )
+	SetBackground ClampAutoBackupNM()
 	CtrlBackground period=( 60 * 60 * 10 ), start=( 60 * 5 )
 	
 	return 0
@@ -784,20 +803,20 @@ End // ClampAutoBackupNM_Start
 //****************************************************************
 //****************************************************************
 
-Function ClampAutoBackupNM( )
+Function ClampAutoBackupNM()
 	
-	String fname, cdf = ClampDF( )
+	String fname, cdf = ClampDF()
 	Variable minutes = DateTime / 60
 	Variable backup = NumVarOrDefault( cdf+"BackUp", 20 ) // minutes
 	Variable lastbackup = NumVarOrDefault( cdf+"LastBackUp", Nan ) // minutes
 	String path = StrVarOrDefault( cdf+"ClampPath", "" )
-	String folderPrefix = ClampFolderPrefix( )
+	String folderPrefix = ClampFolderPrefix()
 	
-	if ( ( backup <= 0 ) || ( numtype( backup ) > 0 ) )
+	if ( ( DataFolderExists( cdf ) == 0 ) || ( backup <= 0 ) || ( numtype( backup ) > 0 ) )
 		return 1
 	endif
 	
-	ClampPathsCheck( )
+	ClampPathsCheck()
 	
 	PathInfo ClampSaveDataPath
 	
@@ -807,12 +826,12 @@ Function ClampAutoBackupNM( )
 	
 	if ( ( numtype( lastbackup ) > 0 ) || ( minutes >= lastbackup + backup ) )
 		fname = folderPrefix + "_backup.pxp"
-		NMProgressStr( "Backing up current Igor experiment..." )
-		CallProgress( -1 )
-		CallProgress( -2 )
+		SetNeuroMaticStr( "ProgressStr", "Backing up current Igor experiment..." )
+		//CallProgress( -1 )
+		//CallProgress( -2 )
 		SaveExperiment /P=ClampSaveDataPath as fname
-		CallProgress( 1 )
-		Print time( ) + " backed up current Igor experiment as " + S_path + fname
+		//CallProgress( 1 )
+		Print time() + " backed up current Igor experiment as " + S_path + fname
 		SetNMvar( cdf+"LastBackUp", minutes )
 	endif
 	
@@ -831,9 +850,9 @@ End // ClampAutoBackupNM
 //****************************************************************
 //****************************************************************
 
-Function /S StimCurrent( )
+Function /S StimCurrent()
 
-	return StrVarOrDefault( ClampDF( )+"CurrentStim", "" )
+	return StrVarOrDefault( ClampDF()+"CurrentStim", "" )
 	
 End // StimCurrent
 
@@ -841,11 +860,11 @@ End // StimCurrent
 //****************************************************************
 //****************************************************************
 
-Function StimCurrentCheck( ) // check current stim is OK
+Function StimCurrentCheck() // check current stim is OK
 	
-	String cdf = ClampDF( )
-	String CurrentStim = StimCurrent( )
-	String sList = StimList( )
+	String cdf = ClampDF()
+	String CurrentStim = StimCurrent()
+	String sList = StimList()
 	
 	if ( strlen( CurrentStim+sList ) == 0 ) // nothing is open
 	
@@ -868,8 +887,10 @@ End // StimCurrentCheck
 Function /S StimCurrentSet( fname ) // set current stim
 	String fname // stimulus name
 	
-	Variable update1, update2, update3
-	String sdf, dp = StimParent( ), cdf = ClampDF( )
+	Variable icnt, update1, update2, update3, ADCnum
+	String sdf, dp = StimParent(), cdf = ClampDF()
+	
+	String prefixFolder = CurrentNMPrefixFolder()
 	
 	Variable lastMode = NumVarOrDefault( "CT_RecordMode", 0 )
 	
@@ -878,7 +899,7 @@ Function /S StimCurrentSet( fname ) // set current stim
 		return ""
 	endif
 	
-	if ( stringmatch( fname, StimCurrent( ) ) == 1 )
+	if ( stringmatch( fname, StimCurrent() ) == 1 )
 		//return 0 // already current stim
 	endif
 	
@@ -887,12 +908,12 @@ Function /S StimCurrentSet( fname ) // set current stim
 	endif
 	
 	if ( IsStimFolder( dp, fname ) == 0 )
-		ClampError( 1, "\"" + fname + "\" is not a NeuroMatic stimulus folder.")
+		ClampError( 1, NMQuotes( fname ) + " is not a NeuroMatic stimulus folder.")
 		return ""
 	endif
 	
-	ClampSpikeDisplaySavePosition( )
-	ClampStatsDisplaySavePositions( )
+	ClampSpikeDisplaySavePosition()
+	ClampStatsDisplaySavePositions()
 	
 	sdf = dp + fname + ":"
 	
@@ -900,30 +921,30 @@ Function /S StimCurrentSet( fname ) // set current stim
 	
 	if ( StimChainOn( "" ) == 1 )
 		StimChainEdit( "" )
-		//ClampTabUpdate( )
+		//ClampTabUpdate()
 		return fname
 	endif
 	
-	if ( lastmode == 0 ) // empty folder
-		SetNMvar( "CurrentChan", NumVarOrDefault( sdf+"CurrentChan", 0 ) )
-		SetNMvar( "NumChannels", StimBoardNumADCchan( sdf ) )
+	if ( ( lastmode == 0 ) && ( strlen( prefixFolder ) > 0 ) ) // empty folder
+		SetNMvar( prefixFolder+"CurrentChan", NumVarOrDefault( sdf+"CurrentChan", 0 ) )
+		SetNMvar( prefixFolder+"NumChannels", StimBoardNumADCchan( sdf ) )
 	endif
 	
 	StimBoardConfigsOld2NewAll( "" )
 	StimBoardConfigsUpdateAll( "" )
 	
-	ClampStatsRetrieveFromStim( ) // get Stats from new stim
-	ClampStats( StimStatsOn( ) )
+	ClampStatsRetrieveFromStim() // get Stats from new stim
+	ClampStats( NMStimStatsOn() )
 	ClampGraphsCopy( -1, -1 ) // get Chan display variables
-	ChanGraphsReset( )
-	ClampStatsDisplaySetPositions( )
-	ClampSpikeDisplaySetPosition( )
+	ChanGraphsReset()
+	ClampStatsDisplaySetPositions()
+	ClampSpikeDisplaySetPosition()
 	
 	//UpdateNMPanel( 0 )
-	//ClampTabUpdate( )
-	//ChanGraphsUpdate( )
+	//ClampTabUpdate()
+	//ChanGraphsUpdate()
 	
-	StatsDisplayClear( )
+	StatsDisplayClear()
 	
 	return fname
 	
@@ -945,15 +966,17 @@ Function ClampGraphsCopy( chanNum, direction )
 	Variable chanNum // ( -1 ) for all
 	Variable direction // ( 1 ) data folder to clamp data folder ( -1 ) visa versa
 
-	String stim = StimCurrent( ), sdf = StimDF( ), gdf = GetDataFolder( 1 )
+	String stim = StimCurrent(), sdf = StimDF()
+	String gdf = GetDataFolder( 1 )
+	String prefixFolder = CurrentNMPrefixFolder()
 	
 	if ( direction == 1 )
-		if ( StringMatch( stim, StrVarOrDefault( gdf+"CT_Stim", "" ) ) == 1 )
-			ChanFolderCopy( -1, gdf, sdf, 1 )
-		endif
+		//if ( StringMatch( stim, StrVarOrDefault( gdf+"CT_Stim", "" ) ) == 1 )
+			ChanFolderCopy( -1, prefixFolder, sdf, 1 )
+		//endif
 	elseif ( direction == -1 )
-		ChanFolderCopy( -1, sdf, gdf, 0 )
-		SetNMstr( gdf+"CT_Stim", stim )
+		ChanFolderCopy( -1, sdf, prefixFolder, 0 )
+		//SetNMstr( gdf+"CT_Stim", stim )
 	endif
 
 End // ClampGraphsCopy
@@ -962,13 +985,28 @@ End // ClampGraphsCopy
 //****************************************************************
 //****************************************************************
 
+Function ClampGraphsCloseUnecessary()
+
+	Variable icnt
+	Variable ADCnum = StimBoardOnCount( "", "ADC" )
+	
+	for ( icnt = ADCnum ; icnt < 20 ; icnt += 1 )
+		ChanGraphClose( icnt, 0 )
+	endfor
+	
+End // ClampGraphsCloseUnecessary
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
 Function ClampGraphsUpdate( mode )
-	Variable mode
+	Variable mode // ( 0 ) preview ( 1 ) record 
 	
 	Variable ccnt, icnt
-	String gName, wlist, wname, cdf = ClampDF( )
+	String gName, wlist, wname, cdf = ClampDF()
 	
-	Variable numChannels = NumVarOrDefault( "NumChannels", 0 )
+	Variable numChannels = NMNumChannels()
 	Variable GetChanConfigs = NumVarOrDefault( cdf+"GetChanConfigs", 0 )
 	
 	if ( GetChanConfigs == 1 )
@@ -978,7 +1016,7 @@ Function ClampGraphsUpdate( mode )
 		ClampGraphsCopy( -1, 1 )
 	endif
 	
-	ChanGraphsUpdate( ) // set scales
+	ChanGraphsUpdate() // set scales
 	ChanWavesClear( -1 ) // clear all display waves
 	
 	for ( ccnt = 0; ccnt < numChannels; ccnt += 1 )
@@ -1013,10 +1051,10 @@ Function ClampGraphsUpdate( mode )
 	endfor
 	
 	if ( NumChannels > 0 )
-		ChanGraphClose( -2, 1 ) // close unecessary windows ( kills Chan DF )
+		ChanGraphClose( -2, 0 ) // close unecessary windows ( kills Chan DF )
 	endif
 	
-	StatsDisplay( -1, StimStatsOn( ) )
+	StatsDisplay( -1, NMStimStatsOn() )
 
 End // ClampGraphsUpdate
 
@@ -1024,11 +1062,26 @@ End // ClampGraphsUpdate
 //****************************************************************
 //****************************************************************
 
-Function ClampGraphsFinish( )
-	Variable ccnt
+Function ClampGraphsFinish()
+
+	Variable ccnt, numChannels = NMNumChannels()
+	String gname, wname
 	
-	for ( ccnt = 0; ccnt < NumVarOrDefault( "NumChannels", 0 ); ccnt += 1 )
+	String fname = NMFolderListName( "" )
+	
+	for ( ccnt = 0; ccnt < numChannels; ccnt += 1 )
+	
 		ChanControlsDisable( ccnt, "000000" )
+		
+		gname = ChanGraphName( ccnt )
+		wname = NMChanWaveName( ccnt, -1 )
+		
+		if ( strlen( fName ) > 0 )
+			DoWindow /T $gname, fname + " : Ch " + ChanNum2Char( ccnt ) + " : " + wname
+		else
+			DoWindow /T $gname, "Ch " + ChanNum2Char( ccnt ) + " : " + wname
+		endif
+		
 	endfor
 
 End // ClampGraphsFinish
@@ -1037,16 +1090,16 @@ End // ClampGraphsFinish
 //****************************************************************
 //****************************************************************
 
-Function ClampAutoScale( )
+Function ClampAutoScale()
 	Variable chan
 	
 	String gName = WinName( 0,1 ) // top graph
 	
-	if ( StringMatch( gName[0,3], "Chan" ) == 1 )
+	if ( IsChanGraph( gname ) == 1 )
 		chan = ChanNumGet( gName )
 	else
 		chan = 0
-		gName = "ChanA"
+		gName = ChanGraphName( chan )
 	endif
 	
 	SetAxis /A/W=$gName
@@ -1066,13 +1119,13 @@ Function ClampZoom( xzoom, yzoom, xshift, yshift )
 	Variable zfactor = 0.1 // zoom factor
 	
 	String gName = WinName( 0,1 ) // top graph
-	String cdf = ClampDF( )
+	String cdf = ClampDF()
 	
-	if ( StringMatch( gName[0,3], "Chan" ) == 1 )
+	if ( IsChanGraph( gName ) == 1 )
 		chan = ChanNumGet( gName )
 	else
 		chan = 0
-		gName = "ChanA"
+		gName = ChanGraphName( chan )
 	endif
 	
 	String wName = ChanDisplayWave( chan ) // display wave
@@ -1103,11 +1156,11 @@ Function ClampZoom( xzoom, yzoom, xshift, yshift )
 	
 	ChanAutoScale( chan, 0 )
 	
-	SetNMVar( cdf+"AutoScale" + num2str( chan ), 0 )
-	SetNMVar( cdf+"xAxisMin" + num2str( chan ), xmin )
-	SetNMVar( cdf+"xAxisMax" + num2str( chan ), xmax )
-	SetNMVar( cdf+"yAxisMin" + num2str( chan ), ymin )
-	SetNMVar( cdf+"yAxisMax" + num2str( chan ), ymax )
+	SetNMVar( cdf+"AutoScale" + num2istr( chan ), 0 )
+	SetNMVar( cdf+"xAxisMin" + num2istr( chan ), xmin )
+	SetNMVar( cdf+"xAxisMax" + num2istr( chan ), xmax )
+	SetNMVar( cdf+"yAxisMin" + num2istr( chan ), ymin )
+	SetNMVar( cdf+"yAxisMax" + num2istr( chan ), ymax )
 
 End // ClampZoom
 
@@ -1126,7 +1179,7 @@ End // ClampZoom
 Function /S ClampBoardName( boardNum )
 	Variable boardNum // ( 0 ) driver ( > 0 ) for name from BoardList
 	
-	String cdf = ClampDF( )
+	String cdf = ClampDF()
 	
 	Variable driver = NumVarOrDefault( cdf+"BoardDriver", 0 )
 	
@@ -1162,7 +1215,7 @@ Function ClampBoardSet( select )
 	String select
 	
 	Variable driver
-	String cdf = ClampDF( )
+	String cdf = ClampDF()
 	String blist = StrVarOrDefault( cdf+"BoardList", "" )
 	
 	strswitch( select )
@@ -1173,7 +1226,7 @@ Function ClampBoardSet( select )
 			break
 			
 		case "NIDAQ":
-			driver = ClampBoardDriverPrompt( )
+			driver = ClampBoardDriverPrompt()
 			SetNMvar( cdf+"BoardDriver", driver )
 			break
 			
@@ -1194,9 +1247,9 @@ End // ClampBoardSet
 //****************************************************************
 //****************************************************************
 
-Function ClampBoardDriverPrompt( )
+Function ClampBoardDriverPrompt()
 
-	String cdf = ClampDF( )
+	String cdf = ClampDF()
 	String blist = StrVarOrDefault( cdf + "BoardList", "" )
 	Variable driver = NumVarOrDefault( cdf+"BoardDriver", 0 )
 

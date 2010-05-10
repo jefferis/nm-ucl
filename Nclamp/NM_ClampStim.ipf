@@ -48,12 +48,12 @@ Function CheckStim(dp, sname) // declare stim global variables
 	Variable samplesPerWave = floor(waveLength/sampleInterval)
 	
 	if (DataFolderExists(sdf) == 0)
-		NewDataFolder $LastPathColon(sdf, 0) 				// make new stim folder
+		NewDataFolder $RemoveEnding( sdf, ":" ) 				// make new stim folder
 	endif
 	
 	CheckNMstr(sdf+"FileType", "NMStim")					// type of data file
 	
-	CheckNMvar(sdf+"Version", NumVarOrDefault(NMDF()+"NMversion",-1))
+	CheckNMvar(sdf+"Version", NeuroMaticVar("NMversion"))
 	
 	CheckNMstr(sdf+"StimTag", "")							// stimulus file suffix tag
 	
@@ -128,7 +128,7 @@ Function StimWaveLength(sdf, waveNum)
 	
 		for (icnt = 0; icnt < 50; icnt += 1)
 		
-			wname = sdf  + "MyDAC_" + num2str(icnt) + "_" + num2str(waveNum)
+			wname = sdf  + "MyDAC_" + num2istr(icnt) + "_" + num2istr(waveNum)
 			
 			if (WaveExists($wname) == 1)
 				return rightx($wname)
@@ -162,7 +162,7 @@ Function StimWavePoints(sdf, waveNum)
 	
 		for (icnt = 0; icnt < 50; icnt += 1)
 		
-			wname = sdf  + "MyDAC_" + num2str(icnt) + "_" + num2str(waveNum)
+			wname = sdf  + "MyDAC_" + num2istr(icnt) + "_" + num2istr(waveNum)
 			
 			if (WaveExists($wname) == 1)
 				return numpnts($wname)
@@ -332,7 +332,7 @@ End // StimIntervalSet
 //****************************************************************
 //****************************************************************
 
-Function StimIntervalSetx(sdf, boardNum, boardDriver, sampleInterval)
+Function StimIntervalSet_OLD(sdf, boardNum, boardDriver, sampleInterval)
 	String sdf // stim data folder bath
 	Variable boardNum, boardDriver, sampleInterval
 	
@@ -348,7 +348,7 @@ Function StimIntervalSetx(sdf, boardNum, boardDriver, sampleInterval)
 	driverSampleInterval = NumVarOrDefault(sdf+"SampleInterval", 1)
 	boards = StrVarOrDefault(cdf+"BoardList", "")
 	
-	varName = sdf + "SampleInterval_" + num2str(boardNum)
+	varName = sdf + "SampleInterval_" + num2istr(boardNum)
 	
 	if (boardNum == boardDriver)
 		SetNMVar(sdf+"SampleInterval", sampleInterval)
@@ -360,7 +360,7 @@ Function StimIntervalSetx(sdf, boardNum, boardDriver, sampleInterval)
 	
 	return sampleInterval
 	
-End // StimIntervalSetx
+End // StimIntervalSet_OLD
 
 //****************************************************************
 //****************************************************************
@@ -541,7 +541,7 @@ Function StimUseGlobalBoardConfigsSet(sdf, on)
 	on = BinaryCheck(on)
 	
 	if ((on == 0) && (WaveExists($sdf+"ADCname") == 0))
-		DoAlert 0, "Alert: \"" + StimCurrent() + "\" does not contain its own board configs. You must use the global board configs which you can create using the Board tab."
+		DoAlert 0, "Alert: " + NMQuotes( StimCurrent() ) + " does not contain its own board configs. You must use the global board configs which you can create using the Board tab."
 		on = 1
 	endif
 	
@@ -647,10 +647,10 @@ Function /S StimFxnListAddAsk(sdf, select)
 
 	if (strlen(flist2) > 0)
 		Prompt fxn, "choose utility function:", popup flist2
-		Prompt otherfxn, "or enter function name, such as \"MyFunction\":"
+		Prompt otherfxn, "or enter function name, such as " + NMQuotes( "MyFunction" ) + ":"
 		DoPrompt "Add Stim Function", fxn, otherfxn
 	else
-		Prompt otherfxn, "enter function name, such as \"MyFunction\":"
+		Prompt otherfxn, "enter function name, such as " + NMQuotes( "MyFunction" ) + ":"
 		DoPrompt "Add Stim Function", otherfxn
 	endif
 	
@@ -704,7 +704,7 @@ Function /S StimFxnListAdd(sdf, select, fxn)
 	
 	flist = StimFxnList(sdf, select)
 	
-	if (WhichListItemLax(fxn, flist, ";") == -1)
+	if (WhichListItem(fxn, flist, ";", 0, 0 ) == -1)
 		flist = AddListItem(fxn,StrVarOrDefault(sdf+listname,""),";",inf)
 		SetNMStr(sdf+listname,flist)
 	endif
@@ -811,18 +811,28 @@ End // StimFxnListClear
 //****************************************************************
 //****************************************************************
 
-Function /S StimNew(sname) // create a new stimulus folder
+Function /S StimNew( sname ) // create a new stimulus folder
 	String sname // stim name
 	
-	String dp = StimParent()
+	Variable icnt, init
+	String df, dp = StimParent()
 	
-	Prompt sname, "Stimulus name:"
+	Prompt sname, "stimulus name:"
 	
 	if (StringMatch(sname, "") == 1)
-	
-		sname = "Untitled"
 		
-		DoPrompt "New Stimulus", sname // prompt for user input if no name was passed
+		for ( icnt = 0 ; icnt < 999 ; icnt += 1 )
+		
+			sname = "Stim" + num2istr( icnt )
+			df = dp + sname + ":"
+			
+			if ( DataFolderExists( df ) == 0 )
+				break
+			endif
+			
+		endfor
+		
+		DoPrompt "Create a New Stimulus", sname // prompt for user input if no name was passed
 	
 		if (V_flag == 1)
 			return "" // cancel
@@ -830,33 +840,21 @@ Function /S StimNew(sname) // create a new stimulus folder
 		
 	endif
 	
-	String df = dp + sname + ":"
+	df = dp + sname + ":"
 	
-	Variable init = 1
+	if ( DataFolderExists( df ) == 0 )
 	
-	do
-	
-		if (DataFolderExists(df) == 0)
+		init = 1
 		
-			break
-			
-		else
+	else
+	
+		DoAlert 1, "Warning: stim protocol name '" + sname + "' is already in use. Do you want to overwrite the existing protocol?"
 		
-			DoAlert 1, "Warning: stim protocol name '" + sname + "' is already in use. Do you want to overwrite the existing protocol?"
-			
-			if (V_Flag == 1)
-				break
-			elseif (V_flag == 2)
-				sname = "Untitled"
-				DoPrompt "New Stimulus", sname // prompt for user input if no name was passed
-				if (V_flag == 1)
-					init = 0 // cancel
-				endif
-			endif
-			
+		if ( V_Flag == 1 )
+			init = 1
 		endif
 		
-	while(1)
+	endif
 	
 	if (init == 1)
 		CheckStim(dp, sname)
@@ -881,7 +879,7 @@ Function /S StimCopy(oldName, newName)
 	endif
 	
 	if (DataFolderExists(dp+newName) == 1)
-		DoAlert 2, "Stim protocol \"" + newName + "\" is already open. Do you want to replace it?"
+		DoAlert 2, "Stim protocol " + NMQuotes( newName ) + " is already open. Do you want to replace it?"
 		if (V_flag == 1)
 			KillDataFolder $(dp+newName)
 		else
@@ -916,7 +914,7 @@ Function StimRename(oldName, newName)
 	oldName = dp + oldName
 	
 	if (DataFolderExists(dp + newName) == 1)
-		DoAlert 0, "Abort: stim protocol name \"" + newName + "\" already in use."
+		DoAlert 0, "Abort StimRename: stim protocol name " + NMQuotes( newName ) + " is already in use."
 		return -1
 	endif
 	
@@ -949,12 +947,12 @@ Function  StimClose(slist)
 		String df = dp + sname
 		
 		if (DataFolderExists(df) == 0)
-			DoAlert 0, "Error: stim protocol \"" + sname + "\" does not exist."
+			DoAlert 0, "Error: stim protocol " + NMQuotes( sname ) + " does not exist."
 			return -1
 		endif
 		
 		if (strlen(StrVarOrDefault(LastPathColon(df,1)+"CurrentFile","")) == 0)
-			DoAlert 1, "Warning: stim protocol \"" + sname + "\" has not been saved. Do you want to close it anyway?"
+			DoAlert 1, "Warning: stim protocol " + NMQuotes( sname ) + " has not been saved. Do you want to close it anyway?"
 			if (V_flag != 1)
 				return -1
 			endif
@@ -1049,7 +1047,7 @@ Function /S StimOpen(dialogue, pathName, file)
 	String sname = GetPathName(df, 0)
 
 	if (IsStimFolder(GetPathName(df, 1), sname) == 0)
-		DoAlert 0, "Open Stim Aborted: file \"" + file + "\" is not a NeuroMatic stim protocol."
+		DoAlert 0, "Open Stim Aborted: file " + NMQuotes( file ) + " is not a NeuroMatic stim protocol."
 		if (DataFolderExists(df) == 1)
 			KillDataFolder $df
 		endif
@@ -1169,7 +1167,7 @@ Function XXXXCheckStimChanFoldersXXXXX()
 		
 		// copy default channel graph settings to stim folder
 		
-		//DuplicateDataFolder $LastPathColon(pdf, 0) $LastPathColon(df, 0) // no longer exists
+		//DuplicateDataFolder $RemoveEnding( pdf, ":" ) $RemoveEnding( df, ":" ) // no longer exists
 		
 		if (strlen(currFolder) == 0)
 			continue
@@ -1183,7 +1181,7 @@ Function XXXXCheckStimChanFoldersXXXXX()
 		
 		// copy to current data folder as well
 		
-		DuplicateDataFolder $LastPathColon(pdf, 0) $LastPathColon(df, 0)
+		DuplicateDataFolder $RemoveEnding( pdf, ":" ) $RemoveEnding( df, ":" )
 	
 	endfor
 		
@@ -1242,7 +1240,7 @@ Function StimBoardWavesCheck(sdf, io)
 	endif
 	
 	if (DataFolderExists(bdf) == 0)
-		NewDataFolder $LastPathColon(bdf, 0) 			// make new board config sub-folder
+		NewDataFolder $RemoveEnding( bdf, ":" ) 			// make new board config sub-folder
 	endif
 	
 	CheckNMtwave(bdf+io+"name", npnts,"")			// config name
@@ -1277,7 +1275,7 @@ Function StimBoardConfigsOld2NewAll(sdf)
 	Variable new3 = StimBoardConfigsOld2New(sdf, "TTL")
 	
 	if (new1 + new2 + new3 > 0)
-		Print "Updated " + StimCurrent() + " to version " + NMVersionStr()
+		Print "Updated " + StimCurrent() + " to version " + num2str( NMVersion() )
 	endif
 	
 	return new1 + new2 + new3
@@ -1476,7 +1474,7 @@ Function StimBoardConfigsUpdate(sdf, io)
 			cname = nameS[icnt]
 			
 			for (jcnt = 0; jcnt < 10; jcnt += 1)
-				if (StringMatch(cname, "TGain_" + num2str(jcnt)) == 1)
+				if (StringMatch(cname, "TGain_" + num2istr(jcnt)) == 1)
 					nameS[icnt] = "" // clear old telegraph gain configs before updating
 				endif
 			endfor
@@ -1655,7 +1653,7 @@ Function StimBoardConfigsUpdate(sdf, io)
 		
 			for (jcnt = 0; jcnt < ItemsInList(tGainList); jcnt += 1)
 			
-				cname = "TGain_" + num2str(jcnt)
+				cname = "TGain_" + num2istr(jcnt)
 				item = StringFromList(jcnt, tGainList)
 				board = 0 // default driver
 				gchan = str2num(StringFromList(0, item, ",")) // telegraph gain ADC input channel
@@ -1670,7 +1668,7 @@ Function StimBoardConfigsUpdate(sdf, io)
 					continue
 				endif
 				
-				modeStr = "TGain=B" + num2str(board) + "_C" + num2str(achan) + "_" + instr
+				modeStr = "TGain=B" + num2istr(board) + "_C" + num2istr(achan) + "_" + instr
 				
 				found = 0
 				
@@ -1713,12 +1711,12 @@ Function StimBoardConfigsUpdate(sdf, io)
 					endfor
 					
 					if (found == 1)
-						nameS[icnt] = "TGain_" + num2str(jcnt)
+						nameS[icnt] = "TGain_" + num2istr(jcnt)
 						UnitsS[icnt] = "V"
 						boardS[icnt] = 0
 						chanS[icnt] = gchan
 						scaleS[icnt] = 1
-						modeS[icnt] = "TGain=B0_C" + num2str(achan) + "_" + instr
+						modeS[icnt] = "TGain=B0_C" + num2istr(achan) + "_" + instr
 						gainS[icnt] = 1
 					endif
 				
@@ -1847,7 +1845,7 @@ Function StimBoardConfigsCheckDuplicates(sdf)
 				test = test && (ADCchan[jcnt] == ADCchan[config]) && (StringMatch(ADCmode[jcnt], ADCmode[config]) == 1)
 				
 				if ((jcnt != config) && (test == 1))
-					ClampError( 1, "duplicate ADC inputs for configs " + num2str(config) + " and " + num2str(jcnt))
+					ClampError( 1, "duplicate ADC inputs for configs " + num2istr(config) + " and " + num2istr(jcnt))
 					return -1
 				endif
 				
@@ -1872,7 +1870,7 @@ Function StimBoardConfigsCheckDuplicates(sdf)
 				test = test && (DACboard[jcnt] == DACboard[config]) && (DACchan[jcnt] == DACchan[config])
 				
 				if ((jcnt != config) && (test == 1))
-					ClampError( 1, "duplicate DAC outputs for configs " + num2str(config) + " and " + num2str(jcnt))
+					ClampError( 1, "duplicate DAC outputs for configs " + num2istr(config) + " and " + num2istr(jcnt))
 					return -1
 				endif
 				
@@ -1897,7 +1895,7 @@ Function StimBoardConfigsCheckDuplicates(sdf)
 				test = test && (TTLboard[jcnt] == TTLboard[config]) && (TTLchan[jcnt] == TTLchan[config])
 			
 				if ((jcnt != config) && (test == 1))
-					ClampError( 1, "duplicate TTL outputs for configs " + num2str(config) + " and " + num2str(jcnt))
+					ClampError( 1, "duplicate TTL outputs for configs " + num2istr(config) + " and " + num2istr(jcnt))
 					return -1
 				endif
 				
@@ -2071,7 +2069,7 @@ Function StimBoardConfigActivate(sdf, io, config, configName)
 		else // DAC and TTL
 		
 			PulseWaveCheck(io, config)
-			StimWavesCheck(sdf, 1)// this creates waves
+			StimWavesCheck(sdf, 1) // this creates waves
 			
 		endif
 		
@@ -2137,7 +2135,7 @@ Function /S StimBoardConfigActiveList(sdf, io)
 	
 	for (icnt = 0; icnt < numpnts(name); icnt += 1)
 		if (strlen(name[icnt]) > 0)
-			alist = AddListItem(num2str(icnt), alist, ";", inf)
+			alist = AddListItem(num2istr(icnt), alist, ";", inf)
 		endif
 	endfor
 	
@@ -2308,7 +2306,7 @@ Function /S StimBoardOnList(sdf, io)
 				mode = WaveStrOrDefault(bdf+io+"mode", config, "")
 				
 				if ((strlen(name) > 0) && (StimADCmodeNormal(mode) == 1))
-					list = AddListItem(num2str(config), list, ";", inf)
+					list = AddListItem(num2istr(config), list, ";", inf)
 				endif
 				
 			endfor
@@ -2321,7 +2319,7 @@ Function /S StimBoardOnList(sdf, io)
 			for (config = 0; config < numpnts($bdf+io+"name"); config += 1)
 				name = WaveStrOrDefault(bdf+io+"name", config, "")
 				if (strlen(name) > 0)
-					list = AddListItem(num2str(config), list, ";", inf)
+					list = AddListItem(num2istr(config), list, ";", inf)
 				endif
 			endfor
 			
@@ -2380,7 +2378,7 @@ Function /S StimBoardNamesTable(sdf, hook)
 	DoWindow /K $tName
 	Edit /N=$tName/W=(0,0,0,0)/K=1 as title[0,30]
 	SetCascadeXY(tName)
-	Execute "ModifyTable title(Point)= \"Config\""
+	Execute "ModifyTable title(Point)= " + NMQuotes( "Config" )
 	
 	if (hook == 1)
 		SetWindow $tName hook=StimBoardNamesTableHook

@@ -1,7 +1,4 @@
 #pragma rtGlobals=1		// Use modern global access method.
-
-#pragma rtGlobals = 1
-#pragma IgorVersion = 5
 #pragma version = 2
 
 //****************************************************************
@@ -32,7 +29,7 @@ Function ClampPNenable( enable )
 	
 	Variable TURNTHISOFF = 1
 	
-	String sdf = StimDF( )
+	String sdf = StimDF()
 	
 	Variable on = NumVarOrDefault( sdf + "PN", 0 )
 	Variable subtract = 1 + NumVarOrDefault( sdf + "PNsubtract", 1 ) // ( 0 ) no ( 1 ) yes
@@ -88,7 +85,7 @@ Function ClampPNenable( enable )
 	SetNMvar( sdf + "PNsave", saveflag )
 	
 	if ( on == 0 )
-		ClampPNcheckwaves( ) // delete existing waves
+		ClampPNcheckwaves() // delete existing waves
 	endif
 	
 	StimTabMisc( 1 )
@@ -99,9 +96,9 @@ End // ClampPNenable
 //****************************************************************
 //****************************************************************
 
-Function ClampPN( )
+Function ClampPN()
 
-	return NumVarOrDefault( StimDF( ) + "PN", 0 )
+	return NumVarOrDefault( StimDF() + "PN", 0 )
 
 End // ClampPN
 
@@ -109,9 +106,9 @@ End // ClampPN
 //****************************************************************
 //****************************************************************
 
-Function /S ClampPN_ADCname( )
+Function /S ClampPN_ADCname()
 
-	return StrVarOrDefault( StimDF( ) + "PN_ADCname", "" )
+	return StrVarOrDefault( StimDF() + "PN_ADCname", "" )
 
 End // ClampPN_ADCname
 
@@ -119,9 +116,9 @@ End // ClampPN_ADCname
 //****************************************************************
 //****************************************************************
 
-Function /S ClampPN_DACname( )
+Function /S ClampPN_DACname()
 
-	return StrVarOrDefault( StimDF( ) + "PN_DACname", "" )
+	return StrVarOrDefault( StimDF() + "PN_DACname", "" )
 
 End // ClampPN_DACname
 
@@ -129,9 +126,9 @@ End // ClampPN_DACname
 //****************************************************************
 //****************************************************************
 
-Function ClampPNdisplay( )
+Function ClampPNdisplay()
 
-	return NumVarOrDefault( StimDF( ) + "PNdisplay", 0 )
+	return NumVarOrDefault( StimDF() + "PNdisplay", 0 )
 
 End // ClampPNdisplay
 
@@ -139,9 +136,9 @@ End // ClampPNdisplay
 //****************************************************************
 //****************************************************************
 
-Function ClampPNsubtract( )
+Function ClampPNsubtract()
 
-	return NumVarOrDefault( StimDF( ) + "PNsubtract", 1 )
+	return NumVarOrDefault( StimDF() + "PNsubtract", 1 )
 
 End // ClampPNsubtract
 
@@ -149,9 +146,9 @@ End // ClampPNsubtract
 //****************************************************************
 //****************************************************************
 
-Function ClampPNsave( )
+Function ClampPNsave()
 
-	return NumVarOrDefault( StimDF( ) + "PNsave", 1 )
+	return NumVarOrDefault( StimDF() + "PNsave", 1 )
 
 End // ClampPNsave
 
@@ -159,9 +156,9 @@ End // ClampPNsave
 //****************************************************************
 //****************************************************************
 
-Function ClampPN_ADCconfig( )
+Function ClampPN_ADCconfig()
 	
-	String sdf = StimDF( )
+	String sdf = StimDF()
 	String cname = StrVarOrDefault( sdf + "PN_ADCname", "" )
 	
 	return StimBoardConfigNum( sdf, "ADC", cname )
@@ -172,9 +169,9 @@ End // ClampPN_DACwavename
 //****************************************************************
 //****************************************************************
 
-Function ClampPN_DACconfig( )
+Function ClampPN_DACconfig()
 	
-	String sdf = StimDF( )
+	String sdf = StimDF()
 	String cname = StrVarOrDefault( sdf + "PN_DACname", "" )
 	
 	return StimBoardConfigNum( sdf, "DAC", cname )
@@ -185,16 +182,16 @@ End // ClampPN_DACwavename
 //****************************************************************
 //****************************************************************
 
-Function ClampPNcheckwaves( )
+Function ClampPNcheckwaves()
 	
 	Variable config, wcnt
-	String prefix, wname, wname2, wlist, sdf = StimDF( )
+	String prefix, wname, wname2, wlist, sdf = StimDF()
 	
 	Variable pn = NumVarOrDefault( sdf + "PN", 0 )
 
 	String DACname = StrVarOrDefault( sdf + "PN_DACname", "" )
 	
-	wlist = WaveListFolder( sdf, "pnDAC*", ";", "" )
+	wlist = NMFolderWaveList( sdf, "pnDAC*", ";", "", 0 )
 	
 	for ( wcnt = 0 ; wcnt < ItemsInlist( wlist ) ; wcnt += 1 )
 		wname = StringFromList( wcnt, wlist )
@@ -212,7 +209,7 @@ Function ClampPNcheckwaves( )
 		return -1
 	endif
 	
-	prefix = "DAC_" + num2str( config )
+	prefix = "DAC_" + num2istr( config )
 	
 	wlist = StimWaveList( sdf, prefix, -1 )
 	
@@ -245,9 +242,9 @@ End // ClampPNcheckwaves
 //****************************************************************
 //****************************************************************
 
-Function ClampPNinit( )
+Function ClampPNinit()
 
-	if ( ( ClampPN( ) == 0 ) || ( ClampPNsubtract( ) == 0 ) )
+	if ( ( ClampPN() == 0 ) || ( ClampPNsubtract() == 0 ) )
 		return 0 // nothing to do
 	endif
 	
@@ -262,7 +259,7 @@ End // ClampPNinit
 
 Function ClampPNfinish()
 
-	if ( ( ClampPN( ) == 0 ) || ( ClampPNsubtract( ) == 0 ) )
+	if ( ( ClampPN() == 0 ) || ( ClampPNsubtract() == 0 ) )
 		return 0 // nothing to do
 	endif
 	
@@ -279,13 +276,13 @@ Function /S ClampPNsubtraction( wname, chan, currentwave )
 	Variable chan
 	Variable currentwave
 	
-	String cdf = ClampDF( ), sdf = StimDF( )
+	String cdf = ClampDF(), sdf = StimDF()
 	String prefix = StrVarOrDefault( "WavePrefix", "Record" )
 	
-	Variable pn = ClampPN( )
-	Variable config = ClampPN_ADCconfig( )
-	Variable subtract = ClampPNsubtract( )
-	Variable displayN = ClampPNdisplay( )
+	Variable pn = ClampPN()
+	Variable config = ClampPN_ADCconfig()
+	Variable subtract = ClampPNsubtract()
+	Variable displayN = ClampPNdisplay()
 	
 	Variable counter = NumVarOrDefault( "PNcounter", 0 )
 	Variable sumcounter = NumVarOrDefault( "PNsumcounter", 0 )

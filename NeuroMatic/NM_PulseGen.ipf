@@ -1,6 +1,5 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
-#pragma version = 2.00
+#pragma version = 2
 
 //****************************************************************
 //****************************************************************
@@ -14,7 +13,6 @@
 //	By Jason Rothman (Jason@ThinkRandom.com)
 //
 //	Began March 2001
-//	Last modified 02 March 2006
 //
 //	Functions for creating/displaying "pulse" waves
 //
@@ -33,14 +31,14 @@ Function PulseGraphMake()
 	
 	Variable pw=500, ph=300
 	
-	String computer = StrVarOrDefault(ndf + "Computer", "mac")
+	String computer = NMComputerType()
 	
 	if (StringMatch(computer, "mac") == 1)
 		pw = 600
 	endif
 	
-	Variable x0 = ceil((NumVarOrDefault(ndf+"xPixels", 1000) - pw)/4)
-	Variable y0 = ceil((NumVarOrDefault(ndf+"yPixels", 700) - ph)/4)
+	Variable x0 = ceil((NMComputerPixelsX() - pw)/4)
+	Variable y0 = ceil((NMComputerPixelsY() - ph)/4)
 	
 	Make /O/N=0 PG_DumWave
 	
@@ -88,7 +86,7 @@ Function PulseGraphUpdate(df, wlist)
 		ModifyGraph /W=$gName mode=6, standoff=0
 		ModifyGraph /W=$gName wbRGB = (43690,43690,43690), cbRGB = (43690,43690,43690)
 		
-		GraphRainbow(gName) // set waves to raindow colors
+		GraphRainbow( gName, "_All_" ) // set waves to raindow colors
 	
 	endif
 	
@@ -177,13 +175,17 @@ Function /S PulseWavesMake(df, wPrefix, numWaves, npnts, dt, scale, ORflag)
 	Variable ORflag // (0) add (1) OR
 	
 	Variable i, j, k, klmt
-	String wlist = ""
+	String wlist = "", thisfxn = "PulseWavesMake"
 
 	if (DataFolderExists(df) == 0)
-		NewDataFolder $LastPathColon(df, 0) // create data folder if it does not exist
+		NewDataFolder $RemoveEnding( df, ":" ) // create data folder if it does not exist
 	endif
 	
 	String wname = PulseWaveName(df, wPrefix)
+	
+	if ( strlen( wname ) == 0 )
+		return NMErrorStr( 21, thisfxn, "wname", wname )
+	endif
 
 	if (WaveExists($wname) == 0)
 		Make /N=0 $(wname) // make pulse parameter wave
@@ -195,7 +197,7 @@ Function /S PulseWavesMake(df, wPrefix, numWaves, npnts, dt, scale, ORflag)
 
 	for (i = 0; i < numWaves; i += 1) // loop through waves
 	
-		wname = df + wPrefix + "_" + num2str(i)
+		wname = df + wPrefix + "_" + num2istr(i)
 	
 		if (WaveExists($wname) == 0)
 			Make /N=(npnts) $wname  = 0
@@ -205,7 +207,7 @@ Function /S PulseWavesMake(df, wPrefix, numWaves, npnts, dt, scale, ORflag)
 		
 		Setscale /P x 0, dt, $wname
 		
-		wlist = AddListItem(wPrefix + "_" + num2str(i), wlist, ";", inf)
+		wlist = AddListItem(wPrefix + "_" + num2istr(i), wlist, ";", inf)
 	
 		Wave pwave =  $wname
 		
@@ -293,7 +295,7 @@ Function PulseCompute(df, npnts, dt, shape, onset, amp, tau1, tau2) // create pu
 			wname = StrVarOrDefault(df+"UserPulseName", "") // OLD NAME
 			
 			if (WaveExists($(df+wname)) == 0)
-				wname = StrVarOrDefault(df+"UserPulseName"+num2str(shape), "") // NEW NAME
+				wname = StrVarOrDefault(df+"UserPulseName"+num2istr(shape), "") // NEW NAME
 			endif
 			
 			if (WaveExists($(df+wname)) == 1)
@@ -332,8 +334,13 @@ Function PulseSave(df, wPrefix, pulseNum, sh, wn, wnd, on, ond, am, amd, wd, wdd
 	Variable sh, wn, wnd, on, ond, am, amd, wd, wdd, t2, t2d
 	
 	Variable pNumVar = 12
+	String thisfxn = "PulseSave"
 
 	String wname = PulseWaveName(df, wPrefix)
+	
+	if ( strlen( wname ) == 0 )
+		return NMError( 21, thisfxn, "wname", wname )
+	endif
 
 	if (WaveExists($wname) == 0)
 		Make /N=0 $(wname) // make pulse parameter wave
@@ -390,7 +397,7 @@ Function PulseClear(df, wPrefix, pulseNum) // clear pulse waves
 		KillStrings /Z $df+"UserPulseName"
 		
 		for (icnt = 5; icnt < 25; icnt += 1)
-			KillStrings /Z $(df+"UserPulseName"+num2str(icnt))
+			KillStrings /Z $(df+"UserPulseName"+num2istr(icnt))
 		endfor
 	
 	else
@@ -606,7 +613,7 @@ Function /S PulseShape(df, shapeNum) // convert shape number to name
 		default:
 			
 			pname = StrVarOrDefault(df+"UserPulseName", "")
-			pname = StrVarOrDefault(df+"UserPulseName"+num2str(shapeNum), pname)
+			pname = StrVarOrDefault(df+"UserPulseName"+num2istr(shapeNum), pname)
 	
 			return pname
 			

@@ -1,5 +1,4 @@
 #pragma rtGlobals = 1
-#pragma IgorVersion = 5
 #pragma version = 2.00
 
 //****************************************************************
@@ -38,6 +37,10 @@ Function NMFileCall(select)
 		case "Axograph":
 		case "Pclamp":
 			NMImportFileCall()
+			break
+			
+		case "Load All Waves":
+			NMLoadAllWavesFromExtFolderCall()
 			break
 			
 		case "Convert":
@@ -85,7 +88,7 @@ Function /S CheckNMPath() // find path to NeuroMatic Procedure folder
 	
 		fname = StringFromList(icnt, flist)
 		
-		if (StrSearchLax(fname, "NeuroMatic", 0) >= 0)
+		if (StrSearch(fname, "NeuroMatic", 0, 2) >= 0)
 			path = igor + fname + ":" // found it
 			break
 		endif
@@ -100,7 +103,7 @@ Function /S CheckNMPath() // find path to NeuroMatic Procedure folder
 		
 			fname = StringFromList(icnt, flist)
 			
-			if (StrSearchLax(fname, "NeuroMatic", 0) >= 0)
+			if (StrSearch(fname, "NeuroMatic", 0, 2) >= 0)
 			
 				//if (IgorVersion() < 5)
 				//	NMDoAlert("NM path cannot be determined. Try putting NM folder (rather than alias) in Igor Procedures folder.")
@@ -127,6 +130,24 @@ Function /S CheckNMPath() // find path to NeuroMatic Procedure folder
 	return path
 
 End // CheckNMPath
+
+//****************************************************************
+//****************************************************************
+//****************************************************************
+
+Function KillNMPath()
+	
+	PathInfo igor
+	
+	if (V_flag == 0)
+		return -1
+	endif
+	
+	NewPath /O/Q NMPath, S_path
+	
+	KillPath /Z NMPath
+
+End // KillNMPath
 
 //****************************************************************
 //****************************************************************
@@ -340,11 +361,11 @@ Function /S SeqNumSet(file, ibeg, iend, seqnum) // create new file name, with ne
 	
 	icnt = iend - ibeg + 1
 	
-	jcnt = strlen(num2str(seqnum))
+	jcnt = strlen(num2istr(seqnum))
 	
 	if (jcnt <= icnt)
 		ibeg = iend - jcnt + 1
-		file[ibeg,iend] = num2str(seqnum)
+		file[ibeg,iend] = num2istr(seqnum)
 	else
 		file = "overflow" // new sequence number does not fit within allowed index boundaries
 	endif
@@ -387,7 +408,7 @@ Function /S Seq2List(seqStr)
 			endif
 			
 			for (jcnt = from; jcnt <= to; jcnt += 1)
-				seqList = AddListItem(num2str(jcnt), seqList, ";", inf)
+				seqList = AddListItem(num2istr(jcnt), seqList, ";", inf)
 			endfor
 			
 		endif
@@ -468,7 +489,7 @@ Function /S CheckFileOpen(fileName) // check to see if file opened was NM folder
 	endif
 	
 	if (strlen(fileName) == 0)
-		fileName = StrVarOrDefault("FileName", "")
+		fileName = GetDataFolder(0)
 	endif
 
 	if (StringMatch(StrVarOrDefault("FileType", ""), "NMData") == 1)
@@ -515,7 +536,7 @@ Function /S FileOpenFix2NM(fileName) // move opened NM folder to new subfolder
 	
 	list = RemoveFromList("WinGlobals;Packages;", list)
 	
-	NewDataFolder /O $LastPathColon(folder, 0)
+	NewDataFolder /O $RemoveEnding( folder, ":" )
 	
 	for (icnt = 0; icnt < ItemsInList(list); icnt += 1)
 		MoveDataFolder $StringFromList(icnt, list), $folder
@@ -561,7 +582,7 @@ Function /S FileBinOpen(dialogue, new, folder, pathName, file, changeFolder)
 	Variable changeFolder // change to this folder after opening file (0) no (1)
 
 	Variable numwaves, numchans, bintype = FileBinType()
-	String vlist = "", df, dtype, ndf = NMDF()
+	String vlist = "", df, dtype
 	
 	file = FilePathCheck(pathName, file)
 
@@ -587,7 +608,7 @@ Function /S FileBinOpen(dialogue, new, folder, pathName, file, changeFolder)
 	
 		if (DataFolderExists(folder) == 1)
 		
-			DoAlert 2, "Folder \"" + GetPathName(folder, 0) + "\" already exists in directory \"" + GetPathName(folder, 1) + "\". Do you want to replace it?"
+			DoAlert 2, "Folder " + NMQuotes( GetPathName(folder, 0) ) + " already exists in directory " + NMQuotes( GetPathName(folder, 1) ) + ". Do you want to replace it?"
 			
 			if (V_Flag == 1)
 				NMFolderClose(folder)
@@ -599,19 +620,13 @@ Function /S FileBinOpen(dialogue, new, folder, pathName, file, changeFolder)
 	
 	endif
 	
-	if (changeFolder == 1) //&& (IsNMDataFolder(folder) == 1))
-		//NMFolder0Close() // close default folder if open and empty
-		NMSetsTable(-1) // remove Set waves
-		NMGroupsTable(-1) // remove Group waves
-	endif
-	
 	if (strlen(NMBinFileType(file)) > 0)
 		bintype = 0
 	endif
 
 	if (bintype == 1)
 	
-		NMProgressStr("Opening Igor Binary File...")
+		SetNeuroMaticStr( "ProgressStr", "Opening Igor Binary File...")
 	
 		CallProgress(-1)
 		CallProgress(-2)
@@ -625,7 +640,7 @@ Function /S FileBinOpen(dialogue, new, folder, pathName, file, changeFolder)
 	
 	else
 	
-		NMProgressStr("Opening NM Binary File...")
+		SetNeuroMaticStr( "ProgressStr", "Opening NM Binary File...")
 	
 		CallProgress(-1)
 		CallProgress(-2)
@@ -639,8 +654,6 @@ Function /S FileBinOpen(dialogue, new, folder, pathName, file, changeFolder)
 		folder = NMBinOpen(folder, file, "1111", changeFolder)
 		
 	endif
-	
-	CheckNMDataNotes()
 	
 	CallProgress(1)
 
@@ -714,7 +727,7 @@ Function /S FileBinOpenAll(dialogue, df, pathName)
 	if (dialogue == 1)
 	
 		nfiles -= 1
-		Prompt nfiles, "Located " + num2str(nfiles) + " files after " + fname + ". How many do you wish to open?"
+		Prompt nfiles, "Located " + num2istr(nfiles) + " files after " + fname + ". How many do you wish to open?"
 		DoPrompt "Open Files", nfiles
 		
 		if (V_flag == 1)
@@ -758,7 +771,7 @@ Function /S FileBinSave(dialogue, new, folder, pathName, file, closed, bintype)
 	// be careful when using dialogue = 0, new = 0 since this will over-write existing file
 	
 	Variable kill
-	String vlist = "", ndf = NMDF()
+	String vlist = ""
 	
 	if (bintype == -1)
 		bintype = FileBinType()
@@ -815,8 +828,6 @@ Function /S FileBinSave(dialogue, new, folder, pathName, file, closed, bintype)
 		endif
 	endif
 	
-	
-	
 	if ((strlen(folder) == 0)  || (strlen(file) == 0))
 		return ""
 	endif
@@ -838,7 +849,7 @@ Function /S FileBinSave(dialogue, new, folder, pathName, file, closed, bintype)
 		endif
 		
 		if (strlen(folder) > 0)
-			NMHistory("Saved folder \"" + folder + "\" to Igor binary file \"" + file + "\"")
+			NMHistory("Saved folder " + NMQuotes( folder ) + " to Igor binary file " + NMQuotes( file ) )
 		endif
 		
 	elseif (bintype == 0) // NM binary
@@ -865,7 +876,7 @@ Function /S FileBinSave(dialogue, new, folder, pathName, file, closed, bintype)
 		endif
 		
 		if ((strlen(folder) > 0) && (new == 1))
-			NMHistory("Saved folder \"" + folder + "\" to NeuroMatic binary file \"" + file + "\"")
+			NMHistory("Saved folder " + NMQuotes( folder ) + " to NeuroMatic binary file " + NMQuotes( file ) )
 		endif
 		
 	endif
@@ -949,7 +960,7 @@ Function NMBin2Igor(path, flist) // open NM bin file and save as Igor bin file
 		sname = FileBinSave(0, 1, oname, "OpenDataPath", GetPathName(oname, 0), 1, 1)
 		
 		if (strlen(sname) > 0)
-			NMHistory("Converted NM binary file \"" + file + "\" to Igor binary file \"" + sname + "\"")
+			NMHistory("Converted NM binary file " + NMQuotes( file ) + " to Igor binary file " +NMQuotes(  sname ) )
 		endif
 		
 		NMFolderClose(oname) // close opened file
@@ -980,45 +991,41 @@ Function /S IgorBinOpen(folder, file, changeFolder) // open Igor packed binary f
 	
 	folder = CheckFolderName(folder) // get unused folder name
 
-	if (DataFolderExists(folder) == 1)
-		return "" // not allowed
-	endif
-	
-	if (strlen(file) == 0)
+	if ((strlen(file) == 0) || (DataFolderExists(folder) == 1))
 		return "" // not allowed
 	endif
 
 	String saveDF = GetDataFolder(1)
-	NewDataFolder /O/S $LastPathColon(folder, 0)
+	
+	NewDataFolder /O/S $RemoveEnding( folder, ":" )
 	LoadData /O/Q/R file
 	
 	SetNMstr("DataFileType", "IgorBin")
-	SetNMstr("FileName", GetPathName(file, 0))
 	SetNMstr("CurrentFile", file)
 	
 	String ftype = StrVarOrDefault("FileType", "")
 	
-	NMHistory("Opened Igor binary file \"" + file + "\" to folder \"" + folder + "\"")
+	NMHistory("Opened Igor binary file " + NMQuotes( file ) + " to folder " + NMQuotes( folder ) )
 	
 	if (StringMatch(ftype, "NMLog") == 1)
-		Execute "LogDisplayCall(\"" + folder + "\")"
+		Execute "LogDisplayCall(" + NMQuotes( folder ) + ")"
 		changeFolder = 0
 	endif
 	
-	if (changeFolder == 0)
+	if (StringMatch(ftype, "NMData") == 1)
+		CheckNMDataFolder( folder )
+		NMFolderListAdd( folder )
+		PrintNMFolderDetails( folder )
+	endif
 	
-		SetDataFolder $saveDF // back to original data folder
-		
-	elseif (StringMatch(ftype, "NMData") == 1)
+	SetDataFolder $saveDF // back to original data folder
 	
-		NMFolderListAdd(folder)
-		NMFolderChange(folder)
-		CheckNMDataFolder()
-		NMSetsDataNew()
-		PrintFileDetails()
+	if (changeFolder == 1)
+	
+		NMFolderChange( folder )
 		
-		if (NumVarOrDefault(NMDF()+"AutoPlot", 0) == 1)
-			NMPlot( "" )
+		if (NeuroMaticVar( "AutoPlot" ) == 1)
+			NMMainPlotWaves( "rainbow", 1 , 0, 0, 0 )
 		endif
 		
 	endif
@@ -1050,14 +1057,13 @@ Function /S IgorBinSave(folder, file) // save Igor packed binary file
 	SaveData /O/Q/R file
 	
 	if ( V_flag > 0 )
-		DoAlert 0, "IgorBinSave: failed to save " + folder + " to external file " + file
+		NMDoAlert( "IgorBinSave: failed to save " + folder + " to external file " + file )
 	endif
 	
 	//if (strlen(S_path) > 0)
 	//	file = S_path
 	//endif
 	
-	KillStrings /Z S_path
 	KillVariables /Z V_Flag
 	
 	SetDataFolder $saveDF
@@ -1097,21 +1103,20 @@ Function /S NMBinOpen(folder, file, makeflag, changeFolder)
 	endif
 	
 	if ((FileExists(file) == 0) || (strlen(NMBinFileType(file)) == 0))
-		NMDoAlert("Error: file \"" + file + "\" is not a NeuroMatic binary file.")
+		NMDoAlert("Error: file " + NMQuotes( file ) + " is not a NeuroMatic binary file.")
 		return "" // not a NM binary file
 	endif
 
 	String saveDF = GetDataFolder(1) // save current directory
-	NewDataFolder /O/S $LastPathColon(folder, 0) // open new folder
+	NewDataFolder /O/S $RemoveEnding( folder, ":" ) // open new folder
 	NMBinReadObject(file, makeflag) // read data
 	
 	SetDataFolder folder
 	
 	SetNMstr("DataFileType", "NMBin")
-	SetNMstr("FileName", GetPathName(file, 0))
 	SetNMstr("CurrentFile", file)
 	
-	NMHistory("Opened NeuroMatic binary file \"" + file + "\" to folder \"" + folder + "\"")
+	NMHistory("Opened NeuroMatic binary file " + NMQuotes( file ) + " to folder " + NMQuotes( folder ) )
 	
 	String df = LastPathColon(folder, 1) + "Data"
 	String ftype = StrVarOrDefault("FileType", "")
@@ -1119,7 +1124,7 @@ Function /S NMBinOpen(folder, file, makeflag, changeFolder)
 	strswitch(ftype)
 	
 		case "NMLog":
-			Execute "LogDisplayCall(\"" + folder + "\")"
+			Execute "LogDisplayCall(" + NMQuotes( folder ) + ")"
 			changeFolder = 0
 			break
 			
@@ -1138,28 +1143,26 @@ Function /S NMBinOpen(folder, file, makeflag, changeFolder)
 				
 			endif
 			
+			CheckNMDataFolder( folder )
+			NMFolderListAdd( folder )
+			PrintNMFolderDetails( folder )
+			
 			break
 			
 	endswitch
 	
 	if (changeFolder == 0)
 	
-		SetDataFolder saveDF // back to original data folder
+		SetDataFolder $saveDF // back to original data folder
 		
-	elseif (StringMatch(ftype, "NMData") == 1)
+	else
 	
-		NMFolderListAdd(folder)
-		NMFolderChange(folder)
-		CheckNMDataFolder()
-		NMSetsDataNew()
-		UpdateNM(1)
-		PrintFileDetails()
+		NMFolderChange( folder )
 		
-		if (NumVarOrDefault(NMDF()+"AutoPlot", 0) == 1)
-			NMPlot( "" )
+		if (NeuroMaticVar( "AutoPlot" ) == 1)
+			NMMainPlotWaves( "rainbow", 1 , 0, 0, 0 )
 		endif
 		
-	
 	endif
 	
 	return folder
@@ -1186,13 +1189,13 @@ Function /S NMBinSave(folder, file, writeflag, closed)
 	endif
 	
 	if (DataFolderExists(folder) == 0)
-		NMDoAlert("Data folder \"" + folder + "\" does not exist.")
+		NMDoAlert("Data folder " + NMQuotes( folder ) + " does not exist.")
 		return ""
 	endif
 
 	String saveDF = GetDataFolder(1) // save current directory
 	
-	folder = LastPathColon(folder, 0) // remove trailing colon
+	folder = RemoveEnding( folder, ":" )
 	
 	SetDataFolder folder
 	
@@ -1273,12 +1276,12 @@ Function NMBinSaveGlobals(file, writeflag)
 	Variable ocnt, icnt, wflag
 	String objName, olist, clist = ""
 	
-	if (WaveExists(ChanWaveList) == 1)
+	String prefixFolder = CurrentNMPrefixFolder()
 	
-		Wave /T ChanWaveList // data wave names
+	if ( strlen( prefixFolder ) > 0 )
 	
-		for (icnt = 0; icnt < numpnts(ChanWaveList); icnt += 1)
-			clist += ChanWaveList[icnt] // data wave list
+		for (icnt = 0; icnt < NMNumChannels(); icnt += 1)
+			clist += NMChanWaveList( icnt )
 		endfor
 		
 	endif
@@ -1287,7 +1290,7 @@ Function NMBinSaveGlobals(file, writeflag)
 	
 		olist = FolderObjectList("", 3)
 		
-		if (WhichListItemLax("FileType", olist, ";") > 0) // make sure FileType is first
+		if (WhichListItem("FileType", olist, ";", 0, 0) > 0) // make sure FileType is first
 			olist = RemoveFromList("FileType", olist)
 			olist = AddListItem("FileType", olist) // add back to beginning of list
 		endif
@@ -1318,9 +1321,9 @@ Function NMBinSaveGlobals(file, writeflag)
 			
 				objName = StringFromList(ocnt, olist)
 				
-				if ((wflag == 2) && (WhichListItemLax(objName, clist, ";") >= 0))
+				if ((wflag == 2) && (WhichListItem(objName, clist, ";", 0, 0) >= 0))
 					olist = RemoveFromList(objName, olist) // except data waves
-				elseif ((wflag == 3) && (WhichListItemLax(objName, clist, ";") < 0))
+				elseif ((wflag == 3) && (WhichListItem(objName, clist, ";", 0, 0) < 0))
 					olist = RemoveFromList(objName, olist) // only data waves
 				endif
 			
