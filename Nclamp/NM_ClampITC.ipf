@@ -13,6 +13,8 @@
 //
 //	By Jason Rothman ( Jason@ThinkRandom.com )
 //
+//	Additional code by Gregory Jefferis ( GJ ), MRC Laboratory of Molecular Biology
+//
 //	Created in the Laboratory of Dr. Angus Silver
 //	Department of Physiology, University College London
 //
@@ -37,13 +39,13 @@
 
 Function ITCdebug()
 
+	Variable ITC_SetADCRange = 0 // ( 0 ) no ( 1 ) yes, allows one to change the ADC gain
+	Variable ITC_Reset_On = 0 // ( 0 ) no ( 1 ) yes, use this to turn on ITC Reset commands
+	
 	String cdf = ClampDF()
 	
-	Variable ITC18_SeqExtraParameter = 1 // ( 0 ) no ( 1 ) yes
-	Variable ITC_SetADCRange = 0 // ( 0 ) no ( 1 ) yes		allows one to change the ADC gain
-	
-	SetNMvar( cdf+"ITC18_SeqExtraParameter" , ITC18_SeqExtraParameter )
-	SetNMvar( cdf+"ITC_SetADCRange" , ITC_SetADCRange )
+	SetNMvar( cdf + "ITC_SetADCRange" , ITC_SetADCRange )
+	SetNMvar( cdf + "ITC_Reset_On" , ITC_Reset_On )
 
 End // ITCdebug
 
@@ -54,18 +56,71 @@ End // ITCdebug
 Function ITCconfig( aboard )
 	String aboard
 	
+	Variable ITC18_SeqExtraParameter
+	
 	String cdf = ClampDF()
+	
+	ITCdebug()
 	
 	Execute /Z aboard + "Reset" // attemp to reset ITC board
 	
-	ITCdebug()
-
 	if ( V_flag != 0 )
-		//ClampError( "unrecognized board : " + aboard )
 		return -1
+	endif
+	
+	Make /I/O/N=1 $( cdf+"Avail2Write" )
+
+	Execute aboard + "WriteAvailable " + cdf + "Avail2Write"
+
+	Wave Avail2Write = $cdf+"Avail2Write"
+	
+	SetNMVar( cdf+"ITC_FIFO_size", Avail2Write[0] ) // save FIFO size ( GJ )
+	
+	SetNMVar( cdf+"BoardDriver", 0 )
+	SetNMStr( cdf+"BoardList", aboard + ";" )
+	
+	if ( StringMatch( aboard, "ITC16" ) == 1 )
+		return 0 // everything OK
+	endif
+	
+	// determine number of parameters to pass for ITC18Seq command
+	
+	ITC18_SeqExtraParameter = NumVarOrDefault( cdf + "ITC18_SeqExtraParameter", 1 )
+	
+	if ( ITC18_SeqExtraParameter == 1 )
+	
+		Execute /Z aboard + "Seq " + NMQuotes( "0" ) + "," + NMQuotes( "0" ) + ",1"
+		
+		if ( V_Flag != 0 )
+		
+			Execute /Z aboard + "Seq " + NMQuotes( "0" ) + "," + NMQuotes( "0" )
+			
+			if ( V_Flag == 0 )
+				SetNMvar( cdf + "ITC18_SeqExtraParameter" , 0 )
+			else
+				ClampError( 1, "ITCconfig : " + aboard + "Seq command error" )
+				return -1
+			endif
+		
+		endif
+		
 	else
-		SetNMVar( cdf+"BoardDriver", 0 )
-		SetNMStr( cdf+"BoardList", aboard + ";" )
+	
+		Execute /Z aboard + "Seq " + NMQuotes( "0" ) + "," + NMQuotes( "0" )
+		
+		if ( V_Flag != 0 )
+		
+			Execute /Z aboard + "Seq " + NMQuotes( "0" ) + "," + NMQuotes( "0" ) + ",1"
+			
+			if ( V_Flag == 0 )
+				SetNMvar( cdf + "ITC18_SeqExtraParameter" , 1 )
+			else
+				ClampError( 1, "ITCconfig : " + aboard + "Seq command error" )
+				return -1
+			endif
+			
+		endif
+		
 	endif
 	
 	return 0
@@ -83,8 +138,11 @@ Function ITCerror( alertStr, errorStr )
 	
 	SetNMstr( cdf+"ClampErrorStr", errorStr )
 	SetNMvar( cdf+"ClampError", -1 )
+	
 	DoUpdate
+	
 	DoAlert 0, alertStr + " : " + errorStr
+	
 	ClampAcquireFinish( -2, 0, 1 )
 
 End // ITCerror
@@ -98,7 +156,7 @@ Function ITCacquire( mode, savewhen, WaveLength, NumStimWaves, InterStimTime, Nu
 	Variable savewhen // ( 0 ) never ( 1 ) after ( 2 ) while
 	Variable WaveLength, NumStimWaves, InterStimTime, NumStimReps, InterRepTime
 	
-	Variable sizeFIFO = 256000
+	Variable pnts
 	
 	String cdf = ClampDF(), sdf = StimDF()
 	
@@ -107,10 +165,7 @@ Function ITCacquire( mode, savewhen, WaveLength, NumStimWaves, InterStimTime, Nu
 	Variable acqMode = NumVarOrDefault( sdf+"AcqMode", 0 )
 	Variable SampleInterval = NumVarOrDefault( sdf+"SampleInterval", 0 )
 	
-	Make /I/O/N=1 $( cdf+"Avail2Read" ), $( cdf+"Avail2Write" )
-	
-	Wave Avail2Read = $cdf+"Avail2Read"
-	Wave Avail2Write = $cdf+"Avail2Write"
+	Variable ITC_FIFO_size = NumVarOrDefault( cdf+"ITC_FIFO_size", 256000 )
 	
 	if ( ITCupdateLists( NumStimWaves ) == -1 )
 		return -1 // bad input/output configuration
@@ -122,19 +177,15 @@ Function ITCacquire( mode, savewhen, WaveLength, NumStimWaves, InterStimTime, Nu
 	Variable ins = strlen( StringFromList( 1, seqstr ) )
 	
 	if ( outs != ins ) // double check
-		ITCError( "ITC Config Error", "configuration error." )
+		ITCError( "ITCacquire", "number of inputs does not equal number of outputs." )
 		return -1
 	endif
 	
-	//Execute aboard + "Reset"
-	//Execute aboard + "WriteAvailable " + cdf + "Avail2Write"
-	//sizeFIFO = Avail2Write[0]
+	pnts = ceil( ( WaveLength + InterStimTime ) * ins / SampleInterval )
 	
-	Variable pnts = ceil( ( WaveLength + InterStimTime ) * ins / SampleInterval )
+	if ( acqMode == 0 ) // epic precise
 	
-	if ( acqMode == 0 ) // test to see if short mode is possible
-	
-		if ( pnts > sizeFIFO/2 ) // must be able to load at least two for fast episodic
+		if ( pnts > ITC_FIFO_size / 2 ) // must be able to load at least two for epic precise
 			ITCError( "ITC Config Error", "epic precise mode not feasible. Please use episodic mode instead." )
 			return -1
 		endif
@@ -207,7 +258,7 @@ Function ITCAcqPrecise( mode, savewhen )
 	
 	nwaves = NumStimWaves * NumStimReps // total number of waves
 	
-	//Make /I/O/N=1 $( cdf+"Avail2Read" ), $( cdf+"Avail2Write" )
+	Make /I/O/N=1 $( cdf+"Avail2Read" ), $( cdf+"Avail2Write" )
 	
 	Wave Avail2Read = $cdf+"Avail2Read"
 	Wave Avail2Write = $cdf+"Avail2Write"
@@ -232,6 +283,8 @@ Function ITCAcqPrecise( mode, savewhen )
 	
 	Variable ITC18_SeqExtraParameter = NumVarOrDefault( cdf+"ITC18_SeqExtraParameter", 1 )
 	Variable ITC_SetADCRange = NumVarOrDefault( cdf+"ITC_SetADCRange", 0 )
+	Variable ITC_Reset_On = NumVarOrDefault( cdf+"ITC_Reset_On", 1 )
+	Variable ITC_FIFO_size = NumVarOrDefault( cdf+"ITC_FIFO_size", 256000 )
 	
 	seqstr = ITCseqStr()
 	
@@ -244,7 +297,7 @@ Function ITCAcqPrecise( mode, savewhen )
 	pipe = ITCpipeDelay( ins )
 	
 	if ( outs != ins ) // double check
-		ITCError( "ITC Config Error", "configuration error." )
+		ITCError( "ITCAcqPrecise error", "number of outputs does not equal number of inputs." )
 		return -1
 	endif
 	
@@ -259,7 +312,7 @@ Function ITCAcqPrecise( mode, savewhen )
 	endif
 	
 	if ( ITCprescan() == -1 )
-		ITCError( "ITC Acq Fast Error", "prescan error." )
+		ITCError( "ITCAcqPrecise error", "prescan error." )
 		return -1
 	endif
 	
@@ -320,7 +373,13 @@ Function ITCAcqPrecise( mode, savewhen )
 	inpnts = numpnts( $inName )
 	npnts = numpnts( $saveName )
 	
+	if ( outpnts > ITC_FIFO_size )
+		ITCError( "ITCAcqPrecise error", "not enough FIFO space." )
+		return -1
+	endif
+	
 	Wave savetemp = $saveName
+	
 	savetemp = Nan
 	
 	if ( ( NumStimWaves == 1 ) && ( NumStimReps > 1 ) )
@@ -330,7 +389,9 @@ Function ITCAcqPrecise( mode, savewhen )
 		flip = 1 
 	endif
 	
-	Execute aboard + "Reset"
+	if ( ITC_Reset_On == 1 )
+		Execute aboard + "Reset"
+	endif
 	
 	for ( icnt = 0 ; icnt < ItemsInList( ADClist[0] ) ; icnt += 1 )
 	
@@ -359,14 +420,13 @@ Function ITCAcqPrecise( mode, savewhen )
 	
 	do // preload output waves
 		
-		Execute aboard + "WriteAvailable " + cdf + "Avail2Write"
+		if ( firstwrite == 1 ) // GJ
+			Avail2Write[0] = ITC_FIFO_size
+		else
+			Execute aboard + "WriteAvailable " + cdf + "Avail2Write"
+		endif // GJ
 		
-		if ( ( firstwrite == 1 ) && ( Avail2Write[0] <= outpnts ) )
-			ITCError( "ITC Acq Fast Error", "not enough FIFO space." )
-			return -1
-		endif
-		
-		if ( ( stimtotal < nwaves ) && ( Avail2Write[0] >= outpnts ) )
+		if ( ( stimtotal < nwaves ) && ( outpnts <= Avail2Write[0] ) )
 			
 			if ( firstwrite == 1 )
 				Execute aboard + "Stim " + outName
@@ -407,7 +467,7 @@ Function ITCAcqPrecise( mode, savewhen )
 		
 		Execute aboard + "WriteAvailable " + cdf + "Avail2Write"
 		
-		if ( ( stimtotal < nwaves ) && ( Avail2Write[0] > outpnts ) )
+		if ( ( stimtotal < nwaves ) && ( outpnts <= Avail2Write[0] ) )
 			
 			Execute aboard + "StimAppend " + outName
 			
@@ -425,7 +485,7 @@ Function ITCAcqPrecise( mode, savewhen )
 		
 		Execute aboard + "ReadAvailable " + cdf + "Avail2Read"
 		
-		if ( ( samptotal < nwaves ) && ( Avail2Read[0] > inpnts ) )
+		if ( ( samptotal < nwaves ) && ( inpnts <= Avail2Read[0] ) )
 
 			if ( firstread == 1 )
 				Execute aboard + "Samp " + inName
@@ -491,13 +551,14 @@ Function ITCAcqPrecise( mode, savewhen )
 				if ( ( tGainConfig == 1 ) && ( tgainv > 0 ) && ( numtype( ADCtgain[config] ) == 0 ) )
 					scale = tscale
 				endif
-				
-				if ( ( numtype( scale ) > 0 ) || ( scale <= 0 ) )
-					scale = 1
-				endif
 
 				Wave wtemp = $dname
-				wtemp /= scale
+				
+				if ( ( numtype( scale ) == 0 ) && ( scale > 0 ) )
+					wtemp /= scale
+				else
+					scale = 1
+				endif
 
 				Duplicate /O wtemp $wname
 				
@@ -596,6 +657,10 @@ Function ITCAcqPrecise( mode, savewhen )
 	KillWaves /Z $( sdf+"ITCinWave" ), $( sdf+"ITCmix" ), $( sdf+"ITCTTLOUT" )
 	
 	ClampAcquireFinish( mode, savewhen, 1 )
+	
+	if ( continuous == 1 )
+		NMTimeScaleMode( 1 )
+	endif
 
 End // ITCAcqPrecise
 
@@ -641,7 +706,7 @@ Function ITCAcqLong( mode, savewhen )
 	
 	nwaves = NumStimWaves * NumStimReps // total number of waves
 	
-	//Make /I/O/N=1 $( cdf+"Avail2Read" ), $( cdf+"Avail2Write" )
+	Make /I/O/N=1 $( cdf+"Avail2Read" ), $( cdf+"Avail2Write" )
 	
 	Wave Avail2Read = $cdf+"Avail2Read"
 	Wave Avail2Write = $cdf+"Avail2Write"
@@ -662,6 +727,8 @@ Function ITCAcqLong( mode, savewhen )
 	
 	Variable ITC18_SeqExtraParameter = NumVarOrDefault( cdf+"ITC18_SeqExtraParameter", 1 )
 	Variable ITC_SetADCRange = NumVarOrDefault( cdf+"ITC_SetADCRange", 0 )
+	Variable ITC_Reset_On = NumVarOrDefault( cdf+"ITC_Reset_On", 1 )
+	Variable ITC_FIFO_size = NumVarOrDefault( cdf+"ITC_FIFO_size", 256000 )
 	
 	seqstr = ITCseqStr()
 	ITCoutList = StringFromList( 0, seqstr )
@@ -743,11 +810,11 @@ Function ITCAcqLong( mode, savewhen )
 
 		for ( wcnt = 0 ; wcnt < NumStimWaves ; wcnt += 1 ) // loop thru stims
 		
-			//
-			// THIS BLOCK OF CODE MOVED INSIDE LOOP BY Jason Rothman, 2 Oct 2008
-			//
+			// THIS BLOCK OF CODE MOVED INSIDE LOOP BY Jason Rothman, 2 Oct 2008 >>>
 		
-			Execute aboard + "Reset"
+			if ( ITC_Reset_On == 1 )
+				Execute aboard + "Reset"
+			endif
 	
 			for ( icnt = 0 ; icnt < ItemsInList( ADClist[0] ) ; icnt += 1 )
 			
@@ -774,13 +841,16 @@ Function ITCAcqLong( mode, savewhen )
 					break
 			endswitch
 			
-			//
-			// THIS BLOCK OF CODE MOVED INSIDE LOOP BY Jason Rothman, 2 Oct 2008
-			//
+			// <<< THIS BLOCK OF CODE MOVED INSIDE LOOP BY Jason Rothman, 2 Oct 2008
 			
 			outName = sdf + "ITCoutWave" + num2istr( wcnt )
 			inName = sdf + "ITCinWave"+ num2istr( wcnt )
 			alist = ADClist[wcnt]
+			
+			if ( numpnts( $outName ) > ITC_FIFO_size )
+				ITCError( "ITCAcqLong error", "not enough FIFO space." )
+				return -1
+			endif
 			
 			Wave wtemp = $inName
 				
@@ -792,9 +862,9 @@ Function ITCAcqLong( mode, savewhen )
 			
 			do
 			
-				Execute aboard + "WriteAvailable " + cdf + "Avail2Write"
+				// Execute aboard + "WriteAvailable " + cdf + "Avail2Write" // removed 12 May 2010
 			
-				if ( ( firstwrite == 1 ) && ( Avail2Write[0] > numpnts( $outName ) ) )
+				if ( firstwrite == 1 )
 					Execute aboard + "Stim " + outName
 					firstwrite = 0
 				endif
@@ -814,7 +884,7 @@ Function ITCAcqLong( mode, savewhen )
 				
 				Execute aboard + "ReadAvailable " + cdf + "Avail2Read"
 				
-				if ( ( firstread == 1 ) && ( firstwrite == 0 ) && ( Avail2Read[0] > 10+numpnts( $inName ) ) )
+				if ( ( firstread == 1 ) && ( firstwrite == 0 ) && ( numpnts( $inName ) + 10 < Avail2Read[0] ) )
 					Execute aboard + "Samp " + inName
 					firstread = 0
 				endif
@@ -855,7 +925,12 @@ Function ITCAcqLong( mode, savewhen )
 						endif
 		
 						Wave wtemp = $dname
-						wtemp /= scale
+						
+						if ( ( numtype( scale ) == 0 ) && ( scale > 0 ) )
+							wtemp /= scale
+						else
+							scale = 1
+						endif
 		
 						Duplicate /O wtemp $wname
 						
@@ -933,6 +1008,7 @@ Function ITCprescan()
 	
 	Variable ITC18_SeqExtraParameter = NumVarOrDefault( cdf+"ITC18_SeqExtraParameter", 1 )
 	Variable ITC_SetADCRange = NumVarOrDefault( cdf+"ITC_SetADCRange", 0 )
+	Variable ITC_Reset_On = NumVarOrDefault( cdf+"ITC_Reset_On", 1 )
 	
 	Wave ADCscale = $bdf+"ADCscale"
 	
@@ -940,7 +1016,9 @@ Function ITCprescan()
 	
 	period = ITCperiod( 0.01, 1 )
 	
-	Execute aboard + "Reset"
+	if ( ITC_Reset_On == 1 )
+		Execute aboard + "Reset"
+	endif
 	
 	for ( icnt = 0 ; icnt < ItemsInList( preADClist[0] ) ; icnt += 1 )
 
@@ -1030,6 +1108,7 @@ Function ITCread( chan, gain, npnts )
 	
 	Variable ITC18_SeqExtraParameter = NumVarOrDefault( cdf+"ITC18_SeqExtraParameter", 1 )
 	Variable ITC_SetADCRange = NumVarOrDefault( cdf+"ITC_SetADCRange", 0 )
+	Variable ITC_Reset_On = NumVarOrDefault( cdf+"ITC_Reset_On", 1 )
 	
 	Variable period = ITCperiod( 0.01, 1 )
 	
@@ -1037,7 +1116,9 @@ Function ITCread( chan, gain, npnts )
 	
 	Make /O/N=( npnts+garbage ) CT_ITCread = Nan
 	
-	Execute aboard + "Reset"
+	if ( ITC_Reset_On == 1 )
+		Execute aboard + "Reset"
+	endif
 	
 	if ( ITC_SetADCRange == 1 )
 		Execute aboard + "SetADCRange " + chanstr + "," + ITCrangeStr( gain )

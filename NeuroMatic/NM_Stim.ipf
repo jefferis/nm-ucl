@@ -210,7 +210,7 @@ Function /S StimWavesCheck(sdf, forceUpdate)
 	String sdf // stim data folder
 	Variable forceUpdate
 
-	Variable icnt, config, npnts, ORflag, new
+	Variable icnt, items, config, npnts, ORflag, new
 	String io, wName, wPrefix, klist, plist, ulist, wlist = ""
 	
 	sdf = CheckStimDF(sdf)
@@ -251,7 +251,9 @@ Function /S StimWavesCheck(sdf, forceUpdate)
 		
 	endfor
 	
-	for (icnt = 0; icnt < ItemsInList(wlist); icnt += 1)
+	items = ItemsInList(wlist)
+	
+	for (icnt = 0; icnt < items; icnt += 1)
 	
 		wName = StringFromList(icnt, wlist)
 		
@@ -263,8 +265,10 @@ Function /S StimWavesCheck(sdf, forceUpdate)
 		
 		npnts = numpnts(wtemp)
 		
-		wtemp[npnts-1] = 0 // make sure last points are set to zero
-		wtemp[npnts-2] = 0
+		if ( icnt == items - 1 )
+			wtemp[npnts-1] = 0 // make sure last points are set to zero in last wave
+			wtemp[npnts-2] = 0
+		endif
 		
 	endfor
 	
