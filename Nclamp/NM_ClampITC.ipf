@@ -122,7 +122,7 @@ Function ITCacquire( mode, savewhen, WaveLength, NumStimWaves, InterStimTime, Nu
 	Variable ins = strlen( StringFromList( 1, seqstr ) )
 	
 	if ( outs != ins ) // double check
-		ITCError( "ITC Config Error", "configuration error." )
+		ITCError( "ITCacquire", "number of inputs does not equal number of outputs." )
 		return -1
 	endif
 	
@@ -244,7 +244,7 @@ Function ITCAcqPrecise( mode, savewhen )
 	pipe = ITCpipeDelay( ins )
 	
 	if ( outs != ins ) // double check
-		ITCError( "ITC Config Error", "configuration error." )
+		ITCError( "ITCAcqPrecise error", "number of outputs does not equal number of inputs." )
 		return -1
 	endif
 	
@@ -259,7 +259,7 @@ Function ITCAcqPrecise( mode, savewhen )
 	endif
 	
 	if ( ITCprescan() == -1 )
-		ITCError( "ITC Acq Fast Error", "prescan error." )
+		ITCError( "ITCAcqPrecise error", "prescan error." )
 		return -1
 	endif
 	
