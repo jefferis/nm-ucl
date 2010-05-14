@@ -38,12 +38,14 @@
 Function ITCdebug()
 
 	String cdf = ClampDF()
+	Variable ITC_Reset_On = 0 // ( 0 ) no ( 1 ) yes, use this to turn on ITC Reset commands
 	
 	Variable ITC18_SeqExtraParameter = 1 // ( 0 ) no ( 1 ) yes
 	Variable ITC_SetADCRange = 0 // ( 0 ) no ( 1 ) yes		allows one to change the ADC gain
 	
 	SetNMvar( cdf+"ITC18_SeqExtraParameter" , ITC18_SeqExtraParameter )
 	SetNMvar( cdf+"ITC_SetADCRange" , ITC_SetADCRange )
+	SetNMvar( cdf + "ITC_Reset_On" , ITC_Reset_On )
 
 End // ITCdebug
 
@@ -232,6 +234,7 @@ Function ITCAcqPrecise( mode, savewhen )
 	
 	Variable ITC18_SeqExtraParameter = NumVarOrDefault( cdf+"ITC18_SeqExtraParameter", 1 )
 	Variable ITC_SetADCRange = NumVarOrDefault( cdf+"ITC_SetADCRange", 0 )
+	Variable ITC_Reset_On = NumVarOrDefault( cdf+"ITC_Reset_On", 1 )
 	
 	seqstr = ITCseqStr()
 	
@@ -330,7 +333,9 @@ Function ITCAcqPrecise( mode, savewhen )
 		flip = 1 
 	endif
 	
-	Execute aboard + "Reset"
+	if ( ITC_Reset_On == 1 )
+		Execute aboard + "Reset"
+	endif
 	
 	for ( icnt = 0 ; icnt < ItemsInList( ADClist[0] ) ; icnt += 1 )
 	
@@ -662,6 +667,7 @@ Function ITCAcqLong( mode, savewhen )
 	
 	Variable ITC18_SeqExtraParameter = NumVarOrDefault( cdf+"ITC18_SeqExtraParameter", 1 )
 	Variable ITC_SetADCRange = NumVarOrDefault( cdf+"ITC_SetADCRange", 0 )
+	Variable ITC_Reset_On = NumVarOrDefault( cdf+"ITC_Reset_On", 1 )
 	
 	seqstr = ITCseqStr()
 	ITCoutList = StringFromList( 0, seqstr )
@@ -747,7 +753,9 @@ Function ITCAcqLong( mode, savewhen )
 			// THIS BLOCK OF CODE MOVED INSIDE LOOP BY Jason Rothman, 2 Oct 2008
 			//
 		
-			Execute aboard + "Reset"
+			if ( ITC_Reset_On == 1 )
+				Execute aboard + "Reset"
+			endif
 	
 			for ( icnt = 0 ; icnt < ItemsInList( ADClist[0] ) ; icnt += 1 )
 			
@@ -933,6 +941,7 @@ Function ITCprescan()
 	
 	Variable ITC18_SeqExtraParameter = NumVarOrDefault( cdf+"ITC18_SeqExtraParameter", 1 )
 	Variable ITC_SetADCRange = NumVarOrDefault( cdf+"ITC_SetADCRange", 0 )
+	Variable ITC_Reset_On = NumVarOrDefault( cdf+"ITC_Reset_On", 1 )
 	
 	Wave ADCscale = $bdf+"ADCscale"
 	
@@ -940,7 +949,9 @@ Function ITCprescan()
 	
 	period = ITCperiod( 0.01, 1 )
 	
-	Execute aboard + "Reset"
+	if ( ITC_Reset_On == 1 )
+		Execute aboard + "Reset"
+	endif
 	
 	for ( icnt = 0 ; icnt < ItemsInList( preADClist[0] ) ; icnt += 1 )
 
@@ -1030,6 +1041,7 @@ Function ITCread( chan, gain, npnts )
 	
 	Variable ITC18_SeqExtraParameter = NumVarOrDefault( cdf+"ITC18_SeqExtraParameter", 1 )
 	Variable ITC_SetADCRange = NumVarOrDefault( cdf+"ITC_SetADCRange", 0 )
+	Variable ITC_Reset_On = NumVarOrDefault( cdf+"ITC_Reset_On", 1 )
 	
 	Variable period = ITCperiod( 0.01, 1 )
 	
@@ -1037,7 +1049,9 @@ Function ITCread( chan, gain, npnts )
 	
 	Make /O/N=( npnts+garbage ) CT_ITCread = Nan
 	
-	Execute aboard + "Reset"
+	if ( ITC_Reset_On == 1 )
+		Execute aboard + "Reset"
+	endif
 	
 	if ( ITC_SetADCRange == 1 )
 		Execute aboard + "SetADCRange " + chanstr + "," + ITCrangeStr( gain )
