@@ -37,12 +37,12 @@
 
 Function ITCdebug()
 
-	String cdf = ClampDF()
+	Variable ITC_SetADCRange = 0 // ( 0 ) no ( 1 ) yes, allows one to change the ADC gain
 	Variable ITC_Reset_On = 0 // ( 0 ) no ( 1 ) yes, use this to turn on ITC Reset commands
 	
-	Variable ITC_SetADCRange = 0 // ( 0 ) no ( 1 ) yes		allows one to change the ADC gain
+	String cdf = ClampDF()
 	
-	SetNMvar( cdf+"ITC_SetADCRange" , ITC_SetADCRange )
+	SetNMvar( cdf + "ITC_SetADCRange" , ITC_SetADCRange )
 	SetNMvar( cdf + "ITC_Reset_On" , ITC_Reset_On )
 
 End // ITCdebug
@@ -128,8 +128,11 @@ Function ITCerror( alertStr, errorStr )
 	
 	SetNMstr( cdf+"ClampErrorStr", errorStr )
 	SetNMvar( cdf+"ClampError", -1 )
+	
 	DoUpdate
+	
 	DoAlert 0, alertStr + " : " + errorStr
+	
 	ClampAcquireFinish( -2, 0, 1 )
 
 End // ITCerror
@@ -792,9 +795,7 @@ Function ITCAcqLong( mode, savewhen )
 
 		for ( wcnt = 0 ; wcnt < NumStimWaves ; wcnt += 1 ) // loop thru stims
 		
-			//
-			// THIS BLOCK OF CODE MOVED INSIDE LOOP BY Jason Rothman, 2 Oct 2008
-			//
+			// THIS BLOCK OF CODE MOVED INSIDE LOOP BY Jason Rothman, 2 Oct 2008 >>>
 		
 			if ( ITC_Reset_On == 1 )
 				Execute aboard + "Reset"
@@ -825,9 +826,7 @@ Function ITCAcqLong( mode, savewhen )
 					break
 			endswitch
 			
-			//
-			// THIS BLOCK OF CODE MOVED INSIDE LOOP BY Jason Rothman, 2 Oct 2008
-			//
+			// <<< THIS BLOCK OF CODE MOVED INSIDE LOOP BY Jason Rothman, 2 Oct 2008
 			
 			outName = sdf + "ITCoutWave" + num2istr( wcnt )
 			inName = sdf + "ITCinWave"+ num2istr( wcnt )
