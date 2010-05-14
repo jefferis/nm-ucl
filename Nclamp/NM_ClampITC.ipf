@@ -40,10 +40,8 @@ Function ITCdebug()
 	String cdf = ClampDF()
 	Variable ITC_Reset_On = 0 // ( 0 ) no ( 1 ) yes, use this to turn on ITC Reset commands
 	
-	Variable ITC18_SeqExtraParameter = 1 // ( 0 ) no ( 1 ) yes
 	Variable ITC_SetADCRange = 0 // ( 0 ) no ( 1 ) yes		allows one to change the ADC gain
 	
-	SetNMvar( cdf+"ITC18_SeqExtraParameter" , ITC18_SeqExtraParameter )
 	SetNMvar( cdf+"ITC_SetADCRange" , ITC_SetADCRange )
 	SetNMvar( cdf + "ITC_Reset_On" , ITC_Reset_On )
 
@@ -56,18 +54,63 @@ End // ITCdebug
 Function ITCconfig( aboard )
 	String aboard
 	
+	Variable ITC18_SeqExtraParameter
+	
 	String cdf = ClampDF()
+	
+	ITCdebug()
 	
 	Execute /Z aboard + "Reset" // attemp to reset ITC board
 	
-	ITCdebug()
-
 	if ( V_flag != 0 )
-		//ClampError( "unrecognized board : " + aboard )
 		return -1
+	endif
+	
+	SetNMVar( cdf+"BoardDriver", 0 )
+	SetNMStr( cdf+"BoardList", aboard + ";" )
+	
+	if ( StringMatch( aboard, "ITC16" ) == 1 )
+		return 0 // everything OK
+	endif
+	
+	// determine number of parameters to pass for ITC18Seq command
+	
+	ITC18_SeqExtraParameter = NumVarOrDefault( cdf + "ITC18_SeqExtraParameter", 1 )
+	
+	if ( ITC18_SeqExtraParameter == 1 )
+	
+		Execute /Z aboard + "Seq " + NMQuotes( "0" ) + "," + NMQuotes( "0" ) + ",1"
+		
+		if ( V_Flag != 0 )
+		
+			Execute /Z aboard + "Seq " + NMQuotes( "0" ) + "," + NMQuotes( "0" )
+			
+			if ( V_Flag == 0 )
+				SetNMvar( cdf + "ITC18_SeqExtraParameter" , 0 )
+			else
+				ClampError( 1, "ITCconfig : " + aboard + "Seq command error" )
+				return -1
+			endif
+		
+		endif
+		
 	else
-		SetNMVar( cdf+"BoardDriver", 0 )
-		SetNMStr( cdf+"BoardList", aboard + ";" )
+	
+		Execute /Z aboard + "Seq " + NMQuotes( "0" ) + "," + NMQuotes( "0" )
+		
+		if ( V_Flag != 0 )
+		
+			Execute /Z aboard + "Seq " + NMQuotes( "0" ) + "," + NMQuotes( "0" ) + ",1"
+			
+			if ( V_Flag == 0 )
+				SetNMvar( cdf + "ITC18_SeqExtraParameter" , 1 )
+			else
+				ClampError( 1, "ITCconfig : " + aboard + "Seq command error" )
+				return -1
+			endif
+			
+		endif
+		
 	endif
 	
 	return 0
