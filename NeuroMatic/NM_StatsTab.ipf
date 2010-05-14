@@ -2331,7 +2331,7 @@ Function NMStatsAmpSelectCall( tbgn, tend, fxn )
 	Variable tbgn, tend // time begin and end, ( -inf / inf ) for all possible time
 	String fxn // Stats function to measure ( e.g. "Max" or "Min" or "RiseTime+" )
 	
-	Variable thold, error
+	Variable error
 	String vlist = "", df = StatsDF()
 	
 	String wName = df + "AmpSlct"
@@ -2353,12 +2353,6 @@ Function NMStatsAmpSelectCall( tbgn, tend, fxn )
 	
 	if ( numtype( tend ) == 2 )
 		tend = AmpE[ win ]
-	endif
-	
-	if ( tbgn > tend )
-		thold = tbgn
-		tbgn = tend
-		tend = thold
 	endif
 	
 	if ( strlen( fxn ) == 0 )
@@ -2412,7 +2406,7 @@ Function NMStatsAmpSelect( win, tbgn, tend, fxn )
 	Variable tbgn, tend // time begin and end, ( -inf / inf ) for all possible time
 	String fxn // Stats function to measure ( e.g. "Max" or "Min" or "RiseTime+" )
 	
-	Variable avgwin, thold
+	Variable avgwin
 	String thisfxn = "NMStatsAmpSelect", df = StatsDF()
 	 
 	String maxmin = fxn[ 0, 5 ]
@@ -2452,12 +2446,6 @@ Function NMStatsAmpSelect( win, tbgn, tend, fxn )
 		
 		if ( numtype( tend ) > 0 )
 			tend = inf
-		endif
-		
-		if ( tbgn > tend )
-			thold = tbgn
-			tbgn = tend
-			tend = thold
 		endif
 		
 		SetNMwave( df + "AmpB", win, tbgn )
